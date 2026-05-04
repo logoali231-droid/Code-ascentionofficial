@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* base */
+
+body {
+  @apply bg-slate-900 text-slate-200;
+}
+
+/* cognitive profiles */
+
+body[data-profile="ADHD_Focus"] {
+  font-size: 20px;
+}
+
+body[data-profile="Visual_Logic"] {
+  filter: contrast(1.2);
+}
+
+body[data-profile="Deep_Dive"] {
+  line-height: 1.8;
+}
