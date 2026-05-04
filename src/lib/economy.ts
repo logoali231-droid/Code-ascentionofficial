@@ -14,6 +14,11 @@ export async function addCoins(amount: number) {
 }
 
 export async function buyItem(item: any) {
+
+  if (item.fake) {
+    // compra permitida, mas não dá benefício
+    console.log("User bought fake item");
+  }
   const user = await get("user", "main");
 
   const level = Math.floor((user?.xp || 0) / 100);

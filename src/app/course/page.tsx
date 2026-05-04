@@ -12,12 +12,20 @@ export default function CoursePage() {
   const [tab, setTab] = useState("theory");
   const [exerciseIndex, setExerciseIndex] = useState(0);
 
+
   const [explanation, setExplanation] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
   const [errorAI, setErrorAI] = useState("");
 
-  const [streak, setStreak] = useState(0);
+
   const [showLevel, setShowLevel] = useState(false);
+  const [title, setTitle] = useState("Course");
+  const [daily, setDaily] = useState<any>({
+    progress: 0,
+    goal: 5,
+    completed: false,
+  });
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     loadCourse();
@@ -25,6 +33,15 @@ export default function CoursePage() {
 
   async function loadCourse() {
     const user = await get("user", "main");
+
+setStreak(user?.streak || 0);
+setTitle(user?.activeCourse || "Course");
+
+const dailyData = await get("daily", "main");
+
+if (dailyData) setDaily(dailyData);
+
+
     if (!user?.activeCourse) return;
 
     const c = await get("courses", user.activeCourse);
@@ -123,7 +140,26 @@ Return JSON:
   const currentLesson = course.lessons[course.currentIndex];
 
   return (
+    
     <div className="p-4 pb-24">
+      <div className="flex justify-between text-xs mb-2">
+        <span className="text-orange-400">
+          🔥 {streak} streak
+        </span>
+
+        <span>{title}</span>
+      </div>
+
+      <div className="text-xs mb-2">
+        🎯 {daily?.progress}/{daily?.goal}
+      </div>
+
+      {daily?.completed && (
+        <div className="bg-green-500 text-black text-xs p-2 rounded mb-2 text-center">
+          Daily completed 🎉
+        </div>
+      )}
+
       {/* 🔥 HEADER */}
       <div className="flex justify-between mb-3 text-sm">
         <span>🔥 {streak}</span>
@@ -135,9 +171,8 @@ Return JSON:
         <div
           className="h-2 bg-blue-500 rounded transition-all"
           style={{
-            width: `${
-              ((exerciseIndex + 1) / currentLesson.exercises.length) * 100
-            }%`,
+            width: `${((exerciseIndex + 1) / currentLesson.exercises.length) * 100
+              }%`,
           }}
         />
       </div>
@@ -150,9 +185,8 @@ Return JSON:
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-1 rounded ${
-              tab === t ? "bg-blue-600" : "bg-slate-700"
-            }`}
+            className={`px-3 py-1 rounded ${tab === t ? "bg-blue-600" : "bg-slate-700"
+              }`}
           >
             {t}
           </button>
