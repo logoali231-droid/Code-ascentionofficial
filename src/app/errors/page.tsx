@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { getAll, get } from "@/lib/db";
-import { explainError } from "@/lib/explainer";
+
+import { explainError } from "@/lib/explanationAI";
+
 import { generateReinforcement } from "@/lib/reinforce";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 
@@ -28,7 +30,14 @@ export default function ErrorsPage() {
     const user = await get("user", "main");
     const course = await get("courses", user.activeCourse);
 
-    const exp = await explainError(err, course);
+    const exp = await explainError({
+      question: err.question,
+      correct: err.correct,
+      userAnswer: err.userAnswer,
+      userExplanation: err.userExplanation,
+      user,
+      course,
+    });
     setExplanation(exp);
 
     const ex = await generateReinforcement(err, course);
@@ -65,7 +74,7 @@ export default function ErrorsPage() {
           {exercise && (
             <ExerciseRenderer
               exercise={exercise}
-              onNext={() => {}}
+              onNext={() => { }}
             />
           )}
         </div>

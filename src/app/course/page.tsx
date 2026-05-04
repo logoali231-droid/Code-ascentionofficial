@@ -3,22 +3,15 @@
 import { useEffect, useState } from "react";
 import { get, save } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
-import { generate } from "@/lib/webllm";
-import { safeParse } from "@/lib/safeParse";
-import LevelUp from "@/components/LevelUp";
+import { generateExplanationAI } from "@/lib/explanationAI";
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
-  const [tab, setTab] = useState("theory");
-  const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [currentLesson, setCurrentLesson] = useState(0);
+  const [currentExercise, setCurrentExercise] = useState(0);
 
+  const [tab, setTab] = useState<"practice" | "theory" | "errors">("practice");
 
-  const [explanation, setExplanation] = useState("");
-  const [loadingAI, setLoadingAI] = useState(false);
-  const [errorAI, setErrorAI] = useState("");
-
-
-  const [showLevel, setShowLevel] = useState(false);
   const [title, setTitle] = useState("Course");
   const [daily, setDaily] = useState<any>({
     progress: 0,
@@ -27,129 +20,110 @@ export default function CoursePage() {
   });
   const [streak, setStreak] = useState(0);
 
+  const [explanation, setExplanation] = useState("");
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
+
   useEffect(() => {
-    loadCourse();
+    load();
   }, []);
 
-  async function loadCourse() {
+  async function load() {
+    const user = await get("user", "main");
+    const activeCourseId = user?.activeCourse;
+
+    setStreak(user?.streak || 0);
+    setTitle(activeCourseId || "Course");
+
+    const dailyData = await get("daily", "main");
+    if (dailyData) setDaily(dailyData);
+
+    if (!activeCourseId) return;
+
+    const courses = (await get("courses", "all")) || [];
+    const found = courses.find((c: any) => c.id === activeCourseId);
+
+    if (found) {
+      setCourse(found);
+      setCurrentLesson(found.currentLesson || 0);
+      setCurrentExercise(found.currentExercise || 0);
+
+      await loadExplanation(found, found.currentLesson || 0);
+    }
+  }
+
+  async function loadExplanation(currentCourse: any, lessonIndex: number) {
+    setLoadingExplanation(true);
+
     const user = await get("user", "main");
 
-setStreak(user?.streak || 0);
-setTitle(user?.activeCourse || "Course");
+    const history = currentCourse.lessons.slice(
+      Math.max(0, lessonIndex - 2),
+      lessonIndex + 1
+    );
 
-const dailyData = await get("daily", "main");
+    const lesson = currentCourse.lessons[lessonIndex];
 
-if (dailyData) setDaily(dailyData);
+    const text = await generateExplanationAI({
+      lesson,
+      history,
+      user,
+      course: currentCourse,
+    });
 
-
-    if (!user?.activeCourse) return;
-
-    const c = await get("courses", user.activeCourse);
-
-    setCourse(c);
-    setStreak(user?.streak || 0);
-
-    generateExplanation(c);
+    setExplanation(text);
+    setLoadingExplanation(false);
   }
 
-  // 🧠 EXPLANATION COM IA
-  async function generateExplanation(c: any) {
-    setLoadingAI(true);
-    setErrorAI("");
-
-    try {
-      const lessons = c.lessons
-        .slice(Math.max(0, c.currentIndex - 2), c.currentIndex + 1)
-        .map((l: any) => l.title)
-        .join(", ");
-
-      const prompt = `
-Explain clearly:
-${lessons}
-
-Style: ${c.style}
-`;
-
-      const res = await generate(prompt);
-      setExplanation(res);
-    } catch {
-      setErrorAI("AI failed");
-    }
-
-    setLoadingAI(false);
-  }
-
-  // 🎮 PROGRESSÃO
   async function handleNext(correct: boolean) {
     if (!course) return;
 
-    const updated = { ...course };
-    const lesson = updated.lessons[updated.currentIndex];
+    let lesson = currentLesson;
+    let exercise = currentExercise + 1;
 
-    if (correct) {
-      setExerciseIndex((i) => i + 1);
+    const lessonData = course.lessons[lesson];
+
+    if (exercise >= lessonData.exercises.length) {
+      lesson++;
+      exercise = 0;
     }
 
-    if (exerciseIndex >= lesson.exercises.length - 1) {
-      updated.currentIndex += 1;
-      setExerciseIndex(0);
+    const updated = {
+      ...course,
+      currentLesson: lesson,
+      currentExercise: exercise,
+    };
 
-      // ♾ infinito
-      if (updated.currentIndex >= updated.lessons.length) {
-        const res = await generate(`
-Generate more lessons about ${updated.topic}
+    const courses = (await get("courses", "all")) || [];
+    const newCourses = courses.map((c: any) =>
+      c.id === course.id ? updated : c
+    );
 
-Return JSON:
-{
- "lessons": [
-   {
-     "title": "",
-     "theory": "",
-     "exercises": [
-       { "type": "short", "question": "", "answer": "" }
-     ]
-   }
- ]
-}
-        `);
+    await save("courses", newCourses);
 
-        const parsed = safeParse(res);
-
-        if (parsed?.lessons) {
-          updated.lessons.push(...parsed.lessons);
-        }
-      }
-    }
-
-    await save("courses", updated);
     setCourse(updated);
+    setCurrentLesson(lesson);
+    setCurrentExercise(exercise);
 
-    // 🔥 streak update visual
-    const user = await get("user", "main");
-    setStreak(user?.streak || 0);
-
-    // 🎉 level up check
-    if (user?.xp && user.xp % 100 === 0) {
-      setShowLevel(true);
-      setTimeout(() => setShowLevel(false), 1500);
-    }
+    await loadExplanation(updated, lesson);
   }
 
-  if (!course) return <p className="p-4">Loading...</p>;
+  if (!course) {
+    return <div className="p-4 text-center">No active course</div>;
+  }
 
-  const currentLesson = course.lessons[course.currentIndex];
+  const lesson = course.lessons[currentLesson];
+  const exercise = lesson.exercises[currentExercise];
 
   return (
-    
     <div className="p-4 pb-24">
-      <div className="flex justify-between text-xs mb-2">
-        <span className="text-orange-400">
-          🔥 {streak} streak
-        </span>
 
+      {/* TOP BAR */}
+      <div className="flex justify-between text-xs mb-2">
+        <span className="text-orange-400">🔥 {streak} streak</span>
         <span>{title}</span>
       </div>
 
+      {/* DAILY */}
       <div className="text-xs mb-2">
         🎯 {daily?.progress}/{daily?.goal}
       </div>
@@ -160,73 +134,96 @@ Return JSON:
         </div>
       )}
 
-      {/* 🔥 HEADER */}
-      <div className="flex justify-between mb-3 text-sm">
-        <span>🔥 {streak}</span>
-        <span>Lesson {course.currentIndex + 1}</span>
-      </div>
-
-      {/* 📊 PROGRESS BAR */}
-      <div className="h-2 bg-slate-700 rounded mb-4">
-        <div
-          className="h-2 bg-blue-500 rounded transition-all"
-          style={{
-            width: `${((exerciseIndex + 1) / currentLesson.exercises.length) * 100
-              }%`,
-          }}
-        />
-      </div>
-
-      <h1 className="text-xl font-bold mb-4">{course.topic}</h1>
-
       {/* TABS */}
       <div className="flex gap-2 mb-4">
-        {["theory", "practice", "explain"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3 py-1 rounded ${tab === t ? "bg-blue-600" : "bg-slate-700"
-              }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+        <button
+          onClick={() => setTab("practice")}
+          className={`flex-1 p-2 rounded ${
+            tab === "practice" ? "bg-blue-600" : "bg-slate-700"
+          }`}
+        >
+          Practice
+        </button>
 
-      {/* THEORY */}
-      {tab === "theory" && (
-        <div className="space-y-3">
-          {course.lessons
-            .slice(Math.max(0, course.currentIndex - 2), course.currentIndex + 1)
-            .map((l: any, i: number) => (
-              <div key={i} className="bg-slate-800 p-3 rounded">
-                <h3 className="font-semibold">{l.title}</h3>
-                <p className="text-sm">{l.theory}</p>
-              </div>
-            ))}
-        </div>
-      )}
+        <button
+          onClick={() => setTab("theory")}
+          className={`flex-1 p-2 rounded ${
+            tab === "theory" ? "bg-blue-600" : "bg-slate-700"
+          }`}
+        >
+          Theory
+        </button>
+
+        <button
+          onClick={() => setTab("errors")}
+          className={`flex-1 p-2 rounded ${
+            tab === "errors" ? "bg-blue-600" : "bg-slate-700"
+          }`}
+        >
+          Fix
+        </button>
+      </div>
 
       {/* PRACTICE */}
       {tab === "practice" && (
         <ExerciseRenderer
-          exercise={currentLesson.exercises[exerciseIndex]}
+          exercise={exercise}
           onNext={handleNext}
         />
       )}
 
-      {/* EXPLANATION */}
-      {tab === "explain" && (
-        <div className="bg-slate-800 p-3 rounded whitespace-pre-wrap">
-          {loadingAI && <p>Thinking...</p>}
-          {errorAI && <p className="text-red-400">{errorAI}</p>}
-          {!loadingAI && !errorAI && explanation}
+      {/* THEORY (IA REAL) */}
+      {tab === "theory" && (
+        <div className="bg-slate-800 p-4 rounded-xl">
+          <h2 className="mb-2">
+            Lesson {currentLesson + 1}
+          </h2>
+
+          {loadingExplanation ? (
+            <p className="text-sm">Generating explanation...</p>
+          ) : (
+            <p className="text-sm whitespace-pre-wrap">
+              {explanation}
+            </p>
+          )}
         </div>
       )}
 
-      {/* 🎉 LEVEL UP */}
-      {showLevel && (
-        <LevelUp level={Math.floor((course.xp || 0) / 100)} />
+      {/* ERRORS */}
+      {tab === "errors" && <ErrorsTab />}
+    </div>
+  );
+}
+
+function ErrorsTab() {
+  const [errors, setErrors] = useState<any[]>([]);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    const e = (await get("errors", "all")) || [];
+    setErrors(e.slice(-5));
+  }
+
+  return (
+    <div className="space-y-3">
+      {errors.map((err, i) => (
+        <div key={i} className="bg-slate-800 p-3 rounded">
+          <p className="text-xs mb-1">❌ {err.question}</p>
+          <p className="text-green-400 text-xs">✔ {err.correct}</p>
+
+          {err.userExplanation && (
+            <p className="text-yellow-400 text-xs mt-1">
+              💭 {err.userExplanation}
+            </p>
+          )}
+        </div>
+      ))}
+
+      {errors.length === 0 && (
+        <p className="text-center text-sm">No errors yet</p>
       )}
     </div>
   );
