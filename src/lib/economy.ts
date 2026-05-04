@@ -1,24 +1,38 @@
+"use client";
+
 import { get, save } from "@/lib/db";
 
 export async function addCoins(amount: number) {
   const user = await get("user", "main");
 
-  const coins = (user?.coins || 0) + amount;
+  const updated = {
+    ...user,
+    coins: (user?.coins || 0) + amount,
+  };
 
-  await save("user", { ...user, coins });
-
-  return coins;
+  await save("user", updated);
 }
 
-export async function spendCoins(amount: number) {
+export async function buyItem(item: any) {
   const user = await get("user", "main");
 
-  if ((user?.coins || 0) < amount) return false;
+  const level = Math.floor((user?.xp || 0) / 100);
 
-  await save("user", {
-    ...user,
-    coins: user.coins - amount,
-  });
+  if (item.requiredLevel && level < item.requiredLevel) {
+    throw new Error("Level too low");
+  }
 
-  return true;
+  if (item.requiredStreak && (user?.streak || 0) < item.requiredStreak) {
+    throw new Error("Streak too low");
+  }
+
+  if (user?.coins < item.price) {
+    throw new Error("Not enough coins");
+  }
+
+  user.coins -= item.price;
+
+  user.inventory = [...(user.inventory || []), item];
+
+  await save("user", user);
 }

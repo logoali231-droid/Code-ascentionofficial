@@ -1,26 +1,61 @@
 import { addCoins } from "@/lib/economy";
 
+// limpa código
 function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return s
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[{}();]/g, "");
 }
 
-function similarity(a: string, b: string) {
-  const A = normalize(a);
-  const B = normalize(b);
+// quebra em palavras relevantes
+function extractKeywords(s: string) {
+  return s
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((w) => w.length > 2);
+}
 
-  if (A === B) return 1;
+// verifica intenção
+function matchesIntent(user: string, expected: string) {
+  const userNorm = normalize(user);
+  const keywords = extractKeywords(expected);
 
-  let matches = 0;
-  for (let i = 0; i < Math.min(A.length, B.length); i++) {
-    if (A[i] === B[i]) matches++;
+  let hits = 0;
+
+  for (const k of keywords) {
+    if (userNorm.includes(k)) hits++;
   }
 
-  return matches / Math.max(A.length, B.length);
+  const ratio = hits / keywords.length;
+
+  return ratio > 0.6; // tolerância
 }
 
-export async function evaluate(answer: string, correct: string) {
-  const score = similarity(answer, correct);
-  const ok = score > 0.7;
+// heurísticas simples de código
+function basicCodeCheck(user: string) {
+  return (
+    user.includes("function") ||
+    user.includes("=>") ||
+    user.includes("return")
+  );
+}
+
+export async function evaluate(
+  answer: string,
+  correct: string,
+  type?: string
+) {
+  let ok = false;
+
+  if (type === "code") {
+    const intent = matchesIntent(answer, correct);
+    const structure = basicCodeCheck(answer);
+
+    ok = intent && structure;
+  } else {
+    ok = matchesIntent(answer, correct);
+  }
 
   if (ok) await addCoins(10);
 

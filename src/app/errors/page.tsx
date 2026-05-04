@@ -1,25 +1,75 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAll } from "@/lib/db";
+import { getAll, get } from "@/lib/db";
+import { explainError } from "@/lib/explainer";
+import { generateReinforcement } from "@/lib/reinforce";
+import ExerciseRenderer from "@/components/ExerciseRenderer";
 
 export default function ErrorsPage() {
   const [errors, setErrors] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>(null);
+
+  const [explanation, setExplanation] = useState("");
+  const [exercise, setExercise] = useState<any>(null);
 
   useEffect(() => {
-    getAll("errors").then(setErrors);
+    load();
   }, []);
 
-  return (
-    <div>
-      <h1>Reinforcement</h1>
+  async function load() {
+    const e = await getAll("errors");
+    setErrors(e.reverse());
+  }
 
-      {errors.map((e, i) => (
-        <div key={i}>
-          <p>{e.question}</p>
-          <p>Correct: {e.correct}</p>
+  async function openError(err: any) {
+    setSelected(err);
+
+    const user = await get("user", "main");
+    const course = await get("courses", user.activeCourse);
+
+    const exp = await explainError(err, course);
+    setExplanation(exp);
+
+    const ex = await generateReinforcement(err, course);
+    setExercise(ex);
+  }
+
+  return (
+    <div className="p-4 pb-24">
+      <h1 className="text-xl mb-3">Mistakes</h1>
+
+      {/* LISTA */}
+      {!selected &&
+        errors.map((e, i) => (
+          <div
+            key={i}
+            onClick={() => openError(e)}
+            className="bg-slate-800 p-2 mb-2 rounded cursor-pointer"
+          >
+            {e.question}
+          </div>
+        ))}
+
+      {/* DETALHE */}
+      {selected && (
+        <div>
+          <button onClick={() => setSelected(null)}>← Back</button>
+
+          <h2 className="mt-2 font-bold">Explanation</h2>
+          <div className="bg-slate-800 p-2 rounded whitespace-pre-wrap">
+            {explanation || "Thinking..."}
+          </div>
+
+          <h2 className="mt-4 font-bold">Practice</h2>
+          {exercise && (
+            <ExerciseRenderer
+              exercise={exercise}
+              onNext={() => {}}
+            />
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
