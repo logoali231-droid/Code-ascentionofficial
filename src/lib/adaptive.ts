@@ -2,7 +2,10 @@
 
 import { getMemory } from "./userMemory";
 
-export async function getAdaptiveDifficulty(base: number, topic: string) {
+export async function getAdaptiveDifficulty(
+  base: number,
+  topic: string
+) {
   const mem = await getMemory();
 
   const skill = mem.topics[topic] || 0;
@@ -12,11 +15,11 @@ export async function getAdaptiveDifficulty(base: number, topic: string) {
 
   let difficulty = base;
 
-  if (delta > 5) difficulty += 1;
-  if (delta > 10) difficulty += 1;
+  if (delta > 3) difficulty += 1;
+  if (delta > 8) difficulty += 1;
 
-  if (delta < -3) difficulty -= 1;
-  if (delta < -6) difficulty -= 1;
+  if (delta < -2) difficulty -= 1;
+  if (delta < -5) difficulty -= 1;
 
   return Math.max(1, Math.min(5, difficulty));
 }

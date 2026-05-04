@@ -119,8 +119,8 @@ export default function CoursePage() {
 
       {/* TOP BAR */}
       <div className="flex justify-between text-xs mb-2">
-        <span className="text-orange-400">🔥 {streak} streak</span>
-        <span>{title}</span>
+        <span className="text-orange-400">🔥 {streak}</span>
+        <span className="text-yellow-400">🎯 {daily.progress}/{daily.goal}</span>
       </div>
 
       {/* DAILY */}
@@ -133,32 +133,38 @@ export default function CoursePage() {
           Daily completed 🎉
         </div>
       )}
+      {/* PROGRESS BAR */}
+      <div className="w-full bg-slate-700 h-2 rounded mb-3">
+        <div
+          className="bg-green-500 h-2 rounded"
+          style={{
+            width: `${(currentExercise / lesson.exercises.length) * 100}%`,
+          }}
+        />
+      </div>
 
       {/* TABS */}
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setTab("practice")}
-          className={`flex-1 p-2 rounded ${
-            tab === "practice" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "practice" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Practice
         </button>
 
         <button
           onClick={() => setTab("theory")}
-          className={`flex-1 p-2 rounded ${
-            tab === "theory" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "theory" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Theory
         </button>
 
         <button
           onClick={() => setTab("errors")}
-          className={`flex-1 p-2 rounded ${
-            tab === "errors" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "errors" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Fix
         </button>

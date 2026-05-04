@@ -2,6 +2,8 @@
 
 import { get, save } from "./db";
 
+const KEY = "main";
+
 export type Memory = {
   topics: Record<string, number>;
   weaknesses: Record<string, number>;
@@ -9,10 +11,11 @@ export type Memory = {
     topic: string;
     type: string;
     input: string;
+    time: number;
   }[];
 };
 
-const KEY = "memory";
+const MAX_ERRORS = 20;
 
 export async function getMemory(): Promise<Memory> {
   return (
@@ -29,7 +32,12 @@ export async function updateMemory({
   correct,
   type,
   input,
-}: any) {
+}: {
+  topic: string;
+  correct: boolean;
+  type: string;
+  input: string;
+}) {
   const mem = await getMemory();
 
   if (!mem.topics[topic]) mem.topics[topic] = 0;
@@ -44,22 +52,26 @@ export async function updateMemory({
       topic,
       type,
       input,
+      time: Date.now(),
     });
 
-    if (mem.lastErrors.length > 10) {
-      mem.lastErrors.shift();
+    // 🔥 LIMITE INTELIGENTE
+    if (mem.lastErrors.length > MAX_ERRORS) {
+      mem.lastErrors = mem.lastErrors
+        .sort((a, b) => b.time - a.time)
+        .slice(0, MAX_ERRORS);
     }
   }
 
   await save("memory", mem, KEY);
 }
 
-// 🔹 compatibilidade com código antigo
+// 🔹 compatibilidade antiga (não quebra nada)
 export async function updateUser(correct: boolean) {
   await updateMemory({
     topic: "general",
     correct,
-    type: "unknown",
+    type: "legacy",
     input: "",
   });
 }

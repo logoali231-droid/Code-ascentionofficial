@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { evaluate } from "@/lib/evaluator";
-import { updateUser } from "@/lib/userMemory";
-import { save } from "@/lib/db";
+import { updateUser, updateMemory } from "@/lib/userMemory";
+import { get, save } from "@/lib/db";
 import { updateStreak } from "@/lib/streak";
 import CodeEditor from "./CodeEditor";
 import { updateDailyProgress } from "@/lib/daily";
 import RewardPopup from "./RewardPopup";
-import { updateMemory } from "@/lib/userMemory";
 
 export default function ExerciseRenderer({ exercise, onNext }: any) {
   const [answer, setAnswer] = useState("");
@@ -21,6 +20,7 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
 
     setLoading(true);
 
+    // 🎯 Daily progress
     await updateDailyProgress(1);
 
     const correct = await evaluate(
@@ -28,17 +28,19 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       exercise.answer,
       exercise.type
     );
-    await updateMemory({
-  topic: exercise.question,
-  correct,
-  type: exercise.type,
-  input: answer,
-});
 
+    // 🧠 MEMORY SYSTEM
+    await updateMemory({
+      topic: exercise.question,
+      correct,
+      type: exercise.type,
+      input: answer,
+    });
+
+    // 👤 USER PROGRESS
     await updateUser(correct);
     await updateStreak();
 
-    // 🎯 REWARD (AGORA CORRETO)
     if (correct) {
       setReward("+10 XP");
     } else {
@@ -48,14 +50,20 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
         "What did you try to do? (helps AI explain better)"
       );
 
-      await save("errors", {
-        question: exercise.question,
-        correct: exercise.answer,
-        userAnswer: answer,
-        userExplanation: userExplanation || "",
-        difficulty: exercise.difficulty || 1,
-        type: exercise.type,
-      });
+      const existing = (await get("errors", "all")) || [];
+
+      await save("errors", "all", [
+        {
+          question: exercise.question,
+          correct: exercise.answer,
+          userAnswer: answer,
+          userExplanation: userExplanation || "",
+          difficulty: exercise.difficulty || 1,
+          type: exercise.type,
+          timestamp: Date.now(),
+        },
+        ...existing,
+      ]);
     }
 
     setFeedback(correct);
@@ -73,15 +81,14 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
     <div className="relative bg-slate-800 p-4 rounded-xl">
       <p className="mb-3">{exercise.question}</p>
 
-      {/* MULTIPLE CHOICE */}
+      {/* MCQ */}
       {exercise.type === "mcq" &&
         exercise.options?.map((o: string) => (
           <button
             key={o}
             onClick={() => setAnswer(o)}
-            className={`block w-full mt-2 p-2 rounded ${
-              answer === o ? "bg-blue-600" : "bg-slate-700"
-            }`}
+            className={`block w-full mt-2 p-2 rounded ${answer === o ? "bg-blue-600" : "bg-slate-700"
+              }`}
           >
             {o}
           </button>
@@ -116,15 +123,14 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       {/* FEEDBACK */}
       {feedback !== null && (
         <div
-          className={`absolute inset-0 flex items-center justify-center text-3xl font-bold rounded-xl ${
-            feedback ? "bg-green-500/80" : "bg-red-500/80"
-          }`}
+          className={`absolute inset-0 flex items-center justify-center text-3xl font-bold rounded-xl ${feedback ? "bg-green-500/80" : "bg-red-500/80"
+            }`}
         >
           {feedback ? "✔" : "✖"}
         </div>
       )}
 
-      {/* REWARD POPUP */}
+      {/* REWARD */}
       <RewardPopup show={!!reward} text={reward} />
     </div>
   );
