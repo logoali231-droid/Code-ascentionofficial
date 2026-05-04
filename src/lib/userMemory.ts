@@ -1,30 +1,65 @@
-import { get, save } from "@/lib/db";
+"use client";
 
-function calcLevel(xp: number) {
-  return Math.floor(xp / 100);
+import { get, save } from "./db";
+
+export type Memory = {
+  topics: Record<string, number>;
+  weaknesses: Record<string, number>;
+  lastErrors: {
+    topic: string;
+    type: string;
+    input: string;
+  }[];
+};
+
+const KEY = "memory";
+
+export async function getMemory(): Promise<Memory> {
+  return (
+    (await get("memory", KEY)) || {
+      topics: {},
+      weaknesses: {},
+      lastErrors: [],
+    }
+  );
 }
 
-function rank(level: number) {
-  if (level < 3) return "Noob";
-  if (level < 6) return "Chipset";
-  return "Kernel";
+export async function updateMemory({
+  topic,
+  correct,
+  type,
+  input,
+}: any) {
+  const mem = await getMemory();
+
+  if (!mem.topics[topic]) mem.topics[topic] = 0;
+  if (!mem.weaknesses[topic]) mem.weaknesses[topic] = 0;
+
+  if (correct) {
+    mem.topics[topic] += 1;
+  } else {
+    mem.weaknesses[topic] += 1;
+
+    mem.lastErrors.push({
+      topic,
+      type,
+      input,
+    });
+
+    if (mem.lastErrors.length > 10) {
+      mem.lastErrors.shift();
+    }
+  }
+
+  await save("memory", mem, KEY);
 }
 
+// 🔹 compatibilidade com código antigo
 export async function updateUser(correct: boolean) {
-  const user = await get("user", "main");
-
-  const xp = (user?.xp || 0) + (correct ? 10 : 2);
-  const skillScore = Math.max(0, (user?.skillScore || 0) + (correct ? 5 : -2));
-
-  const level = calcLevel(xp);
-
-  await save("user", {
-    ...user,
-    xp,
-    level,
-    skillScore,
-    rank: rank(level),
+  await updateMemory({
+    topic: "general",
+    correct,
+    type: "unknown",
+    input: "",
   });
-
-  return { xp, level };
 }

@@ -1,29 +1,50 @@
+"use client";
+
 import { openDB } from "idb";
 
-export const dbPromise = openDB("codeascent-db", 2, {
-  upgrade(db) {
-    if (!db.objectStoreNames.contains("user"))
-      db.createObjectStore("user", { keyPath: "id" });
+const DB_NAME = "code-ascent-db";
+const VERSION = 1;
 
-    if (!db.objectStoreNames.contains("courses"))
-      db.createObjectStore("courses", { keyPath: "id" });
+async function getDB() {
+  return openDB(DB_NAME, VERSION, {
+    upgrade(db) {
+      const stores = [
+        "user",
+        "courses",
+        "errors",
+        "memory",
+        "daily",
+        "economy",
+        "streak",
+      ];
 
-    if (!db.objectStoreNames.contains("errors"))
-      db.createObjectStore("errors", { autoIncrement: true });
-
-    if (!db.objectStoreNames.contains("inventory"))
-      db.createObjectStore("inventory", { keyPath: "id" });
-  },
-});
-
-export async function save(store: string, value: any) {
-  return (await dbPromise).put(store, value);
+      stores.forEach((s) => {
+        if (!db.objectStoreNames.contains(s)) {
+          db.createObjectStore(s);
+        }
+      });
+    },
+  });
 }
 
-export async function get(store: string, key: any) {
-  return (await dbPromise).get(store, key);
+// ✅ GET (flexível)
+export async function get(store: string, key: string = "main") {
+  const db = await getDB();
+  return db.get(store, key);
 }
 
+// ✅ SAVE (flexível)
+export async function save(
+  store: string,
+  value: any,
+  key: string = "main"
+) {
+  const db = await getDB();
+  return db.put(store, value, key);
+}
+
+// ✅ GET ALL
 export async function getAll(store: string) {
-  return (await dbPromise).getAll(store);
+  const db = await getDB();
+  return db.getAll(store);
 }

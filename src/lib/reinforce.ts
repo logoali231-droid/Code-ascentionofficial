@@ -1,29 +1,33 @@
-import { generate } from "@/lib/webllm";
-import { safeParse } from "./safeParse";
+"use client";
+
+import { generate } from "./webllm";
 
 export async function generateReinforcement(error: any, course: any) {
   const prompt = `
-Student failed this:
+Create a new exercise based on a mistake.
 
+QUESTION:
 ${error.question}
 
-Correct concept:
+USER WRONG ANSWER:
+${error.userAnswer}
+
+CORRECT ANSWER:
 ${error.correct}
 
-Generate ONE focused exercise to fix the mistake.
+PROFILE:
+${course.cognitiveProfile}
 
-Return JSON:
-{
- "type": "code",
- "question": "",
- "answer": ""
-}
+STYLE:
+${course.explanationStyle}
 
-Adapt to:
-Difficulty: ${error.difficulty}
-Cognitive: ${course.profile}
+RULES:
+- Focus on the mistake
+- Slightly increase difficulty
+- Generate ONE exercise
+- Return JSON
 `;
 
   const res = await generate(prompt);
-  return safeParse(res);
+  return JSON.parse(res);
 }

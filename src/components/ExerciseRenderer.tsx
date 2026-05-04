@@ -8,6 +8,7 @@ import { updateStreak } from "@/lib/streak";
 import CodeEditor from "./CodeEditor";
 import { updateDailyProgress } from "@/lib/daily";
 import RewardPopup from "./RewardPopup";
+import { updateMemory } from "@/lib/userMemory";
 
 export default function ExerciseRenderer({ exercise, onNext }: any) {
   const [answer, setAnswer] = useState("");
@@ -27,6 +28,12 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       exercise.answer,
       exercise.type
     );
+    await updateMemory({
+  topic: exercise.question,
+  correct,
+  type: exercise.type,
+  input: answer,
+});
 
     await updateUser(correct);
     await updateStreak();

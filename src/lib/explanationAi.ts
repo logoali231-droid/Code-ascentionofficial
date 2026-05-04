@@ -1,48 +1,43 @@
 "use client";
 
-import { generate } from "@/lib/webllm";
+import { generate } from "./webllm";
+import { getMemory } from "./userMemory";
 
+// 🔹 EXPLANATION NORMAL
 export async function generateExplanationAI({
   lesson,
   history,
   user,
   course,
 }: any) {
+  const mem = await getMemory();
+
   const prompt = `
-You are an adaptive teaching AI.
+Explain a lesson.
 
-User level: ${user?.level || "unknown"}
-Cognitive profile: ${course?.cognitiveProfile || "standard"}
-Explanation style (user-defined): ${course?.explanationStyle || "normal"}
-Difficulty: ${course?.difficulty || "medium"}
+USER LEVEL: ${user.level}
+COGNITIVE PROFILE: ${course.cognitiveProfile}
+STYLE: ${course.explanationStyle}
 
-Topic: ${course?.topic}
+LESSONS:
+${history.map((l: any) => l.title).join(", ")}
 
-CURRENT LESSON:
-${JSON.stringify(lesson)}
+CURRENT:
+${lesson.title}
 
-PREVIOUS LESSONS:
-${history.map((l: any) => l.title || "lesson").join(", ")}
+WEAKNESSES:
+${JSON.stringify(mem.weaknesses)}
 
 RULES:
-- Explain ONLY up to current lesson
-- NEVER introduce future concepts
-- Adapt explanation to user style
-- If ADHD_Focus → shorter chunks
-- If Deep_Dive → deeper explanation
-- If Visual_Logic → structured explanation
-- Always give examples
-- No fluff
-
-If base material exists, use it strictly:
-${course?.baseMaterial || "None"}
-
-Return full explanation text.
+- Do not skip ahead
+- Adapt to user
+- Be detailed
 `;
 
   return await generate(prompt);
 }
 
+// 🔹 ERROR EXPLAIN (🔥 faltava isso)
 export async function explainError({
   question,
   correct,
@@ -52,33 +47,33 @@ export async function explainError({
   course,
 }: any) {
   const prompt = `
-You are an AI tutor fixing a student's mistake.
-
-User level: ${user?.level}
-Cognitive profile: ${course?.cognitiveProfile}
-Explanation style: ${course?.explanationStyle}
+User made a mistake.
 
 QUESTION:
 ${question}
 
-CORRECT ANSWER:
-${correct}
-
 USER ANSWER:
 ${userAnswer}
 
+CORRECT:
+${correct}
+
 USER THOUGHT:
-${userExplanation || "Unknown"}
+${userExplanation}
+
+USER LEVEL:
+${user.level}
+
+PROFILE:
+${course.cognitiveProfile}
+
+STYLE:
+${course.explanationStyle}
 
 TASK:
-- Explain why the user was wrong
-- Be clear and adaptive
-- Use examples
-- Fix misunderstanding step by step
-- Match explanation style
-
-Do NOT just give the answer.
-Teach.
+- Explain why it's wrong
+- Fix the misunderstanding
+- Be clear
 `;
 
   return await generate(prompt);
