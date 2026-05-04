@@ -1,18 +1,36 @@
+import { get, save } from "./db";
+
 export type Memory = {
-  skillScore: number;
   xp: number;
   level: number;
+  skillScore: number;
 };
 
-export function updateMemory(mem: Memory, correct: boolean): Memory {
-  const delta = correct ? 5 : -3;
+function calcLevel(xp: number) {
+  return Math.floor(xp / 100);
+}
 
-  const newScore = Math.max(0, mem.skillScore + delta);
+function getRank(level: number) {
+  if (level < 3) return "Noob";
+  if (level < 6) return "Chipset";
+  return "Kernel";
+}
 
-  return {
-    ...mem,
-    skillScore: newScore,
-    xp: mem.xp + (correct ? 10 : 2),
-    level: Math.floor(mem.xp / 100),
-  };
+export async function updateUser(correct: boolean) {
+  const user = await get("user", "main");
+
+  const xp = (user?.xp || 0) + (correct ? 10 : 2);
+  const skillScore = Math.max(0, (user?.skillScore || 0) + (correct ? 5 : -2));
+
+  const level = calcLevel(xp);
+
+  await save("user", {
+    ...user,
+    xp,
+    level,
+    skillScore,
+    rank: getRank(level),
+  });
+
+  return { xp, level, rank: getRank(level) };
 }
