@@ -51,7 +51,7 @@ async function getDB() {
 }
 
 // ✅ AGORA ACEITA QUALQUER COISA
-export async function save(store: string, value: any) {
+export async function save(store: string, value: any, KEY: string) {
   const db = await dbPromise;
   return db.put(store, value, value.id ?? "generated");
 }
