@@ -2,6 +2,27 @@
 
 import { openDB } from "idb";
 
+import { openDB } from "idb";
+
+export const dbPromise = openDB("codeascent-db", 2, {
+  upgrade(db) {
+    if (!db.objectStoreNames.contains("user"))
+      db.createObjectStore("user", { keyPath: "id" });
+
+    if (!db.objectStoreNames.contains("courses"))
+      db.createObjectStore("courses", { keyPath: "id" });
+
+    if (!db.objectStoreNames.contains("errors"))
+      db.createObjectStore("errors", { autoIncrement: true });
+
+    if (!db.objectStoreNames.contains("inventory"))
+      db.createObjectStore("inventory", { keyPath: "id" });
+
+    if (!db.objectStoreNames.contains("shop"))
+      db.createObjectStore("shop");
+  },
+});
+
 const DB_NAME = "code_ascent";
 const DB_VERSION = 1;
 
@@ -12,7 +33,7 @@ async function getDB() {
         db.createObjectStore("user");
 
       if (!db.objectStoreNames.contains("courses"))
-        db.createObjectStore("courses");
+        .createObjectStore("courses");
 
       if (!db.objectStoreNames.contains("errors"))
         db.createObjectStore("errors");
@@ -30,47 +51,18 @@ async function getDB() {
 }
 
 // ✅ AGORA ACEITA QUALQUER COISA
-export async function save(
-  store: string,
-  // We accept both calling conventions to remain backward compatible:
-  // - save(store, key, value)
-  // - save(store, value, key?)
-  // and the two-argument form save(store, value).
-  a: any,
-  b?: any
-) {
-  const db = await getDB();
-
-  let value: any;
-  let key: string | number | undefined;
-
-  if (b === undefined) {
-    // two-arg: save(store, value)
-    value = a;
-    key = undefined;
-  } else {
-    // three-arg: need to detect order
-    // If 'a' is a string/number it's probably the key: save(store, key, value)
-    if (typeof a === "string" || typeof a === "number") {
-      key = a;
-      value = b;
-    } else {
-      // otherwise assume save(store, value, key)
-      value = a;
-      key = b as any;
-    }
-  }
-
-  return db.put(store, value, key as any);
+export async function save(store: string, value: any) {
+  const db = await dbPromise;
+  return db.put(store, value, value.id ?? "generated");
 }
 
-export async function get(store: string, key: string) {
-  const db = await getDB();
+export async function get(store: string, key: any) {
+  const db = await dbPromise;
   return db.get(store, key);
 }
 
 export async function getAll(store: string) {
-  const db = await getDB();
+  const db = await dbPromise;
   return db.getAll(store);
 }
 

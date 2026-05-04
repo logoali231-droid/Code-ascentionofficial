@@ -76,39 +76,41 @@ export default function CoursePage() {
     setExplanation(text);
     setLoadingExplanation(false);
   }
+async function handleNext(correct: boolean) {
+  if (!course) return;
 
-  async function handleNext(correct: boolean) {
-    if (!course) return;
+  let nextExercise = currentExercise + 1;
+  let nextLesson = currentLesson;
 
-    let lesson = currentLesson;
-    let exercise = currentExercise + 1;
+  const lessonData = course.lessons[currentLesson];
 
-    const lessonData = course.lessons[lesson];
+  const endOfLesson = nextExercise >= lessonData.exercises.length;
 
-    if (exercise >= lessonData.exercises.length) {
-      lesson++;
-      exercise = 0;
-    }
-
-    const updated = {
-      ...course,
-      currentLesson: lesson,
-      currentExercise: exercise,
-    };
-
-    const courses = (await get("courses", "all")) || [];
-    const newCourses = courses.map((c: any) =>
-      c.id === course.id ? updated : c
-    );
-
-    await save("courses", newCourses);
-
-    setCourse(updated);
-    setCurrentLesson(lesson);
-    setCurrentExercise(exercise);
-
-    await loadExplanation(updated, lesson);
+  if (endOfLesson) {
+    nextLesson += 1;
+    nextExercise = 0;
   }
+
+  const updated = {
+    ...course,
+    currentLesson: nextLesson,
+    currentExercise: nextExercise,
+  };
+
+  const courses = (await get("courses", "all")) || [];
+
+  const newCourses = courses.map((c: any) =>
+    c.id === course.id ? updated : c
+  );
+
+  await save("courses", newCourses);
+
+  setCourse(updated);
+  setCurrentLesson(nextLesson);
+  setCurrentExercise(nextExercise);
+
+  await loadExplanation(updated, nextLesson);
+}
 
   if (!course) {
     return <div className="p-4 text-center">No active course</div>;

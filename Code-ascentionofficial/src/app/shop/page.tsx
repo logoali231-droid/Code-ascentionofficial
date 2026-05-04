@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { baseItems } from "@/lib/shopItems";
 import { generateAIItem } from "@/lib/aiShop";
 import { buyItem } from "@/lib/economy";
-import { get, save } from "@/lib/db";
+import { get, save, getAll } from "@/lib/db";
 
 export default function ShopPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -19,28 +19,36 @@ export default function ShopPage() {
 
   async function load() {
     const u = await get("user", "main");
-    const generated = (await get("shop", "generated")) || [];
+
+    // 🧠 FIX: sempre usar getAll (não get("shop","generated"))
+    const generated = (await getAll("shop")) || [];
 
     setUser(u);
+
+    // merge seguro
     setItems([...generated, ...baseItems]);
   }
 
   async function forgeItem() {
-    if (!input) return;
+    if (!input.trim()) return;
 
     setLoading(true);
+    setMsg("");
 
     try {
       const item = await generateAIItem(input);
 
-      const existing = (await get("shop", "generated")) || [];
-      const updated = [item, ...existing];
+      // 🧠 FIX: store consistente (cada item é um registro)
+      const newItem = {
+        id: Date.now(),
+        ...item,
+      };
 
-      // ✅ FIX KEY
-      await save("shop", "generated", updated);
+      await save("shop", newItem);
 
-      setItems((prev) => [item, ...prev]);
+      setItems((prev) => [newItem, ...prev]);
       setInput("");
+      setMsg("Item forged!");
     } catch (e) {
       setMsg("Forge failed");
     }
@@ -52,9 +60,9 @@ export default function ShopPage() {
     try {
       await buyItem(item);
       setMsg("Purchased!");
-      load(); // refresh user coins
+      load();
     } catch (e: any) {
-      setMsg(e.message);
+      setMsg(e.message || "Buy failed");
     }
   }
 
@@ -82,6 +90,7 @@ export default function ShopPage() {
 
         <button
           onClick={forgeItem}
+          disabled={loading}
           className="mt-2 w-full bg-purple-600 p-2 rounded"
         >
           {loading ? "Forging..." : "Forge Item"}
@@ -124,7 +133,6 @@ export default function ShopPage() {
               <p className="text-red-400 text-xs">Locked</p>
             )}
 
-            {/* 🔥 Anti-cheat visual */}
             {item.fake && (
               <p className="text-purple-400 text-xs">
                 unstable energy detected...
@@ -143,9 +151,7 @@ export default function ShopPage() {
       })}
 
       {msg && (
-        <p className="text-center text-sm mt-2">
-          {msg}
-        </p>
+        <p className="text-center text-sm mt-2">{msg}</p>
       )}
     </div>
   );
