@@ -52,7 +52,7 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
 
       const existing = (await get("errors", "all")) || [];
 
-      await save("errors", "all", [
+      await save("errors", [
         {
           question: exercise.question,
           correct: exercise.answer,
@@ -63,7 +63,7 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
           timestamp: Date.now(),
         },
         ...existing,
-      ]);
+      ], "all");
     }
 
     setFeedback(correct);

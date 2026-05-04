@@ -2,8 +2,6 @@
 
 import { openDB } from "idb";
 
-import { openDB } from "idb";
-
 export const dbPromise = openDB("codeascent-db", 2, {
   upgrade(db) {
     if (!db.objectStoreNames.contains("user"))
@@ -33,7 +31,7 @@ async function getDB() {
         db.createObjectStore("user");
 
       if (!db.objectStoreNames.contains("courses"))
-        .createObjectStore("courses");
+        db.createObjectStore("courses");
 
       if (!db.objectStoreNames.contains("errors"))
         db.createObjectStore("errors");
