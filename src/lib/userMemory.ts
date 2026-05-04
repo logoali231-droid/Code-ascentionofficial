@@ -1,16 +1,10 @@
-import { get, save } from "./db";
-
-export type Memory = {
-  xp: number;
-  level: number;
-  skillScore: number;
-};
+import { get, save } from "@/lib/db";
 
 function calcLevel(xp: number) {
   return Math.floor(xp / 100);
 }
 
-function getRank(level: number) {
+function rank(level: number) {
   if (level < 3) return "Noob";
   if (level < 6) return "Chipset";
   return "Kernel";
@@ -29,8 +23,8 @@ export async function updateUser(correct: boolean) {
     xp,
     level,
     skillScore,
-    rank: getRank(level),
+    rank: rank(level),
   });
 
-  return { xp, level, rank: getRank(level) };
+  return { xp, level };
 }

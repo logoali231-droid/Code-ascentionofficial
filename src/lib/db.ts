@@ -2,25 +2,17 @@ import { openDB } from "idb";
 
 export const dbPromise = openDB("codeascent-db", 2, {
   upgrade(db) {
-    if (!db.objectStoreNames.contains("user")) {
+    if (!db.objectStoreNames.contains("user"))
       db.createObjectStore("user", { keyPath: "id" });
-    }
 
-    if (!db.objectStoreNames.contains("courses")) {
+    if (!db.objectStoreNames.contains("courses"))
       db.createObjectStore("courses", { keyPath: "id" });
-    }
 
-    if (!db.objectStoreNames.contains("errors")) {
+    if (!db.objectStoreNames.contains("errors"))
       db.createObjectStore("errors", { autoIncrement: true });
-    }
 
-    if (!db.objectStoreNames.contains("inventory")) {
+    if (!db.objectStoreNames.contains("inventory"))
       db.createObjectStore("inventory", { keyPath: "id" });
-    }
-
-    if (!db.objectStoreNames.contains("market")) {
-      db.createObjectStore("market", { keyPath: "id" });
-    }
   },
 });
 

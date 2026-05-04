@@ -1,31 +1,24 @@
-import { addCoins } from "./economy";
+import { get, save } from "@/lib/db";
 
-function similarity(a: string, b: string) {
-  const normalize = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9]/g, "");
+export async function addCoins(amount: number) {
+  const user = await get("user", "main");
 
-  const A = normalize(a);
-  const B = normalize(b);
+  const coins = (user?.coins || 0) + amount;
 
-  if (A === B) return 1;
+  await save("user", { ...user, coins });
 
-  let matches = 0;
-
-  for (let i = 0; i < Math.min(A.length, B.length); i++) {
-    if (A[i] === B[i]) matches++;
-  }
-
-  return matches / Math.max(A.length, B.length);
+  return coins;
 }
 
-export async function evaluate(answer: string, correct: string) {
-  const score = similarity(answer, correct);
+export async function spendCoins(amount: number) {
+  const user = await get("user", "main");
 
-  const isCorrect = score > 0.7;
+  if ((user?.coins || 0) < amount) return false;
 
-  if (isCorrect) {
-    await addCoins(10);
-  }
+  await save("user", {
+    ...user,
+    coins: user.coins - amount,
+  });
 
-  return isCorrect;
+  return true;
 }

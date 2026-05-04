@@ -1,16 +1,15 @@
 import * as webllm from "@mlc-ai/web-llm";
 
-let engine: webllm.MLCEngine | null = null;
+let engine: any = null;
 
-export async function initEngine(model: string, onProgress?: any) {
+export async function initEngine(model: string, cb?: any) {
   engine = await webllm.CreateMLCEngine(model, {
-    initProgressCallback: onProgress,
+    initProgressCallback: cb,
   });
-  return engine;
 }
 
 export function getEngine() {
-  if (!engine) throw new Error("Engine not initialized");
+  if (!engine) throw new Error("Engine not loaded");
   return engine;
 }
 
