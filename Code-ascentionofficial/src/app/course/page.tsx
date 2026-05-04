@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { get, save } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
-import { generateExplanationAI } from "@/lib/explanationAI";
+import { generateExplanationAI } from "@/lib/explanationAI"; 
+// (Ou ajuste o nome para bater 100% com o nome que você descobriu no Passo 1)
+import { explainError } from "@/lib/explanationAI";
+
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
