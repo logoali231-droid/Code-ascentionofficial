@@ -12,26 +12,46 @@ export async function generateExplanationAI({
 }: any) {
   const mem = await getMemory();
 
+  const userErrors = mem.lastErrors || [];
+
+  const recentLessons =
+    history?.map((l: any) => l.title).join(", ") || "none";
+
+  const weaknesses = Object.entries(mem.weaknesses || {})
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([k]) => k)
+    .join(", ");
+
   const prompt = `
-Explain a lesson.
+User Level: ${user.level}
+Explanation Style: ${user.explanationType}
+User Cognitive Profile: ${user.cognitive || "standard"}
 
-USER LEVEL: ${user.level}
-COGNITIVE PROFILE: ${course.cognitiveProfile}
-STYLE: ${course.explanationStyle}
+Course Context:
+- Mode: ${course?.mode || "standard"}
+- Difficulty: ${course?.difficulty || "auto"}
+- Cognitive Target: ${course?.cognitiveProfile || "adaptive"}
 
-LESSONS:
-${history.map((l: any) => l.title).join(", ")}
-
-CURRENT:
+Current Lesson:
 ${lesson.title}
 
-WEAKNESSES:
-${JSON.stringify(mem.weaknesses)}
+Recent Lessons:
+${recentLessons}
 
-RULES:
-- Do not skip ahead
-- Adapt to user
-- Be detailed
+User Weaknesses:
+${weaknesses || "none"}
+
+Recent mistakes:
+${JSON.stringify(userErrors.slice(0, 3))}
+
+Rules:
+- If level low → simple, short
+- If TDAH → concise, structured
+- If advanced → deeper explanation
+- Focus on user's weaknesses
+- Connect with recent lessons
+- Avoid unnecessary verbosity
 `;
 
   return await generate(prompt);
@@ -46,6 +66,12 @@ export async function explainError({
   user,
   course,
 }: any) {
+  const mem = await getMemory();
+
+  const relatedWeakness =
+    Object.entries(mem.weaknesses || {})
+      .sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "unknown";
+
   const prompt = `
 User made a mistake.
 
@@ -65,15 +91,19 @@ USER LEVEL:
 ${user.level}
 
 PROFILE:
-${course.cognitiveProfile}
+${course?.cognitiveProfile}
 
 STYLE:
-${course.explanationStyle}
+${course?.explanationStyle}
+
+LIKELY WEAK AREA:
+${relatedWeakness}
 
 TASK:
 - Explain why it's wrong
 - Fix the misunderstanding
-- Be clear
+- Connect to user's weak area
+- Be clear and adaptive
 `;
 
   return await generate(prompt);

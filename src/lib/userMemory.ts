@@ -75,3 +75,22 @@ export async function updateUser(correct: boolean) {
     input: "",
   });
 }
+
+export async function computeUserLevel() {
+  const memory = await get("memory", KEY);
+
+  if (!memory || !memory.history) return 1;
+
+  const recent = memory.history.slice(-20);
+
+  const accuracy =
+    recent.filter((x: any) => x.correct).length / (recent.length || 1);
+
+  const difficultyAvg =
+    recent.reduce((acc: number, x: any) => acc + (x.difficulty || 1), 0) /
+    (recent.length || 1);
+
+  const level = Math.floor(accuracy * 5 + difficultyAvg);
+
+  return Math.max(1, level);
+}

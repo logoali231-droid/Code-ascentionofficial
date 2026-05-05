@@ -1,97 +1,90 @@
-"use client";
-
-import { openDB } from "idb";
-
-export const dbPromise = openDB("codeascent-db", 2, {
-  upgrade(db) {
-    if (!db.objectStoreNames.contains("user"))
-      db.createObjectStore("user", { keyPath: "id" });
-
-    if (!db.objectStoreNames.contains("courses"))
-      db.createObjectStore("courses", { keyPath: "id" });
-
-    if (!db.objectStoreNames.contains("errors"))
-      db.createObjectStore("errors", { autoIncrement: true });
-
-    if (!db.objectStoreNames.contains("inventory"))
-      db.createObjectStore("inventory", { keyPath: "id" });
-
-    if (!db.objectStoreNames.contains("shop"))
-      db.createObjectStore("shop");
-  },
-});
-
-const DB_NAME = "code_ascent";
+const DB_NAME = "codeascent_db";
 const DB_VERSION = 1;
 
-/**
- * Obtém a instância do banco de dados IndexedDB.
- * @returns {Promise<IDBDatabase>} A instância do banco de dados.
- */
-async function getDB() {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains("user"))
-        db.createObjectStore("user");
+let db: IDBDatabase;
 
-      if (!db.objectStoreNames.contains("courses"))
-        db.createObjectStore("courses");
+function init(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (db) return resolve(db);
 
-      if (!db.objectStoreNames.contains("errors"))
-        db.createObjectStore("errors");
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      if (!db.objectStoreNames.contains("shop"))
-        db.createObjectStore("shop");
+    request.onupgradeneeded = () => {
+      const d = request.result;
 
-      if (!db.objectStoreNames.contains("memory"))
-        db.createObjectStore("memory");
+      if (!d.objectStoreNames.contains("user"))
+        d.createObjectStore("user");
 
-      if (!db.objectStoreNames.contains("daily"))
-        db.createObjectStore("daily");
-    },
+      if (!d.objectStoreNames.contains("courses"))
+        d.createObjectStore("courses");
+
+      if (!d.objectStoreNames.contains("errors"))
+        d.createObjectStore("errors", { autoIncrement: true });
+
+      if (!d.objectStoreNames.contains("shop"))
+        d.createObjectStore("shop");
+
+      if (!d.objectStoreNames.contains("daily"))
+        d.createObjectStore("daily");
+
+      if (!d.objectStoreNames.contains("memory"))
+        d.createObjectStore("memory");
+    };
+
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+
+    request.onerror = () => reject(request.error);
   });
 }
 
-/**
- * Salva um valor no banco de dados.
- * @param {string} store - O nome da store onde salvar.
- * @param {any} value - O valor a ser salvo.
- * @param {string} KEY - A chave (não utilizada no código atual).
- * @returns {Promise<any>} A chave do valor salvo.
- */
-export async function save(store: string, value: any, KEY: string) {
-  const db = await dbPromise;
-  return db.put(store, value, value.id ?? "generated");
+// ✅ GENERIC GET
+export async function get<T = any>(
+  store: string,
+  key: string
+): Promise<T | null> {
+  const d = await init();
+
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(store, "readonly");
+    const st = tx.objectStore(store);
+    const req = st.get(key);
+
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-/**
- * Busca um valor do banco de dados.
- * @param {string} store - O nome da store.
- * @param {any} key - A chave do valor.
- * @returns {Promise<any>} O valor buscado.
- */
-export async function get(store: string, key: any) {
-  const db = await dbPromise;
-  return db.get(store, key);
+// ✅ GENERIC SAVE (keeps old behavior)
+export async function save(
+  store: string,
+  value: any,
+  key: string = "main"
+) {
+  const d = await init();
+
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(store, "readwrite");
+    const st = tx.objectStore(store);
+    const req = st.put(value, key);
+
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-/**
- * Busca todos os valores de uma store.
- * @param {string} store - O nome da store.
- * @returns {Promise<any[]>} Array de todos os valores.
- */
+// ✅ GET ALL
 export async function getAll(store: string) {
-  const db = await dbPromise;
-  return db.getAll(store);
-}
+  const d = await init();
 
-/**
- * Deleta um valor do banco de dados.
- * @param {string} store - O nome da store.
- * @param {string} key - A chave do valor a deletar.
- * @returns {Promise<void>}
- */
-export async function del(store: string, key: string) {
-  const db = await getDB();
-  return db.delete(store, key);
+  return new Promise<any[]>((resolve, reject) => {
+    const tx = d.transaction(store, "readonly");
+    const st = tx.objectStore(store);
+    const req = st.getAll();
+
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
 }
