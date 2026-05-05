@@ -2,6 +2,12 @@
 
 import { getMemory } from "./userMemory";
 
+/**
+ * Ajusta a dificuldade adaptativa baseada na memória do usuário para um tópico específico.
+ * @param {number} base - A dificuldade base inicial.
+ * @param {string} topic - O tópico para o qual ajustar a dificuldade.
+ * @returns {Promise<number>} A dificuldade ajustada, limitada entre 1 e 5.
+ */
 export async function getAdaptiveDifficulty(
   base: number,
   topic: string

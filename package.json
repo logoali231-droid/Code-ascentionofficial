@@ -2,13 +2,26 @@
   "name": "code-ascentionofficial",
   "version": "1.0.0",
   "description": "",
-  "main": "tailwind.config.js",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "vercel-build": "next build"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.83",
+    "idb": "^8.0.3",
+    "lucide-react": "^1.14.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
@@ -17,17 +30,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/logoali231-droid/Code-ascentionofficial/issues"
   },
-  "homepage": "https://github.com/logoali231-droid/Code-ascentionofficial#readme",
-  "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.83",
-    "idb": "^8.0.3",
-    "lucide-react": "^1.14.0",
-    "next": "^16.2.4",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
-  }
+  "homepage": "https://github.com/logoali231-droid/Code-ascentionofficial#readme"
 }

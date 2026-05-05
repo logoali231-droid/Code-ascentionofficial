@@ -2,6 +2,16 @@
 
 import { generate } from "./webllm";
 
+/**
+ * Gera um curso de programação baseado nos parâmetros fornecidos.
+ * @param {object} params - Parâmetros para geração do curso.
+ * @param {string} params.topic - O tópico do curso.
+ * @param {string} params.style - O estilo do curso.
+ * @param {string} params.level - O nível do curso.
+ * @param {number} params.difficulty - A dificuldade do curso.
+ * @param {string} [params.baseMaterial] - Material base opcional.
+ * @returns {Promise<object>} O curso gerado em formato JSON.
+ */
 export async function generateCourse({
   topic,
   style,

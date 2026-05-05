@@ -1,3 +1,13 @@
+/**
+ * Constrói um prompt para gerar cursos adaptativos baseado nas entradas do usuário.
+ * @param {object} input - Objeto contendo detalhes do usuário.
+ * @param {string} input.topic - O tópico do curso.
+ * @param {string} input.style - O estilo de explicação.
+ * @param {string} input.level - O nível de habilidade do usuário.
+ * @param {string} input.cognitive - O estilo cognitivo.
+ * @param {string} [input.userBase] - Base de conhecimento opcional do usuário.
+ * @returns {string} O prompt gerado para a IA.
+ */
 export function buildCoursePrompt(input: {
   topic: string;
   style: string;

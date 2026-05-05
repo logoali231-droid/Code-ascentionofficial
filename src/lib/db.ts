@@ -24,6 +24,10 @@ export const dbPromise = openDB("codeascent-db", 2, {
 const DB_NAME = "code_ascent";
 const DB_VERSION = 1;
 
+/**
+ * Obtém a instância do banco de dados IndexedDB.
+ * @returns {Promise<IDBDatabase>} A instância do banco de dados.
+ */
 async function getDB() {
   return openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
@@ -48,22 +52,45 @@ async function getDB() {
   });
 }
 
-// ✅ AGORA ACEITA QUALQUER COISA
+/**
+ * Salva um valor no banco de dados.
+ * @param {string} store - O nome da store onde salvar.
+ * @param {any} value - O valor a ser salvo.
+ * @param {string} KEY - A chave (não utilizada no código atual).
+ * @returns {Promise<any>} A chave do valor salvo.
+ */
 export async function save(store: string, value: any, KEY: string) {
   const db = await dbPromise;
   return db.put(store, value, value.id ?? "generated");
 }
 
+/**
+ * Busca um valor do banco de dados.
+ * @param {string} store - O nome da store.
+ * @param {any} key - A chave do valor.
+ * @returns {Promise<any>} O valor buscado.
+ */
 export async function get(store: string, key: any) {
   const db = await dbPromise;
   return db.get(store, key);
 }
 
+/**
+ * Busca todos os valores de uma store.
+ * @param {string} store - O nome da store.
+ * @returns {Promise<any[]>} Array de todos os valores.
+ */
 export async function getAll(store: string) {
   const db = await dbPromise;
   return db.getAll(store);
 }
 
+/**
+ * Deleta um valor do banco de dados.
+ * @param {string} store - O nome da store.
+ * @param {string} key - A chave do valor a deletar.
+ * @returns {Promise<void>}
+ */
 export async function del(store: string, key: string) {
   const db = await getDB();
   return db.delete(store, key);

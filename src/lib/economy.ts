@@ -2,6 +2,11 @@
 
 import { get, save } from "@/lib/db";
 
+/**
+ * Adiciona moedas ao usuário.
+ * @param {number} amount - A quantidade de moedas a adicionar.
+ * @returns {Promise<void>}
+ */
 export async function addCoins(amount: number) {
   const user = await get("user", "main");
 
@@ -13,6 +18,11 @@ export async function addCoins(amount: number) {
   await save("user", updated);
 }
 
+/**
+ * Permite ao usuário comprar um item.
+ * @param {any} item - O item a ser comprado.
+ * @returns {Promise<void>} Lança erro se não puder comprar.
+ */
 export async function buyItem(item: any) {
 
   if (item.fake) {
