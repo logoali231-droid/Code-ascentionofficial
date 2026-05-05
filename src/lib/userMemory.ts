@@ -104,6 +104,6 @@ export async function getUserProfile() {
   return {
     level,
     explanationType: user?.style || "adaptive",
-    cognitive: user?.cognitiveProfile || "Standard",
+    cognitive: user?.cognitive || "Standard",
   };
 }

@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { get, save } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
-import { generateExplanationAI } from "@/lib/explanationAI"; 
-// (Ou ajuste o nome para bater 100% com o nome que você descobriu no Passo 1)
-import { explainError } from "@/lib/explanationAI";
-
+import { generateExplanationAI, explainError } from "@/lib/explanationAI";
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
@@ -60,7 +57,6 @@ export default function CoursePage() {
     const user = await get("user", "main");
 
     const history = currentCourse.lessons.slice(0, lessonIndex + 1);
-
     const lesson = currentCourse.lessons[lessonIndex];
 
     const text = await generateExplanationAI({
@@ -73,41 +69,41 @@ export default function CoursePage() {
     setExplanation(text);
     setLoadingExplanation(false);
   }
-async function handleNext(correct: boolean) {
-  if (!course) return;
 
-  let nextExercise = currentExercise + 1;
-  let nextLesson = currentLesson;
+  async function handleNext(correct: boolean) {
+    if (!course) return;
 
-  const lessonData = course.lessons[currentLesson];
+    let nextExercise = currentExercise + 1;
+    let nextLesson = currentLesson;
 
-  const endOfLesson = nextExercise >= lessonData.exercises.length;
+    const lessonData = course.lessons[currentLesson];
+    const endOfLesson = nextExercise >= lessonData.exercises.length;
 
-  if (endOfLesson) {
-    nextLesson += 1;
-    nextExercise = 0;
+    if (endOfLesson) {
+      nextLesson += 1;
+      nextExercise = 0;
+    }
+
+    const updated = {
+      ...course,
+      currentLesson: nextLesson,
+      currentExercise: nextExercise,
+    };
+
+    const courses = (await get("courses", "all")) || [];
+
+    const newCourses = courses.map((c: any) =>
+      c.id === course.id ? updated : c
+    );
+
+    await save("courses", newCourses);
+
+    setCourse(updated);
+    setCurrentLesson(nextLesson);
+    setCurrentExercise(nextExercise);
+
+    await loadExplanation(updated, nextLesson);
   }
-
-  const updated = {
-    ...course,
-    currentLesson: nextLesson,
-    currentExercise: nextExercise,
-  };
-
-  const courses = (await get("courses", "all")) || [];
-
-  const newCourses = courses.map((c: any) =>
-    c.id === course.id ? updated : c
-  );
-
-  await save("courses", newCourses);
-
-  setCourse(updated);
-  setCurrentLesson(nextLesson);
-  setCurrentExercise(nextExercise);
-
-  await loadExplanation(updated, nextLesson);
-}
 
   if (!course) {
     return <div className="p-4 text-center">No active course</div>;
@@ -122,20 +118,12 @@ async function handleNext(correct: boolean) {
       {/* TOP BAR */}
       <div className="flex justify-between text-xs mb-2">
         <span className="text-orange-400">🔥 {streak}</span>
-        <span className="text-yellow-400">🎯 {daily.progress}/{daily.goal}</span>
+        <span className="text-yellow-400">
+          🎯 {daily.progress}/{daily.goal}
+        </span>
       </div>
 
-      {/* DAILY */}
-      <div className="text-xs mb-2">
-        🎯 {daily?.progress}/{daily?.goal}
-      </div>
-
-      {daily?.completed && (
-        <div className="bg-green-500 text-black text-xs p-2 rounded mb-2 text-center">
-          Daily completed 🎉
-        </div>
-      )}
-      {/* PROGRESS BAR */}
+      {/* PROGRESS */}
       <div className="w-full bg-slate-700 h-2 rounded mb-3">
         <div
           className="bg-green-500 h-2 rounded"
@@ -149,24 +137,27 @@ async function handleNext(correct: boolean) {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setTab("practice")}
-          className={`flex-1 p-2 rounded ${tab === "practice" ? "bg-blue-600" : "bg-slate-700"
-            }`}
+          className={`flex-1 p-2 rounded ${
+            tab === "practice" ? "bg-blue-600" : "bg-slate-700"
+          }`}
         >
           Practice
         </button>
 
         <button
           onClick={() => setTab("theory")}
-          className={`flex-1 p-2 rounded ${tab === "theory" ? "bg-blue-600" : "bg-slate-700"
-            }`}
+          className={`flex-1 p-2 rounded ${
+            tab === "theory" ? "bg-blue-600" : "bg-slate-700"
+          }`}
         >
           Theory
         </button>
 
         <button
           onClick={() => setTab("errors")}
-          className={`flex-1 p-2 rounded ${tab === "errors" ? "bg-blue-600" : "bg-slate-700"
-            }`}
+          className={`flex-1 p-2 rounded ${
+            tab === "errors" ? "bg-blue-600" : "bg-slate-700"
+          }`}
         >
           Fix
         </button>
@@ -174,25 +165,18 @@ async function handleNext(correct: boolean) {
 
       {/* PRACTICE */}
       {tab === "practice" && (
-        <ExerciseRenderer
-          exercise={exercise}
-          onNext={handleNext}
-        />
+        <ExerciseRenderer exercise={exercise} onNext={handleNext} />
       )}
 
-      {/* THEORY (IA REAL) */}
+      {/* THEORY */}
       {tab === "theory" && (
         <div className="bg-slate-800 p-4 rounded-xl">
-          <h2 className="mb-2">
-            Lesson {currentLesson + 1}
-          </h2>
+          <h2 className="mb-2">Lesson {currentLesson + 1}</h2>
 
           {loadingExplanation ? (
             <p className="text-sm">Generating explanation...</p>
           ) : (
-            <p className="text-sm whitespace-pre-wrap">
-              {explanation}
-            </p>
+            <p className="text-sm whitespace-pre-wrap">{explanation}</p>
           )}
         </div>
       )}
@@ -203,16 +187,38 @@ async function handleNext(correct: boolean) {
   );
 }
 
+/* ===================== */
+/* ERRORS TAB COMPONENT */
+/* ===================== */
+
 function ErrorsTab() {
   const [errors, setErrors] = useState<any[]>([]);
+  const [aiExplanations, setAiExplanations] = useState<Record<number, string>>(
+    {}
+  );
 
   useEffect(() => {
-    load();
+    loadErrors();
   }, []);
 
-  async function load() {
+  async function loadErrors() {
     const e = (await get("errors", "all")) || [];
-    setErrors(e.slice(-5));
+    const last = e.slice(-5);
+    setErrors(last);
+
+    // ⚡ parallel AI
+    const results = await Promise.all(
+      last.map((err) =>
+        explainError(err).catch(() => "Failed to explain.")
+      )
+    );
+
+    const map: Record<number, string> = {};
+    results.forEach((res, i) => {
+      map[i] = res;
+    });
+
+    setAiExplanations(map);
   }
 
   return (
@@ -225,6 +231,12 @@ function ErrorsTab() {
           {err.userExplanation && (
             <p className="text-yellow-400 text-xs mt-1">
               💭 {err.userExplanation}
+            </p>
+          )}
+
+          {aiExplanations[i] && (
+            <p className="text-blue-400 text-xs mt-1">
+              🧠 {aiExplanations[i]}
             </p>
           )}
         </div>

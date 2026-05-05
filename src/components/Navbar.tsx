@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 
 export default function Navbar() {
+  const [cognitive, setCognitive] = useState("Standard");
   const [coins, setCoins] = useState(0);
   const [streak, setStreak] = useState(0);
   const [level, setLevel] = useState(0);
   const [activeCourse, setActiveCourse] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+
 
   useEffect(() => {
     load();
@@ -47,7 +49,13 @@ export default function Navbar() {
     // ✅ ACTIVE COURSE
     setActiveCourse(user?.activeCourse || null);
 
+
+
     // ✅ LOCK STATE
+    setLocked(!user?.engineReady);
+
+    setCognitive(user?.cognitive || "Standard");
+
     setLocked(!user?.engineReady);
   }
 
@@ -75,8 +83,8 @@ export default function Navbar() {
 
       {/* ACTIVE COURSE INDICATOR */}
       {activeCourse && (
-        <div className="text-[10px] text-center text-blue-400 mb-1 truncate">
-          📘 {activeCourse}
+        <div className="text-[10px] text-center text-blue-400">
+          📘 {activeCourse} • 🧠 {cognitive}
         </div>
       )}
 

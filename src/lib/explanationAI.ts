@@ -30,9 +30,9 @@ Explanation Style: ${profile.explanationType}
 User Cognitive Profile: ${profile.cognitive}
 
 Course Context:
-- Mode: ${course?.mode || "standard"}
-- Difficulty: ${course?.difficulty || "auto"}
-- Cognitive Target: ${course?.cognitiveProfile || "adaptive"}
+Mode: standard
+Difficulty: ${course?.difficulty}
+Cognitive Target: ${course?.cognitive}
 
 Current Lesson:
 ${lesson.title}

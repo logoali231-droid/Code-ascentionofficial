@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAll, save } from "@/lib/db";
+import { get, getAll, save } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { Book } from "lucide-react";
 
@@ -10,13 +10,31 @@ export default function Hub() {
   const router = useRouter();
 
   useEffect(() => {
+  async function check() {
+    const user = await get("user", "main");
+
+    if (!user?.engineReady) {
+      router.push("/machineLock");
+    }
+  }
+
+  check();
+}, []);
+
+  useEffect(() => {
     getAll("courses").then(setCourses);
   }, []);
 
   async function selectCourse(c: any) {
-    await save("user", { id: "main", activeCourse: c.id });
-    router.push("/course");
-  }
+  const user = await get("user", "main");
+
+  await save("user", {
+    ...user, // 🔥 keep everything
+    activeCourse: c.id,
+  });
+
+  router.push("/course");
+}
 
   return (
     <div className="p-4 pb-24">

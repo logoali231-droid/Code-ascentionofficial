@@ -25,28 +25,34 @@ export default function NewCourse() {
     });
 
     const course = {
-  id: Date.now(),
-  topic,
-  style,
-  level,
-  cognitive,
-  difficulty,
+      id: Date.now(),
+      topic,
+      style,
+      level,
+      cognitive,
+      difficulty,
 
-  currentLesson: 0,
-  currentExercise: 0,
+      currentLesson: 0,
+      currentExercise: 0,
 
-  lessons: data.lessons || [],
-};
+      lessons: data.lessons || [],
+    };
 
     const existing = (await get("courses", "all")) || [];
 
-await save("courses", [course, ...existing], "all");
+    await save("courses", [course, ...existing], "all");
 
-await save("user", {
-  ...(await get("user", "main")),
-  cognitive: cognitive,
-  style: style,
-});
+    await save("user", {
+      ...(await get("user", "main")),
+      cognitive: cognitive,
+      style: style,
+    });
+    const user = await get("user", "main");
+
+    await save("user", {
+      ...user,
+      activeCourse: course.id,
+    });
 
     router.push("/hub");
   }
