@@ -17,17 +17,38 @@ import {
 export default function Navbar() {
   const [coins, setCoins] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [level, setLevel] = useState(0);
+  const [activeCourse, setActiveCourse] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     load();
+
+    // 🔁 auto refresh (important for reactivity)
+    const interval = setInterval(load, 1500);
+
+    return () => clearInterval(interval);
   }, []);
 
   async function load() {
-    const econ = await get("economy", "main");
     const user = await get("user", "main");
 
-    setCoins(econ?.coins || 0);
+    if (!user) return;
+
+    // ✅ FIX: correct source of coins
+    setCoins(user?.coins || 0);
+
     setStreak(user?.streak || 0);
+
+    // ✅ LEVEL SYSTEM
+    const lvl = Math.floor((user?.xp || 0) / 100);
+    setLevel(lvl);
+
+    // ✅ ACTIVE COURSE
+    setActiveCourse(user?.activeCourse || null);
+
+    // ✅ LOCK STATE
+    setLocked(!user?.engineReady);
   }
 
   return (
@@ -35,24 +56,64 @@ export default function Navbar() {
 
       {/* STATUS BAR */}
       <div className="flex justify-between text-xs mb-1 px-2">
+
+        {/* 🔥 STREAK */}
         <span className="flex items-center gap-1 text-orange-400">
           <Flame size={14} /> {streak}
         </span>
 
+        {/* 💰 COINS */}
         <span className="flex items-center gap-1 text-yellow-400">
           <Coins size={14} /> {coins}
         </span>
+
+        {/* ⭐ LEVEL */}
+        <span className="text-green-400">
+          Lv {level}
+        </span>
       </div>
+
+      {/* ACTIVE COURSE INDICATOR */}
+      {activeCourse && (
+        <div className="text-[10px] text-center text-blue-400 mb-1 truncate">
+          📘 {activeCourse}
+        </div>
+      )}
 
       {/* NAV */}
       <div className="flex justify-around text-xs">
-        <Link href="/hub"><Home /></Link>
-        <Link href="/course"><BookOpen /></Link>
-        <Link href="/new"><Brain /></Link>
-        <Link href="/shop"><ShoppingCart /></Link>
-        <Link href="/vault"><Vault /></Link>
-        <Link href="/profile"><User /></Link>
+
+        <Link href="/hub">
+          <Home />
+        </Link>
+
+        <Link href="/course">
+          <BookOpen />
+        </Link>
+
+        <Link href="/new">
+          <Brain />
+        </Link>
+
+        <Link href="/shop">
+          <ShoppingCart />
+        </Link>
+
+        <Link href="/vault">
+          <Vault />
+        </Link>
+
+        <Link href="/profile">
+          <User />
+        </Link>
       </div>
+
+      {/* 🔒 LOCK WARNING */}
+      {locked && (
+        <div className="text-[10px] text-center text-red-400 mt-1">
+          🔒 AI Engine not initialized
+        </div>
+      )}
     </div>
   );
 }

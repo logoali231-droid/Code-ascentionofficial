@@ -50,20 +50,15 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
         "What did you try to do? (helps AI explain better)"
       );
 
-      const existing = (await get("errors", "all")) || [];
-
-      await save("errors", [
-        {
-          question: exercise.question,
-          correct: exercise.answer,
-          userAnswer: answer,
-          userExplanation: userExplanation || "",
-          difficulty: exercise.difficulty || 1,
-          type: exercise.type,
-          timestamp: Date.now(),
-        },
-        ...existing,
-      ], "all");
+      await save("errors", {
+  question: exercise.question,
+  correct: exercise.answer,
+  userAnswer: answer,
+  userExplanation: userExplanation || "",
+  difficulty: exercise.difficulty || 1,
+  type: exercise.type,
+  timestamp: Date.now(),
+});
     }
 
     setFeedback(correct);

@@ -94,3 +94,16 @@ export async function computeUserLevel() {
 
   return Math.max(1, level);
 }
+
+export async function getUserProfile() {
+  const user = await get("user", "main");
+  const mem = await getMemory();
+
+  const level = Object.values(mem.topics).reduce((a, b) => a + b, 0);
+
+  return {
+    level,
+    explanationType: user?.style || "adaptive",
+    cognitive: user?.cognitiveProfile || "Standard",
+  };
+}

@@ -1,32 +1,33 @@
 "use client";
 
 import { generate } from "./webllm";
+import { getUserProfile } from "./userMemory";
 import { getMemory } from "./userMemory";
 
 // 🔹 EXPLANATION NORMAL
 export async function generateExplanationAI({
   lesson,
   history,
-  user,
   course,
 }: any) {
-  const mem = await getMemory();
+  const profile = await getUserProfile();
+  const memory = await getMemory();
 
-  const userErrors = mem.lastErrors || [];
+  const userErrors = memory.lastErrors || [];
 
   const recentLessons =
     history?.map((l: any) => l.title).join(", ") || "none";
 
-  const weaknesses = Object.entries(mem.weaknesses || {})
+  const weaknesses = Object.entries(memory.weaknesses || {})
     .sort((a: any, b: any) => b[1] - a[1])
     .slice(0, 3)
     .map(([k]) => k)
     .join(", ");
 
   const prompt = `
-User Level: ${user.level}
-Explanation Style: ${user.explanationType}
-User Cognitive Profile: ${user.cognitive || "standard"}
+User Level: ${profile.level}
+Explanation Style: ${profile.explanationType}
+User Cognitive Profile: ${profile.cognitive}
 
 Course Context:
 - Mode: ${course?.mode || "standard"}
@@ -57,19 +58,19 @@ Rules:
   return await generate(prompt);
 }
 
-// 🔹 ERROR EXPLAIN (🔥 faltava isso)
+// 🔹 ERROR EXPLAIN
 export async function explainError({
   question,
   correct,
   userAnswer,
   userExplanation,
-  user,
   course,
 }: any) {
-  const mem = await getMemory();
+  const profile = await getUserProfile();
+  const memory = await getMemory();
 
   const relatedWeakness =
-    Object.entries(mem.weaknesses || {})
+    Object.entries(memory.weaknesses || {})
       .sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "unknown";
 
   const prompt = `
@@ -88,13 +89,13 @@ USER THOUGHT:
 ${userExplanation}
 
 USER LEVEL:
-${user.level}
+${profile.level}
 
 PROFILE:
-${course?.cognitiveProfile}
+${profile.cognitive}
 
 STYLE:
-${course?.explanationStyle}
+${profile.explanationType}
 
 LIKELY WEAK AREA:
 ${relatedWeakness}

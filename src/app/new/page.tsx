@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { generateLessons } from "@/lib/lessonGenerator";
-import { save } from "@/lib/db";
+import { get, save } from "@/lib/db";
 import { useRouter } from "next/navigation";
 
 export default function NewCourse() {
@@ -25,17 +25,28 @@ export default function NewCourse() {
     });
 
     const course = {
-      id: Date.now(),
-      topic,
-      style,
-      level,
-      cognitive,
-      difficulty,
-      currentIndex: 0,
-      ...data,
-    };
+  id: Date.now(),
+  topic,
+  style,
+  level,
+  cognitive,
+  difficulty,
 
-    await save("courses", course);
+  currentLesson: 0,
+  currentExercise: 0,
+
+  lessons: data.lessons || [],
+};
+
+    const existing = (await get("courses", "all")) || [];
+
+await save("courses", [course, ...existing], "all");
+
+await save("user", {
+  ...(await get("user", "main")),
+  cognitive: cognitive,
+  style: style,
+});
 
     router.push("/hub");
   }

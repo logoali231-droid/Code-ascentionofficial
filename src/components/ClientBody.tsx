@@ -9,7 +9,7 @@ export default function ClientBody({ children }: any) {
   useEffect(() => {
     async function load() {
       const user = await get("user", "main");
-      setProfile(user?.cognitiveProfile || "Standard");
+      setProfile(user?.cognitive || "Standard");
     }
     load();
   }, []);

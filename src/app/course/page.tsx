@@ -59,10 +59,7 @@ export default function CoursePage() {
 
     const user = await get("user", "main");
 
-    const history = currentCourse.lessons.slice(
-      Math.max(0, lessonIndex - 2),
-      lessonIndex + 1
-    );
+    const history = currentCourse.lessons.slice(0, lessonIndex + 1);
 
     const lesson = currentCourse.lessons[lessonIndex];
 
