@@ -1,5 +1,5 @@
 import Navbar from "@/components/Navbar";
-import "./styles/globals.css"; // Caminho corrigido
+import "./styles/globals.css";
 import ClientBody from "@/components/ClientBody";
 
 export const metadata = {
@@ -11,10 +11,12 @@ export const metadata = {
 export default function RootLayout({ children }: any) {
   return (
     <html lang="en">
-      <ClientBody>
-        {children}
-        <Navbar />
-      </ClientBody>
+      <body>
+        <ClientBody>
+          {children}
+          <Navbar />
+        </ClientBody>
+      </body>
     </html>
   );
 }

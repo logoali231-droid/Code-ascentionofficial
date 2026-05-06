@@ -18,7 +18,6 @@ export default function ClientBody({ children }: any) {
 
       const path = window.location.pathname;
 
-      // 🚨 SAFE redirect (does NOT break manifest / static files)
       if (
         !user.engineReady &&
         path !== "/machineLock" &&
@@ -31,9 +30,10 @@ export default function ClientBody({ children }: any) {
     load();
   }, [router]);
 
-  return (
-    <body data-profile={profile}>
-      {children}
-    </body>
-  );
+  // ✅ APPLY PROFILE TO REAL BODY
+  useEffect(() => {
+    document.body.setAttribute("data-profile", profile);
+  }, [profile]);
+
+  return <>{children}</>;
 }
