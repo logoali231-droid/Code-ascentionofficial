@@ -6,43 +6,37 @@ import { get, save } from "@/lib/db";
 let engine: any = null;
 let loadingPromise: Promise<any> | null = null;
 
-// 🧠 Detecta nível do dispositivo com segurança (SSR-safe)
+// 🧠 SSR-safe + detecção leve
 function getDeviceTier() {
   if (typeof navigator === "undefined") return "high";
 
-  const ua = navigator.userAgent;
   const memory = (navigator as any).deviceMemory || 4;
 
-  if (/Android/i.test(ua) && memory <= 6) {
-    return "low"; // tipo Galaxy M23
-  }
-
-  return "high"; // tipo topo de linha / PC
+  if (memory <= 6) return "mid"; // seu caso (M23)
+  return "high";
 }
 
-// ⚙️ Config por dispositivo
+// ⚙️ config adaptativa
 function getConfig() {
   const tier = getDeviceTier();
 
-  if (tier === "low") {
+  if (tier === "mid") {
     return {
-      maxHistory: 3,
-      maxTokens: 180,
-      contextWindow: 2048,
+      maxHistory: 4,
+      maxTokens: 400,
     };
   }
 
   return {
     maxHistory: 8,
     maxTokens: 600,
-    contextWindow: 4096,
   };
 }
 
 export async function initEngine(model: string, cb?: any) {
   const user = await get("user", "main");
 
-  // 🔁 se mudou modelo, reseta engine
+  // 🔁 troca de modelo
   if (engine && user?.model !== model) {
     engine = null;
   }
@@ -50,17 +44,10 @@ export async function initEngine(model: string, cb?: any) {
   if (engine) return engine;
   if (loadingPromise) return loadingPromise;
 
-  const config = getConfig();
-
   loadingPromise = (async () => {
     try {
       engine = await webllm.CreateMLCEngine(model, {
         initProgressCallback: cb,
-
-        // 🧠 opcional (nem todo modelo respeita)
-        appConfig: {
-          context_window_size: config.contextWindow,
-        },
       });
 
       await save("user", {
@@ -88,13 +75,12 @@ export function getEngine() {
   return engine;
 }
 
-// 🔄 reset manual (útil pra troca de modelo)
 export function resetEngine() {
   engine = null;
   loadingPromise = null;
 }
 
-// ✂️ limita histórico
+// ✂️ histórico controlado
 function trimMessages(messages: any[], max: number) {
   return messages.slice(-max);
 }
