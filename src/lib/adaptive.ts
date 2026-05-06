@@ -10,22 +10,24 @@ import { getMemory } from "./userMemory";
  */
 export async function getAdaptiveDifficulty(
   base: number,
-  topic: string
+  question: string,
+  user: any,
+  memory: any
 ) {
-  const mem = await getMemory();
-
-  const skill = mem.topics[topic] || 0;
-  const weak = mem.weaknesses[topic] || 0;
-
-  const delta = skill - weak;
-
   let difficulty = base;
 
-  if (delta > 3) difficulty += 1;
-  if (delta > 8) difficulty += 1;
+  // 🔻 if user struggling → reduce
+  const recentErrors = memory.lastErrors?.length || 0;
+  if (recentErrors > 3) difficulty -= 1;
 
-  if (delta < -2) difficulty -= 1;
-  if (delta < -5) difficulty -= 1;
+  // 🔺 if user strong → increase
+  const xp = user?.xp || 0;
+  if (xp > 300) difficulty += 1;
+
+  // 🧠 cognitive tweak
+  if (user?.cognitive === "ADHD_Focus") {
+    difficulty = Math.max(1, difficulty - 1);
+  }
 
   return Math.max(1, Math.min(5, difficulty));
 }

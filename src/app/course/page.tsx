@@ -76,6 +76,7 @@ export default function CoursePage() {
 
   const lessonData = course.lessons[currentLesson];
   const exercise = lessonData.exercises[currentExercise];
+  
 
   // 🧠 IF WRONG → GENERATE REINFORCEMENT
   if (!correct) {

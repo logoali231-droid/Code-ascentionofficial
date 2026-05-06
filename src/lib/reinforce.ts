@@ -2,15 +2,22 @@
 
 import { generate } from "./webllm";
 import { getAdaptiveDifficulty } from "./adaptive";
+import { getMemory } from "./userMemory";
+import { get } from "./db";
 
 
 export async function generateReinforcement(error: any, course: any) {
 
   const baseDifficulty = error.difficulty || 1;
 
+  const user = await get("user", "main");
+  const memory = await getMemory();
+
   const difficulty = await getAdaptiveDifficulty(
     baseDifficulty,
-    error.question
+    error.question,
+    user,
+    memory
   );
 
   const topic = course?.topic || "programming";
@@ -18,7 +25,7 @@ export async function generateReinforcement(error: any, course: any) {
 
 
   const currentLesson =
-  course?.lessons?.[course?.currentLesson || 0];
+    course?.lessons?.[course?.currentLesson || 0];
   const prompt = `
 Create a new exercise based on a mistake.
 
@@ -47,9 +54,16 @@ RULES:
 - Focus on the mistake
 - Match difficulty
 - Return JSON
-- If ADHD_Focus → short, direct, quick feedback
-- If Deep_Dive → more complex, multi-step
-- If Visual_Logic → include structured/code-based thinking
+COGNITIVE MODE:
+${user?.cognitive}
+- ADHD_Focus → short questions, 1 concept only
+- Deep_Dive → multi-step problems
+- Visual_Logic → pattern recognition, examples
+- Standard → balanced
+- beginner → no jargon, simple examples
+- intermediate → moderate abstraction
+- advanced → use technical language
+- NEVER exceed user level
 `;
 
   const res = await generate(prompt);
