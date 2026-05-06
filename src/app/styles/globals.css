@@ -78,3 +78,7 @@ body[data-profile="Visual_Logic"] button {
 body[data-profile="Standard"] {
   font-size: 16px;
 }
+
+input, textarea {
+  @apply bg-slate-700 text-white placeholder-gray-400;
+}
