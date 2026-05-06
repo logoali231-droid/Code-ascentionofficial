@@ -11,17 +11,25 @@ export default function ClientBody({ children }: any) {
   useEffect(() => {
     async function load() {
       const user = await get("user", "main");
-      setProfile(user?.cognitive || "Standard");
-      
 
-setProfile(user?.cognitive || "Standard");
+      if (!user) return;
 
-if (!user?.engineReady) {
-  router.push("/machineLock");
-}
+      setProfile(user.cognitive || "Standard");
+
+      const path = window.location.pathname;
+
+      // 🚨 SAFE redirect (does NOT break manifest / static files)
+      if (
+        !user.engineReady &&
+        path !== "/machineLock" &&
+        !path.includes(".")
+      ) {
+        router.push("/machineLock");
+      }
     }
+
     load();
-  }, []);
+  }, [router]);
 
   return (
     <body data-profile={profile}>
@@ -29,4 +37,3 @@ if (!user?.engineReady) {
     </body>
   );
 }
-

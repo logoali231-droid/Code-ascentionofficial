@@ -21,10 +21,22 @@ body[data-profile="ADHD_Focus"] button {
   font-size: 16px;
 }
 
+body[data-profile="ADHD_Focus"] .secondary {
+  display: none;
+}
+
+body[data-profile="ADHD_Focus"] .card {
+  margin-bottom: 20px;
+}
+
 /* 🧠 DEEP DIVE */
 body[data-profile="Deep_Dive"] {
   font-size: 14px;
   line-height: 1.8;
+}
+
+body[data-profile="Deep_Dive"] .collapsed {
+  display: block;
 }
 
 
@@ -37,7 +49,13 @@ body[data-profile="Visual_Logic"] {
   letter-spacing: 0.5px;
 }
 
+body[data-profile="Visual_Logic"] .card {
+  border: 2px solid #38bdf8;
+}
 
+body[data-profile="Visual_Logic"] button {
+  border-radius: 12px;
+}
 
 /* ⚙ STANDARD */
 body[data-profile="Standard"] {

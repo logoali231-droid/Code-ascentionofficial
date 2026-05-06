@@ -27,7 +27,7 @@ export default function Navbar() {
     load();
 
     // 🔁 auto refresh (important for reactivity)
-    const interval = setInterval(load, 1500);
+    const interval = setInterval(load, 4000);
 
     return () => clearInterval(interval);
   }, []);
@@ -52,7 +52,7 @@ export default function Navbar() {
 
 
     // ✅ LOCK STATE
-    setLocked(!user?.engineReady);
+    
 
     setCognitive(user?.cognitive || "Standard");
 

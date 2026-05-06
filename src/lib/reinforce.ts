@@ -6,39 +6,47 @@ import { getMemory } from "./userMemory";
 import { get } from "./db";
 import { safeParse } from "./safeParse";
 
-
 export async function generateReinforcement(error: any, course: any) {
-
   const baseDifficulty = error.difficulty || 1;
 
   const user = await get("user", "main");
   const memory = await getMemory();
-
-  const difficulty = await getAdaptiveDifficulty(
-    baseDifficulty,
-    error.question,
-    user,
-    memory
-  );
-
   const topic = course?.topic || "programming";
   const level = course?.level || "beginner";
+  // 🎯 adaptive difficulty (central brain)
+  const difficulty = await getAdaptiveDifficulty(
+    baseDifficulty,
+    topic, // ✅ instead of error.question
+    user
+  );
 
 
-  const currentLesson =
-    course?.lessons?.[course?.currentLesson || 0];
+
+  const recentErrors = memory.lastErrors?.slice(-5) || [];
+
+  // 🧠 detect repetition (VERY important for loop behavior)
+  const sameTopicErrors = memory.lastErrors.filter(
+    (e: any) => e.topic === topic
+  ).length;
+
+  const struggling = sameTopicErrors >= 3;
+
   const prompt = `
-Create a new exercise based on a mistake.
+You are an adaptive programming tutor.
+
+TASK:
+Create ONE reinforcement exercise to fix a specific mistake.
+
+CONTEXT:
+- Topic: ${topic}
+- User Level: ${level}
+- Cognitive Mode: ${user?.cognitive}
+- Target Difficulty: ${difficulty}
 
 LEARNING STYLE:
-${course?.stylePrompt || "Clear explanation"}
+${course?.stylePrompt || "Explain clearly"}
 
-COGNITIVE MODE:
-${course?.cognitive || "standard"}
-
-TARGET DIFFICULTY: ${difficulty}
-
-QUESTION:
+ORIGINAL QUESTION:
 ${error.question}
 
 USER WRONG ANSWER:
@@ -47,49 +55,58 @@ ${error.userAnswer}
 CORRECT ANSWER:
 ${error.correct}
 
-LEVEL:
-${course?.level || "beginner"}
-
 WEAKNESSES:
 ${JSON.stringify(memory.weaknesses)}
 
 RECENT ERRORS:
-${JSON.stringify(memory.lastErrors.slice(-5))}
+${JSON.stringify(recentErrors)}
 
-
-  "type": "reinforcement",
-  
+STATE:
+- User is ${struggling ? "STRUGGLING" : "LEARNING"}
 
 RULES:
-- Follow LEARNING STYLE
-- Focus on the mistake
-- Match difficulty
-- Return JSON
-COGNITIVE MODE:
-${user?.cognitive}
-- ADHD_Focus → short questions, 1 concept only
-- Deep_Dive → multi-step problems
-- Visual_Logic → pattern recognition, examples
+- Return ONLY valid JSON
+- Do NOT include explanations outside JSON
+- Focus ONLY on the mistake
+- Do NOT introduce new concepts
+- If unsure, return a simpler version of the same concept
+
+DIFFICULTY RULES:
+- If STRUGGLING → make it easier and simpler
+- Otherwise → match TARGET DIFFICULTY
+
+COGNITIVE RULES:
+- ADHD_Focus → short, 1 concept, minimal text
+- Deep_Dive → multi-step reasoning
+- Visual_Logic → patterns, examples
 - Standard → balanced
-- beginner → no jargon, simple examples
+
+LEVEL RULES:
+- beginner → no jargon
 - intermediate → moderate abstraction
-- advanced → use technical language
+- advanced → technical depth
 - NEVER exceed user level
-- Adjust complexity based on USER LEVEL and RECENT PERFORMANCE
-PREVIOUS ERROR CONTEXT:
-- This is a follow-up exercise
-- Focus ONLY on fixing the exact misunderstanding
-- Do not introduce new concepts
+
+OUTPUT FORMAT:
+{
+  "type": "short | multiple_choice | code | logic",
+  "question": "...",
+  "options": ["..."] (only if multiple_choice),
+  "answer": "...",
+  "explanation": "short explanation"
+}
 `;
 
   const res = await generate(prompt);
   const parsed = safeParse(res);
+
   if (parsed) return parsed;
 
-  // fallback: create a simple short question that focuses on the original
+  // 🛟 fallback (anti-break safety)
   return {
     type: "short",
-    question: `Review: ${error.question}`,
+    question: `Let's try again: ${error.question}`,
     answer: error.correct || "",
+    explanation: "Retry focusing on the correct concept.",
   };
 }

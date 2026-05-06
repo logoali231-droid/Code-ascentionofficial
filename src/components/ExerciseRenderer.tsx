@@ -8,31 +8,28 @@ import { updateStreak } from "@/lib/streak";
 import CodeEditor from "./CodeEditor";
 import { updateDailyProgress } from "@/lib/daily";
 import RewardPopup from "./RewardPopup";
+import { playSound } from "@/lib/useSound";
 
-export default function ExerciseRenderer({ exercise, onNext }: any) {
+export default function ExerciseRenderer({ exercise, onNext, course }: any) {
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
   const [reward, setReward] = useState("");
   const [user, setUser] = useState<any>(null);
-  const [cognitive, setCognitive] = useState<any>(null);
+  const [cognitive, setCognitive] = useState("Standard");
 
   useEffect(() => {
     let mounted = true;
+
     async function load() {
-      try {
-        const u = await get("user", "main");
-        if (!mounted) return;
-        setUser(u);
-        setCognitive(u?.cognitive);
-      } catch (e) {
-        // non-fatal - keep UI working
-        console.warn("Failed to load user", e);
-      }
+      const u = await get("user", "main");
+      if (!mounted) return;
+
+      setUser(u);
+      setCognitive(u?.cognitive || "Standard");
     }
 
     load();
-
     return () => {
       mounted = false;
     };
@@ -43,7 +40,6 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
 
     setLoading(true);
 
-    // 🎯 Daily progress
     await updateDailyProgress(1);
 
     const correct = await evaluate(
@@ -52,21 +48,22 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       exercise.type
     );
 
-    // 🧠 MEMORY SYSTEM
+    // 🧠 MEMORY
     await updateMemory({
-      topic: exercise.question,
+      topic: course?.topic || "general",
       correct,
       type: exercise.type,
       input: answer,
     });
 
-    // 👤 USER PROGRESS
     await updateUser(correct);
     await updateStreak();
 
     if (correct) {
+      playSound("correct", cognitive);
       setReward("+10 XP");
     } else {
+      playSound("wrong", cognitive);
       setReward("Try again");
 
       const userExplanation = prompt(
@@ -95,18 +92,37 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
     }, 900);
   }
 
+  // 🧠 cognitive-driven layout
+  const containerStyle =
+    cognitive === "ADHD_Focus"
+      ? "space-y-6 text-lg"
+      : cognitive === "Deep_Dive"
+      ? "space-y-2 text-sm"
+      : "space-y-3";
+
   return (
-    <div className="relative bg-slate-800 p-4 rounded-xl">
+    <div className={`card relative bg-slate-800 p-4 rounded-xl ${containerStyle}`}>
+
+      {/* QUESTION */}
       <p className="mb-3">{exercise.question}</p>
+
+      {/* SECONDARY (hidden in ADHD) */}
+      <div className="secondary text-xs text-slate-400">
+        Type: {exercise.type}
+      </div>
 
       {/* MCQ */}
       {exercise.type === "mcq" &&
         exercise.options?.map((o: string) => (
           <button
             key={o}
-            onClick={() => setAnswer(o)}
-            className={`block w-full mt-2 p-2 rounded ${answer === o ? "bg-blue-600" : "bg-slate-700"
-              }`}
+            onClick={() => {
+              playSound("click", cognitive);
+              setAnswer(o);
+            }}
+            className={`block w-full mt-2 p-2 rounded ${
+              answer === o ? "bg-blue-600" : "bg-slate-700"
+            }`}
           >
             {o}
           </button>
@@ -129,6 +145,11 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
         </div>
       )}
 
+      {/* ADVANCED (Deep Dive only) */}
+      <div className="collapsed hidden text-xs text-slate-400 mt-2">
+        💡 Hint: Think step-by-step before answering.
+      </div>
+
       {/* SUBMIT */}
       <button
         onClick={submit}
@@ -141,8 +162,9 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       {/* FEEDBACK */}
       {feedback !== null && (
         <div
-          className={`absolute inset-0 flex items-center justify-center text-3xl font-bold rounded-xl ${feedback ? "bg-green-500/80" : "bg-red-500/80"
-            }`}
+          className={`absolute inset-0 flex items-center justify-center text-3xl font-bold rounded-xl ${
+            feedback ? "bg-green-500/80" : "bg-red-500/80"
+          }`}
         >
           {feedback ? "✔" : "✖"}
         </div>

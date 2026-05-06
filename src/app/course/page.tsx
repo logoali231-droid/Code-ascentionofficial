@@ -42,9 +42,9 @@ export default function CoursePage() {
 
     if (!activeCourseId) return;
 
-  const rawCourses = (await get("courses", "all")) || (await getAll("courses")) || [];
-  const courses = Array.isArray(rawCourses) ? rawCourses : rawCourses || [];
-  const found = courses.find((c: any) => c.id === activeCourseId);
+    const rawCourses = (await get("courses", "all")) || (await getAll("courses")) || [];
+    const courses = Array.isArray(rawCourses) ? rawCourses : rawCourses || [];
+    const found = courses.find((c: any) => c.id === activeCourseId);
 
     if (found) {
       setCourse(found);
@@ -77,27 +77,27 @@ export default function CoursePage() {
   async function handleNext(correct: boolean) {
     if (!course) return;
 
-
-    const lessonData = course.lessons[currentLesson];
-    const exercise = lessonData.exercises[currentExercise];
     let updatedLessons = [...course.lessons];
 
-    const recentErrors = (await get("errors", "all")) || [];
+    const lessonData = updatedLessons[currentLesson];
+    const exercise = lessonData.exercises[currentExercise];
 
-    const sameQuestionErrors = recentErrors.filter(
+    // 📊 error tracking
+    const existingErrors = (await get("errors", "all")) || [];
+
+    const sameQuestionErrors = existingErrors.filter(
       (e: any) => e.question === exercise.question
     );
 
     const tooManyErrorsSameTopic = sameQuestionErrors.length >= 2;
 
-
-    // 🧠 IF WRONG → GENERATE REINFORCEMENT
+    // 🧠 IF WRONG → inject reinforcement AND STAY
     if (!correct) {
       const newExercise = await generateReinforcement(
         {
           ...exercise,
           userAnswer: exercise.userAnswer || "",
-          difficulty: tooManyErrorsSameTopic ? 0.5 : 1, // 👈 easier if stuck
+          difficulty: tooManyErrorsSameTopic ? 0.5 : 1,
         },
         course
       );
@@ -112,6 +112,7 @@ export default function CoursePage() {
       };
     }
 
+    // 📝 SAVE ERROR (always)
     const errorEntry = {
       question: exercise.question,
       correct: exercise.answer,
@@ -122,10 +123,9 @@ export default function CoursePage() {
       courseId: course.id,
     };
 
-    const existingErrors = (await get("errors", "all")) || [];
-
     await save("errors", [...existingErrors, errorEntry]);
 
+    // 🧠 MEMORY UPDATE
     await updateMemory({
       topic: course.topic,
       correct,
@@ -134,7 +134,6 @@ export default function CoursePage() {
     });
 
     if (correct) {
-      // 🧠 small reward: reduce weakness slightly
       await updateMemory({
         topic: course.topic,
         correct: true,
@@ -143,18 +142,25 @@ export default function CoursePage() {
       });
     }
 
-    let nextExercise = currentExercise + 1;
+    // 🎯 NAVIGATION LOGIC (THIS IS THE KEY FIX)
+    let nextExercise = currentExercise;
     let nextLesson = currentLesson;
 
-    const updatedLessonData = updatedLessons[currentLesson];
+    if (correct) {
+      nextExercise = currentExercise + 1;
 
-    const endOfLesson = nextExercise >= updatedLessonData.exercises.length;
+      const updatedLessonData = updatedLessons[currentLesson];
 
-    if (endOfLesson) {
-      nextLesson += 1;
-      nextExercise = 0;
+      const endOfLesson =
+        nextExercise >= updatedLessonData.exercises.length;
+
+      if (endOfLesson) {
+        nextLesson += 1;
+        nextExercise = 0;
+      }
     }
 
+    // 💾 SAVE COURSE
     const updated = {
       ...course,
       lessons: updatedLessons,
@@ -162,10 +168,14 @@ export default function CoursePage() {
       currentExercise: nextExercise,
     };
 
-    const rawCourses2 = (await get("courses", "all")) || (await getAll("courses")) || [];
-    const courses2 = Array.isArray(rawCourses2) ? rawCourses2 : rawCourses2 || [];
+    const rawCourses =
+      (await get("courses", "all")) || (await getAll("courses")) || [];
 
-    const newCourses = courses2.map((c: any) => (c.id === course.id ? updated : c));
+    const courses = Array.isArray(rawCourses) ? rawCourses : rawCourses || [];
+
+    const newCourses = courses.map((c: any) =>
+      c.id === course.id ? updated : c
+    );
 
     await save("courses", newCourses);
 
@@ -233,7 +243,11 @@ export default function CoursePage() {
 
       {/* PRACTICE */}
       {tab === "practice" && (
-        <ExerciseRenderer exercise={exercise} onNext={handleNext} />
+        <ExerciseRenderer
+          exercise={exercise}
+          onNext={handleNext}
+          course={course}
+        />
       )}
 
       {/* THEORY */}

@@ -80,7 +80,14 @@ export default function ErrorsPage() {
           {exercise && (
             <ExerciseRenderer
               exercise={exercise}
-              onNext={() => { }}
+              onNext={async (correct: boolean) => {
+                if (!correct) {
+                  const retry = await generateReinforcement(selected, selected.course);
+                  setExercise(retry);
+                } else {
+                  alert("Nice. You fixed this mistake 🎯");
+                }
+              }}
             />
           )}
         </div>

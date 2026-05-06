@@ -4,7 +4,9 @@ import { get, save } from "@/lib/db";
 let engine: any = null;
 
 export async function initEngine(model: string, cb?: any) {
-  if (engine) return engine;
+  if (engine && (await get("user", "main"))?.model === model) {
+    return engine;
+  }
 
   const user = await get("user", "main");
 
