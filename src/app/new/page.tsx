@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { generateLessons } from "@/lib/lessonGenerator";
-import { get, save } from "@/lib/db";
+import { get, save, getAll } from "@/lib/db";
 import { useRouter } from "next/navigation";
 
 export default function NewCourse() {
@@ -45,10 +45,11 @@ async function create() {
     lessons: data.lessons || [],
   };
 
-  // ✅ LOAD EXISTING COURSES
-  const existing = (await get("courses", "all")) || [];
+  // ✅ LOAD EXISTING COURSES (handle both storage styles)
+  const existingRaw: any = (await get("courses", "all")) || (await getAll("courses")) || [];
+  const existing = Array.isArray(existingRaw) ? existingRaw : existingRaw || [];
 
-  // ✅ SAVE COURSES (ONLY ONCE)
+  // ✅ SAVE COURSES (append to array storage)
   await save("courses", [...existing, course]);
 
   // ✅ UPDATE USER

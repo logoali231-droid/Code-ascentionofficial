@@ -88,3 +88,22 @@ export async function getAll(store: string) {
     req.onerror = () => reject(req.error);
   });
 }
+
+// Convenience: save a single record by id (keeps backward compatibility)
+export async function saveRecord(store: string, value: any, id?: string | number) {
+  // if id is provided, save as a keyed record; otherwise fallback to save(store, value)
+  if (typeof id !== "undefined") {
+    return save(store, value, String(id));
+  }
+
+  return save(store, value);
+}
+
+export async function getRecord(store: string, id?: string | number) {
+  if (typeof id === "undefined") return get(store, "main");
+  return get(store, String(id));
+}
+
+export async function getAllRecords(store: string) {
+  return getAll(store);
+}

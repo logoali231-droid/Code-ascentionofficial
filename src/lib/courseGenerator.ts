@@ -1,6 +1,7 @@
 "use client";
 
 import { generate } from "./webllm";
+import { safeParse } from "./safeParse";
 
 /**
  * Gera um curso de programação baseado nos parâmetros fornecidos.
@@ -41,6 +42,6 @@ RULES:
 `;
 
   const res = await generate(prompt);
-
-  return JSON.parse(res);
+  const parsed = safeParse(res);
+  return parsed || {};
 }

@@ -17,10 +17,11 @@ export default function SettingsPage() {
   async function handleReset() {
     if (!confirm("Reset all data?")) return;
 
-    await save("user", null);
-    await save("courses", []);
-    await save("errors", []);
-    await save("memory", null);
+  // Reset known stores. Use the default key for user/memory and array for courses/errors
+  await save("user", null, "main");
+  await save("courses", [], "all");
+  await save("errors", [], "all");
+  await save("memory", null, "main");
 
     location.reload();
   }

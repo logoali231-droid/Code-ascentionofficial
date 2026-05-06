@@ -1,18 +1,21 @@
 export type Course = {
-  id: number;
+  id: string | number;
   topic: string;
   style: string;
   level: string;
   cognitive: string;
   difficulty: string;
   lessons: Lesson[];
-  currentIndex: number;
+  currentIndex?: number;
+  currentLesson?: number;
+  currentExercise?: number;
 };
 
 export type Lesson = {
   title: string;
-  theory: string;
-  difficulty: number;
+  theory?: string;
+  explanation?: string;
+  difficulty?: number;
   exercises: Exercise[];
 };
 

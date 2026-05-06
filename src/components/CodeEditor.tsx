@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export default function CodeEditor({ onChange }: any) {
-  const [code, setCode] = useState("");
+export default function CodeEditor({ onChange, initialValue = "" }: any) {
+  const [code, setCode] = useState(initialValue);
+
+  // keep code synced if parent changes initialValue
+  useEffect(() => {
+    setCode(initialValue || "");
+  }, [initialValue]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Tab") {
@@ -25,12 +30,14 @@ export default function CodeEditor({ onChange }: any) {
   }
 
   function handleChange(e: any) {
-    setCode(e.target.value);
-    onChange(e.target.value);
+    const v = e.target.value;
+    setCode(v);
+    if (onChange) onChange(v);
   }
 
   return (
     <textarea
+      data-testid="code-editor"
       value={code}
       onChange={handleChange}
       onKeyDown={handleKeyDown}

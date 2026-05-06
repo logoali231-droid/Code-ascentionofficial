@@ -4,6 +4,7 @@ import { generate } from "./webllm";
 import { getAdaptiveDifficulty } from "./adaptive";
 import { getMemory } from "./userMemory";
 import { get } from "./db";
+import { safeParse } from "./safeParse";
 
 
 export async function generateReinforcement(error: any, course: any) {
@@ -82,5 +83,13 @@ PREVIOUS ERROR CONTEXT:
 `;
 
   const res = await generate(prompt);
-  return JSON.parse(res);
+  const parsed = safeParse(res);
+  if (parsed) return parsed;
+
+  // fallback: create a simple short question that focuses on the original
+  return {
+    type: "short",
+    question: `Review: ${error.question}`,
+    answer: error.correct || "",
+  };
 }

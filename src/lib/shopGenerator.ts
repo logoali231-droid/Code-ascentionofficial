@@ -1,4 +1,5 @@
 import { generate } from "./webllm";
+import { safeParse } from "./safeParse";
 
 export async function generateItem(prompt: string) {
   const fullPrompt = `
@@ -23,15 +24,12 @@ ${prompt}
 `;
 
   const res = await generate(fullPrompt);
-
-  try {
-    return JSON.parse(res);
-  } catch {
-    return {
-      name: "Glitched Relic",
-      description: "Something went wrong",
-      price: 9999,
-      effect: "cosmetic",
-    };
-  }
+  const parsed = safeParse(res);
+  if (parsed) return parsed;
+  return {
+    name: "Glitched Relic",
+    description: "Something went wrong",
+    price: 9999,
+    effect: "cosmetic",
+  };
 }

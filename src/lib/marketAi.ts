@@ -1,4 +1,5 @@
 import { generate } from "./webllm";
+import { safeParse } from "./safeParse";
 
 export async function generateItem(prompt: string) {
   const fullPrompt = `
@@ -25,6 +26,13 @@ ${prompt}
 `;
 
   const res = await generate(fullPrompt);
+  const parsed = safeParse(res);
+  if (parsed) return parsed;
 
-  return JSON.parse(res);
+  return {
+    name: "Glitched Trinket",
+    description: "AI returned unexpected format",
+    price: 9999,
+    effect: "cosmetic",
+  };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { evaluate } from "@/lib/evaluator";
 import { updateUser, updateMemory } from "@/lib/userMemory";
 import { get, save } from "@/lib/db";
@@ -9,13 +9,34 @@ import CodeEditor from "./CodeEditor";
 import { updateDailyProgress } from "@/lib/daily";
 import RewardPopup from "./RewardPopup";
 
-export default async function ExerciseRenderer({ exercise, onNext }: any) {
+export default function ExerciseRenderer({ exercise, onNext }: any) {
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
   const [reward, setReward] = useState("");
-  const user = await get("user", "main");
-  const cognitive = user?.cognitive;
+  const [user, setUser] = useState<any>(null);
+  const [cognitive, setCognitive] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const u = await get("user", "main");
+        if (!mounted) return;
+        setUser(u);
+        setCognitive(u?.cognitive);
+      } catch (e) {
+        // non-fatal - keep UI working
+        console.warn("Failed to load user", e);
+      }
+    }
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function submit() {
     if (!answer) return;

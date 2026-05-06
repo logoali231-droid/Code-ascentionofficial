@@ -28,7 +28,13 @@ export default function ErrorsPage() {
     setSelected(err);
 
     const user = await get("user", "main");
-    const course = await get("courses", user.activeCourse);
+    // attempt to read course by keyed record, fall back to array storage
+    let course = await get("courses", user.activeCourse);
+    if (!course) {
+      const all = (await get("courses", "all")) || (await getAll("courses")) || [];
+      const arr = Array.isArray(all) ? all : all || [];
+      course = arr.find((c: any) => c.id === user.activeCourse);
+    }
 
     const exp = await explainError({
       question: err.question,

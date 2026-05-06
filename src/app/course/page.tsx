@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { get, save } from "@/lib/db";
+import { get, save, getAll } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
 import { generateReinforcement } from "@/lib/reinforce";
@@ -42,8 +42,9 @@ export default function CoursePage() {
 
     if (!activeCourseId) return;
 
-    const courses = (await get("courses", "all")) || [];
-    const found = courses.find((c: any) => c.id === activeCourseId);
+  const rawCourses = (await get("courses", "all")) || (await getAll("courses")) || [];
+  const courses = Array.isArray(rawCourses) ? rawCourses : rawCourses || [];
+  const found = courses.find((c: any) => c.id === activeCourseId);
 
     if (found) {
       setCourse(found);
@@ -161,11 +162,10 @@ export default function CoursePage() {
       currentExercise: nextExercise,
     };
 
-    const courses = (await get("courses", "all")) || [];
+    const rawCourses2 = (await get("courses", "all")) || (await getAll("courses")) || [];
+    const courses2 = Array.isArray(rawCourses2) ? rawCourses2 : rawCourses2 || [];
 
-    const newCourses = courses.map((c: any) =>
-      c.id === course.id ? updated : c
-    );
+    const newCourses = courses2.map((c: any) => (c.id === course.id ? updated : c));
 
     await save("courses", newCourses);
 
