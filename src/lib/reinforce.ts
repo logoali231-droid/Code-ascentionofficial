@@ -21,10 +21,8 @@ export async function generateReinforcement(error: any, course: any) {
   const prompt = `
 Create a new exercise based on a mistake.
 
-COURSE CONTEXT:
-- Topic: ${topic}
-- Level: ${level}
-- Lesson: ${currentLesson?.title || "unknown"}
+LEARNING STYLE:
+${course?.stylePrompt || "Clear explanation"}
 
 TARGET DIFFICULTY: ${difficulty}
 
@@ -38,11 +36,9 @@ CORRECT ANSWER:
 ${error.correct}
 
 RULES:
+- Follow LEARNING STYLE
 - Focus on the mistake
-- Stay inside the COURSE CONTEXT
-- Do NOT introduce unrelated concepts
-- Match difficulty to TARGET DIFFICULTY
-- Slightly harder if user improving
+- Match difficulty
 - Return JSON
 `;
 

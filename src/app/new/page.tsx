@@ -13,63 +13,56 @@ export default function NewCourse() {
   const [cognitive, setCognitive] = useState("standard");
   const [base, setBase] = useState("");
   const [stylePrompt, setStylePrompt] = useState("");
-
+  const id = crypto.randomUUID();
   const router = useRouter();
+  
 
-  async function create() {
-    const data = await generateLessons({
-      topic,
-      style,
-      level,
-      cognitive,
-      userBase: base,
-      stylePrompt,
-    });
+async function create() {
+  const data = await generateLessons({
+    topic,
+    style,
+    level,
+    cognitive,
+    userBase: base,
+    stylePrompt,
+  });
 
-    const course = {
-      id: Date.now(),
-      topic,
-      style,
-      level,
-      cognitive,
-      difficulty,
+  // ✅ ONE ID ONLY
+  const courseId = crypto.randomUUID();
 
+  const course = {
+    id: courseId,
+    topic,
+    style,
+    level,
+    cognitive,
+    difficulty,
+    stylePrompt,
 
-      currentLesson: 0,
-      currentExercise: 0,
+    currentLesson: 0,
+    currentExercise: 0,
 
-      lessons: data.lessons || [],
-    };
+    lessons: data.lessons || [],
+  };
 
-    const existing = (await get("courses", "all")) || [];
+  // ✅ LOAD EXISTING COURSES
+  const existing = (await get("courses", "all")) || [];
 
-    await save("courses", [course, ...existing], "all");
+  // ✅ SAVE COURSES (ONLY ONCE)
+  await save("courses", [...existing, course]);
 
-    await save("user", {
-      ...(await get("user", "main")),
-      cognitive: cognitive,
-      style: style,
-    });
-    const user = await get("user", "main");
+  // ✅ UPDATE USER
+  const user = (await get("user", "main")) || {};
 
-    await save("user", {
-      ...user,
-      activeCourse: course.id,
-    });
-    await save("courses", [
-      ...existing,
-      {
-        id,
-        topic,
-        level,
-        difficulty,
-        lessons: data.lessons,
-        stylePrompt, // 🧠 SAVE IT
-      },
-    ]);
-    router.push("/hub");
-  }
+  await save("user", {
+    ...user,
+    cognitive,
+    style,
+    activeCourse: courseId,
+  });
 
+  router.push("/hub");
+}
   return (
     <div>
       <input placeholder="Topic" onChange={(e) => setTopic(e.target.value)} />

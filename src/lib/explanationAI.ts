@@ -27,6 +27,8 @@ export async function generateExplanationAI({
 const prompt = `
 You are an adaptive programming tutor.
 
+You MUST strictly follow the user's learning style.
+
 LEARNING STYLE:
 ${course?.stylePrompt || "Explain clearly"}
 
@@ -41,10 +43,9 @@ ${JSON.stringify(history)}
 
 RULES:
 - Follow LEARNING STYLE strictly
-- Adapt explanation to user preference
+- Adapt explanation tone, depth, and examples
 - Avoid hallucination
 `;
-
   return await generate(prompt);
 }
 
@@ -84,8 +85,8 @@ ${profile.level}
 PROFILE:
 ${profile.cognitive}
 
-STYLE:
-${profile.explanationType}
+LEARNING STYLE:
+${course?.stylePrompt || "Explain clearly"}
 
 LIKELY WEAK AREA:
 ${relatedWeakness}

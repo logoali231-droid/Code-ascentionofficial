@@ -137,27 +137,24 @@ export default function CoursePage() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setTab("practice")}
-          className={`flex-1 p-2 rounded ${
-            tab === "practice" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "practice" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Practice
         </button>
 
         <button
           onClick={() => setTab("theory")}
-          className={`flex-1 p-2 rounded ${
-            tab === "theory" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "theory" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Theory
         </button>
 
         <button
           onClick={() => setTab("errors")}
-          className={`flex-1 p-2 rounded ${
-            tab === "errors" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 p-2 rounded ${tab === "errors" ? "bg-blue-600" : "bg-slate-700"
+            }`}
         >
           Fix
         </button>
@@ -182,7 +179,7 @@ export default function CoursePage() {
       )}
 
       {/* ERRORS */}
-      {tab === "errors" && <ErrorsTab />}
+      {tab === "errors" && <ErrorsTab course={course} />}
     </div>
   );
 }
@@ -191,7 +188,7 @@ export default function CoursePage() {
 /* ERRORS TAB COMPONENT */
 /* ===================== */
 
-function ErrorsTab() {
+function ErrorsTab({ course }: any) {
   const [errors, setErrors] = useState<any[]>([]);
   const [aiExplanations, setAiExplanations] = useState<Record<number, string>>(
     {}
@@ -209,7 +206,10 @@ function ErrorsTab() {
     // ⚡ parallel AI
     const results = await Promise.all(
       last.map((err) =>
-        explainError(err).catch(() => "Failed to explain.")
+        explainError({
+          ...err,
+          course, // 👈 THIS IS THE MAGIC LINE
+        }).catch(() => "Failed to explain.")
       )
     );
 

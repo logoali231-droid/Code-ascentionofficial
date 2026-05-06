@@ -8,55 +8,34 @@
  * @param {string} [input.userBase] - Base de conhecimento opcional do usuário.
  * @returns {string} O prompt gerado para a IA.
  */
-export function buildCoursePrompt(input: {
-  topic: string;
-  style: string;
-  level: string;
-  cognitive: string;
-  userBase?: string;
-}) {
+export function buildCoursePrompt(config: any) {
   return `
-You are an adaptive AI teacher.
+Create a programming course.
 
-STRICT RULES:
-- NEVER hallucinate
-- If topic is unknown, USE ONLY provided user base and directly related topics
-- Generate valid JSON only
+TOPIC: ${config.topic}
+LEVEL: ${config.level}
+DIFFICULTY: ${config.difficulty}
 
-USER:
-Topic: ${input.topic}
-Explanation style: ${input.style}
-Skill: ${input.level}
-Cognitive: ${input.cognitive}
+LEARNING STYLE:
+${config.stylePrompt || "Explain clearly"}
 
-USER BASE (optional):
-${input.userBase || "None"}
+${config.userBase ? `BASE MATERIAL:\n${config.userBase}` : ""}
 
-TASK:
-Generate structured lessons.
+RULES:
+- Follow LEARNING STYLE strictly
+- If base material exists, use ONLY it
+- Do not hallucinate
+- Return structured JSON
 
+FORMAT:
 {
   "lessons": [
     {
-      "title": "",
-      "theory": "",
-      "difficulty": 1-10,
-      "exercises": [
-        {
-          "type": "mcq | ordering | short",
-          "question": "",
-          "options": [],
-          "answer": ""
-        }
-      ]
+      "title": "...",
+      "explanation": "...",
+      "exercises": [...]
     }
   ]
 }
-
-RULES:
-- If topic unknown → rely ONLY on USER BASE
-- Keep progression logical
-- Exercises must test reasoning
-- Explanation MUST follow style exactly
 `;
 }
