@@ -32,6 +32,9 @@ You MUST strictly follow the user's learning style.
 LEARNING STYLE:
 ${course?.stylePrompt || "Explain clearly"}
 
+USER LEVEL:
+${profile.level}
+
 LESSON:
 ${lesson.title}
 
@@ -45,6 +48,9 @@ RULES:
 - Follow LEARNING STYLE strictly
 - Adapt explanation tone, depth, and examples
 - Avoid hallucination
+- beginner → simple language, no jargon
+- intermediate → moderate detail
+- advanced → precise, technical
 `;
   return await generate(prompt);
 }

@@ -16,6 +16,7 @@ TOPIC: ${config.topic}
 LEVEL: ${config.level}
 DIFFICULTY: ${config.difficulty}
 
+
 LEARNING STYLE:
 ${config.stylePrompt || "Explain clearly"}
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { get, save } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
+import { generateReinforcement } from "@/lib/reinforce";
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
@@ -71,39 +72,55 @@ export default function CoursePage() {
   }
 
   async function handleNext(correct: boolean) {
-    if (!course) return;
+  if (!course) return;
 
-    let nextExercise = currentExercise + 1;
-    let nextLesson = currentLesson;
+  const lessonData = course.lessons[currentLesson];
+  const exercise = lessonData.exercises[currentExercise];
 
-    const lessonData = course.lessons[currentLesson];
-    const endOfLesson = nextExercise >= lessonData.exercises.length;
-
-    if (endOfLesson) {
-      nextLesson += 1;
-      nextExercise = 0;
-    }
-
-    const updated = {
-      ...course,
-      currentLesson: nextLesson,
-      currentExercise: nextExercise,
-    };
-
-    const courses = (await get("courses", "all")) || [];
-
-    const newCourses = courses.map((c: any) =>
-      c.id === course.id ? updated : c
+  // 🧠 IF WRONG → GENERATE REINFORCEMENT
+  if (!correct) {
+    const newExercise = await generateReinforcement(
+      {
+        ...exercise,
+        userAnswer: exercise.userAnswer || "",
+      },
+      course
     );
 
-    await save("courses", newCourses);
-
-    setCourse(updated);
-    setCurrentLesson(nextLesson);
-    setCurrentExercise(nextExercise);
-
-    await loadExplanation(updated, nextLesson);
+    // inject right after current exercise
+    lessonData.exercises.splice(currentExercise + 1, 0, newExercise);
   }
+
+  let nextExercise = currentExercise + 1;
+  let nextLesson = currentLesson;
+
+  const endOfLesson = nextExercise >= lessonData.exercises.length;
+
+  if (endOfLesson) {
+    nextLesson += 1;
+    nextExercise = 0;
+  }
+
+  const updated = {
+    ...course,
+    currentLesson: nextLesson,
+    currentExercise: nextExercise,
+  };
+
+  const courses = (await get("courses", "all")) || [];
+
+  const newCourses = courses.map((c: any) =>
+    c.id === course.id ? updated : c
+  );
+
+  await save("courses", newCourses);
+
+  setCourse(updated);
+  setCurrentLesson(nextLesson);
+  setCurrentExercise(nextExercise);
+
+  await loadExplanation(updated, nextLesson);
+}
 
   if (!course) {
     return <div className="p-4 text-center">No active course</div>;
