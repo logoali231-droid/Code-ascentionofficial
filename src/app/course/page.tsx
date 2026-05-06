@@ -5,6 +5,8 @@ import { get, save } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
 import { generateReinforcement } from "@/lib/reinforce";
+import { updateMemory } from "@/lib/userMemory";
+
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
@@ -72,56 +74,107 @@ export default function CoursePage() {
   }
 
   async function handleNext(correct: boolean) {
-  if (!course) return;
+    if (!course) return;
 
-  const lessonData = course.lessons[currentLesson];
-  const exercise = lessonData.exercises[currentExercise];
-  
 
-  // 🧠 IF WRONG → GENERATE REINFORCEMENT
-  if (!correct) {
-    const newExercise = await generateReinforcement(
-      {
-        ...exercise,
-        userAnswer: exercise.userAnswer || "",
-      },
-      course
+    const lessonData = course.lessons[currentLesson];
+    const exercise = lessonData.exercises[currentExercise];
+    let updatedLessons = [...course.lessons];
+
+    const recentErrors = (await get("errors", "all")) || [];
+
+    const sameQuestionErrors = recentErrors.filter(
+      (e: any) => e.question === exercise.question
     );
 
-    // inject right after current exercise
-    lessonData.exercises.splice(currentExercise + 1, 0, newExercise);
+    const tooManyErrorsSameTopic = sameQuestionErrors.length >= 2;
+
+
+    // 🧠 IF WRONG → GENERATE REINFORCEMENT
+    if (!correct) {
+      const newExercise = await generateReinforcement(
+        {
+          ...exercise,
+          userAnswer: exercise.userAnswer || "",
+          difficulty: tooManyErrorsSameTopic ? 0.5 : 1, // 👈 easier if stuck
+        },
+        course
+      );
+
+      updatedLessons[currentLesson] = {
+        ...updatedLessons[currentLesson],
+        exercises: [
+          ...updatedLessons[currentLesson].exercises.slice(0, currentExercise + 1),
+          newExercise,
+          ...updatedLessons[currentLesson].exercises.slice(currentExercise + 1),
+        ],
+      };
+    }
+
+    const errorEntry = {
+      question: exercise.question,
+      correct: exercise.answer,
+      userAnswer: exercise.userAnswer || "",
+      userExplanation: exercise.userExplanation || "",
+      time: Date.now(),
+      lesson: currentLesson,
+      courseId: course.id,
+    };
+
+    const existingErrors = (await get("errors", "all")) || [];
+
+    await save("errors", [...existingErrors, errorEntry]);
+
+    await updateMemory({
+      topic: course.topic,
+      correct,
+      type: "exercise",
+      input: exercise.question,
+    });
+
+    if (correct) {
+      // 🧠 small reward: reduce weakness slightly
+      await updateMemory({
+        topic: course.topic,
+        correct: true,
+        type: "recovery",
+        input: exercise.question,
+      });
+    }
+
+    let nextExercise = currentExercise + 1;
+    let nextLesson = currentLesson;
+
+    const updatedLessonData = updatedLessons[currentLesson];
+
+    const endOfLesson = nextExercise >= updatedLessonData.exercises.length;
+
+    if (endOfLesson) {
+      nextLesson += 1;
+      nextExercise = 0;
+    }
+
+    const updated = {
+      ...course,
+      lessons: updatedLessons,
+      currentLesson: nextLesson,
+      currentExercise: nextExercise,
+    };
+
+    const courses = (await get("courses", "all")) || [];
+
+    const newCourses = courses.map((c: any) =>
+      c.id === course.id ? updated : c
+    );
+
+    await save("courses", newCourses);
+
+    setCourse(updated);
+    setCurrentLesson(nextLesson);
+    setCurrentExercise(nextExercise);
+
+    await loadExplanation(updated, nextLesson);
   }
-
-  let nextExercise = currentExercise + 1;
-  let nextLesson = currentLesson;
-
-  const endOfLesson = nextExercise >= lessonData.exercises.length;
-
-  if (endOfLesson) {
-    nextLesson += 1;
-    nextExercise = 0;
-  }
-
-  const updated = {
-    ...course,
-    currentLesson: nextLesson,
-    currentExercise: nextExercise,
-  };
-
-  const courses = (await get("courses", "all")) || [];
-
-  const newCourses = courses.map((c: any) =>
-    c.id === course.id ? updated : c
-  );
-
-  await save("courses", newCourses);
-
-  setCourse(updated);
-  setCurrentLesson(nextLesson);
-  setCurrentExercise(nextExercise);
-
-  await loadExplanation(updated, nextLesson);
-}
 
   if (!course) {
     return <div className="p-4 text-center">No active course</div>;

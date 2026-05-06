@@ -49,6 +49,16 @@ ${error.correct}
 LEVEL:
 ${course?.level || "beginner"}
 
+WEAKNESSES:
+${JSON.stringify(memory.weaknesses)}
+
+RECENT ERRORS:
+${JSON.stringify(memory.lastErrors.slice(-5))}
+
+
+  "type": "reinforcement",
+  
+
 RULES:
 - Follow LEARNING STYLE
 - Focus on the mistake
@@ -64,6 +74,11 @@ ${user?.cognitive}
 - intermediate → moderate abstraction
 - advanced → use technical language
 - NEVER exceed user level
+- Adjust complexity based on USER LEVEL and RECENT PERFORMANCE
+PREVIOUS ERROR CONTEXT:
+- This is a follow-up exercise
+- Focus ONLY on fixing the exact misunderstanding
+- Do not introduce new concepts
 `;
 
   const res = await generate(prompt);

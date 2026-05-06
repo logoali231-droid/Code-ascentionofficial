@@ -9,11 +9,13 @@ import CodeEditor from "./CodeEditor";
 import { updateDailyProgress } from "@/lib/daily";
 import RewardPopup from "./RewardPopup";
 
-export default function ExerciseRenderer({ exercise, onNext }: any) {
+export default async function ExerciseRenderer({ exercise, onNext }: any) {
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
   const [reward, setReward] = useState("");
+  const user = await get("user", "main");
+  const cognitive = user?.cognitive;
 
   async function submit() {
     if (!answer) return;
@@ -51,14 +53,14 @@ export default function ExerciseRenderer({ exercise, onNext }: any) {
       );
 
       await save("errors", {
-  question: exercise.question,
-  correct: exercise.answer,
-  userAnswer: answer,
-  userExplanation: userExplanation || "",
-  difficulty: exercise.difficulty || 1,
-  type: exercise.type,
-  timestamp: Date.now(),
-});
+        question: exercise.question,
+        correct: exercise.answer,
+        userAnswer: answer,
+        userExplanation: userExplanation || "",
+        difficulty: exercise.difficulty || 1,
+        type: exercise.type,
+        timestamp: Date.now(),
+      });
     }
 
     setFeedback(correct);

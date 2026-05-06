@@ -1,21 +1,20 @@
-
 /* cognitive profiles */
 
-body[data-profile="ADHD_Focus"] {
-  font-size: 20px;
-}
 
-body[data-profile="Visual_Logic"] {
-  filter: contrast(1.2);
-}
 
-body[data-profile="Deep_Dive"] {
-  line-height: 1.8;
-}
+
+
+
+
 /* 🔥 ADHD */
 body[data-profile="ADHD_Focus"] {
   font-size: 18px;
-  line-height: 1.6;
+  line-height: 1.7;
+}
+
+body[data-profile="ADHD_Focus"] button {
+  padding: 14px;
+  font-size: 16px;
 }
 
 /* 🧠 DEEP DIVE */
@@ -24,13 +23,20 @@ body[data-profile="Deep_Dive"] {
   line-height: 1.8;
 }
 
+
+
 /* 🎨 VISUAL LOGIC */
 body[data-profile="Visual_Logic"] {
   background: #0f172a;
   color: #e2e8f0;
+  filter: contrast(1.2);
+  letter-spacing: 0.5px;
 }
+
+
 
 /* ⚙ STANDARD */
 body[data-profile="Standard"] {
   font-size: 16px;
+
 }

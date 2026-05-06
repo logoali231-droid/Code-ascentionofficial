@@ -12,7 +12,7 @@ export async function generateExplanationAI({
 }: any) {
   const profile = await getUserProfile();
   const memory = await getMemory();
-
+  
   const userErrors = memory.lastErrors || [];
 
   const recentLessons =
@@ -44,6 +44,11 @@ ${lesson.explanation}
 HISTORY:
 ${JSON.stringify(history)}
 
+WEAKNESSES:
+${JSON.stringify(memory.weaknesses)}
+
+RECENT ERRORS:
+${JSON.stringify(memory.lastErrors.slice(-5))}
 RULES:
 - Follow LEARNING STYLE strictly
 - Adapt explanation tone, depth, and examples
