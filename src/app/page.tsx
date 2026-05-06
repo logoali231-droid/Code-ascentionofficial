@@ -9,6 +9,7 @@ export default function Login() {
   const router = useRouter();
 
   async function handleLogin() {
+    
     const existing = await get("user", "main");
 
     if (!existing) {
