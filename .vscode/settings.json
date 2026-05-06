@@ -1,5 +1,8 @@
 {
     "problems.showCurrentInStatus": true,
     "dart.showTodos": false
-}
+    ,
+    "files.associations": {
+        "*.css": "postcss"
+    }
 }
