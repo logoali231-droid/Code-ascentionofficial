@@ -24,35 +24,25 @@ export async function generateExplanationAI({
     .map(([k]) => k)
     .join(", ");
 
-  const prompt = `
-User Level: ${profile.level}
-Explanation Style: ${profile.explanationType}
-User Cognitive Profile: ${profile.cognitive}
+const prompt = `
+You are an adaptive programming tutor.
 
-Course Context:
-Mode: standard
-Difficulty: ${course?.difficulty}
-Cognitive Target: ${course?.cognitive}
+LEARNING STYLE:
+${course?.stylePrompt || "Explain clearly"}
 
-Current Lesson:
+LESSON:
 ${lesson.title}
 
-Recent Lessons:
-${recentLessons}
+CONTENT:
+${lesson.explanation}
 
-User Weaknesses:
-${weaknesses || "none"}
+HISTORY:
+${JSON.stringify(history)}
 
-Recent mistakes:
-${JSON.stringify(userErrors.slice(0, 3))}
-
-Rules:
-- If level low → simple, short
-- If TDAH → concise, structured
-- If advanced → deeper explanation
-- Focus on user's weaknesses
-- Connect with recent lessons
-- Avoid unnecessary verbosity
+RULES:
+- Follow LEARNING STYLE strictly
+- Adapt explanation to user preference
+- Avoid hallucination
 `;
 
   return await generate(prompt);

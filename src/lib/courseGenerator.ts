@@ -18,8 +18,9 @@ export async function generateCourse({
   level,
   difficulty,
   baseMaterial,
+  stylePrompt
 }: any) {
-  const prompt = `
+const prompt = `
 Create a programming course.
 
 TOPIC: ${topic}
@@ -27,34 +28,16 @@ STYLE: ${style}
 LEVEL: ${level}
 DIFFICULTY: ${difficulty}
 
+LEARNING STYLE:
+${stylePrompt || "Explain clearly and simply"}
+
 ${baseMaterial ? `BASE MATERIAL:\n${baseMaterial}` : ""}
 
 RULES:
+- Follow the LEARNING STYLE strictly
 - If base material exists, use ONLY it
 - Do not invent unknown facts
 - Create structured JSON
-
-FORMAT:
-{
-  "lessons": [
-    {
-      "title": "...",
-      "explanation": "...",
-      "exercises": [
-        {
-          "type": "mcq | short | code",
-          "question": "...",
-          "answer": "...",
-          "options": []
-        }
-      ]
-    }
-  ]
-}
-
-- Generate multiple lessons
-- Each lesson must have 3-5 exercises
-- Mix exercise types
 `;
 
   const res = await generate(prompt);

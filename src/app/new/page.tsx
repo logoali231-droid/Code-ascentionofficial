@@ -12,6 +12,7 @@ export default function NewCourse() {
   const [difficulty, setDifficulty] = useState("easy");
   const [cognitive, setCognitive] = useState("standard");
   const [base, setBase] = useState("");
+  const [stylePrompt, setStylePrompt] = useState("");
 
   const router = useRouter();
 
@@ -22,6 +23,7 @@ export default function NewCourse() {
       level,
       cognitive,
       userBase: base,
+      stylePrompt,
     });
 
     const course = {
@@ -31,6 +33,7 @@ export default function NewCourse() {
       level,
       cognitive,
       difficulty,
+
 
       currentLesson: 0,
       currentExercise: 0,
@@ -53,7 +56,17 @@ export default function NewCourse() {
       ...user,
       activeCourse: course.id,
     });
-
+    await save("courses", [
+      ...existing,
+      {
+        id,
+        topic,
+        level,
+        difficulty,
+        lessons: data.lessons,
+        stylePrompt, // 🧠 SAVE IT
+      },
+    ]);
     router.push("/hub");
   }
 
@@ -90,6 +103,12 @@ export default function NewCourse() {
         <option>Deep_Dive</option>
         <option>Visual_Logic</option>
       </select>
+      <textarea
+        placeholder="How should the AI teach you? (e.g. explain like I'm 5, very technical, step-by-step...)"
+        className="w-full p-2 rounded bg-slate-800 mt-3"
+        value={stylePrompt}
+        onChange={(e) => setStylePrompt(e.target.value)}
+      />
 
       <button onClick={create}>Forge Course</button>
     </div>
