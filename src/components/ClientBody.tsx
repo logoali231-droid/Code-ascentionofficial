@@ -11,7 +11,6 @@ export default function ClientBody({ children }: any) {
   useEffect(() => {
     async function load() {
       const user = await get("user", "main");
-
       if (!user) return;
 
       setProfile(user.cognitive || "Standard");
@@ -30,7 +29,7 @@ export default function ClientBody({ children }: any) {
     load();
   }, [router]);
 
-  // ✅ APPLY PROFILE TO REAL BODY
+  // 🎯 APPLY PROFILE SAFELY
   useEffect(() => {
     document.body.setAttribute("data-profile", profile);
   }, [profile]);

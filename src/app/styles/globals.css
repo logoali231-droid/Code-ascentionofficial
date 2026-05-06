@@ -1,64 +1,80 @@
-/* cognitive profiles */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 
+html, body {
+  margin: 0;
+  padding: 0;
+}
+/* ===================== */
+/* GLOBAL BASE OVERRIDE */
+/* ===================== */
 
+body {
+  @apply bg-slate-900 text-white transition-all duration-200;
+}
 
+/* ===================== */
+/* 🔥 ADHD MODE */
+/* ===================== */
 
-
-
-/* 🔥 ADHD */
 body[data-profile="ADHD_Focus"] {
-  font-size: 18px;
-  line-height: 1.7;
+  font-size: 18px !important;
+  line-height: 1.7 !important;
 }
 
 body[data-profile="ADHD_Focus"] button {
-  padding: 14px;
-  font-size: 16px;
+  padding: 16px !important;
+  font-size: 16px !important;
 }
 
 body[data-profile="ADHD_Focus"] .secondary {
-  display: none;
+  display: none !important;
 }
 
 body[data-profile="ADHD_Focus"] .card {
-  margin-bottom: 20px;
+  margin-bottom: 20px !important;
+  padding: 18px !important;
 }
 
+/* ===================== */
 /* 🧠 DEEP DIVE */
+/* ===================== */
+
 body[data-profile="Deep_Dive"] {
-  font-size: 14px;
-  line-height: 1.8;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
 }
 
 body[data-profile="Deep_Dive"] .collapsed {
-  display: block;
+  display: block !important;
 }
 
-
-
+/* ===================== */
 /* 🎨 VISUAL LOGIC */
+/* ===================== */
+
 body[data-profile="Visual_Logic"] {
-  background: #0f172a;
-  color: #e2e8f0;
-  filter: contrast(1.2);
-  letter-spacing: 0.5px;
+  background: #020617 !important;
+  color: #e2e8f0 !important;
+  letter-spacing: 0.6px !important;
 }
 
 body[data-profile="Visual_Logic"] .card {
-  border: 2px solid #38bdf8;
+  border: 2px solid #38bdf8 !important;
+  box-shadow: 0 0 10px #38bdf822;
 }
 
 body[data-profile="Visual_Logic"] button {
-  border-radius: 12px;
+  border-radius: 14px !important;
+  border: 1px solid #38bdf8 !important;
 }
 
+/* ===================== */
 /* ⚙ STANDARD */
+/* ===================== */
+
 body[data-profile="Standard"] {
   font-size: 16px;
-
 }
