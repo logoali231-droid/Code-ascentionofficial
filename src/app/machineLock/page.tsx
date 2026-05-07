@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Database
 } from "lucide-react";
+import { initEngine, AVAILABLE_MODELS } from "@/lib/webllm";
 
 // Lista movida para dentro do escopo ou declarada sem export para não quebrar o Next.js
 const AVAILABLE_MODELS = [
