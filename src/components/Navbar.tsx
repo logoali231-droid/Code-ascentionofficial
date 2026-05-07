@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { get } from "@/lib/db";
+import { calculateLevel } from "@/lib/level";
 import {
   Home,
   BookOpen,
@@ -16,96 +18,89 @@ import {
 import SoundButton from "./SoundButton";
 
 export default function Navbar() {
-  
-  const [cognitive, setCognitive] = useState("Standard");
-  const [coins, setCoins] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [level, setLevel] = useState(0);
-  const [activeCourse, setActiveCourse] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
-  const [ready, setReady] = useState(false)
-
+  const pathname = usePathname();
+  const [userData, setUserData] = useState<{
+    coins: number;
+    streak: number;
+    xp: number;
+    activeCourse: string | null;
+    cognitive: string;
+    engineReady: boolean;
+  } | null>(null);
 
   useEffect(() => {
     load();
-
-    // 🔁 auto refresh (important for reactivity)
-    const interval = setInterval(load, 15000);
-
+    const interval = setInterval(load, 5000); // Refresh mais rápido para melhor feedback
     return () => clearInterval(interval);
   }, []);
 
   async function load() {
     const user = await get("user", "main");
-
-    if (!user) return;
-
-    // ✅ FIX: correct source of coins
-    setCoins(user?.coins || 0);
-
-    setStreak(user?.streak || 0);
-
-    // ✅ LEVEL SYSTEM
-    const lvl = Math.max(1, Math.floor((xp || 0) / 100));
-    setLevel(lvl);
-
-    // ✅ ACTIVE COURSE
-    setActiveCourse(user?.activeCourse || null);
-
-
-
-    // ✅ LOCK STATE
-    
-
-    setCognitive(user?.cognitive || "Standard");
-
-    setLocked(!user?.engineReady);
+    if (user) {
+      setUserData(user);
+    }
   }
 
+  const level = calculateLevel(userData?.xp || 0);
+
+  // Helper para estilizar links ativos
+  const navLink = (href: string, Icon: any) => {
+    const isActive = pathname === href;
+    return (
+      <Link href={href} className={`transition-colors ${isActive ? "text-cyan-400" : "text-slate-400 hover:text-white"}`}>
+        <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+      </Link>
+    );
+  };
+
   return (
-    <SoundButton />
-    <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 p-2">
-
-      {/* STATUS BAR */}
-      <div className="flex justify-between text-xs mb-1 px-2">
-
-        {/* 🔥 STREAK */}
-        <span className="flex items-center gap-1 text-orange-400">
-          <Flame size={14} /> {streak}
-        </span>
-
-        {/* 💰 COINS */}
-        <span className="flex items-center gap-1 text-yellow-400">
-          <Coins size={14} /> {coins}
-        </span>
-
-        {/* ⭐ LEVEL */}
-        <span className="text-green-400">
-          Lv {level}
-        </span>
-      </div>
-
-      {/* ACTIVE COURSE INDICATOR */}
-      {activeCourse && (
-        <div className="text-[10px] text-center text-blue-400">
-          📘 {activeCourse} • 🧠 {cognitive}
+    <>
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-md border-t border-slate-800 p-2 z-50">
+        
+        {/* STATUS BAR SUPERIOR */}
+        <div className="flex justify-between items-center text-[10px] mb-2 px-4 font-mono tracking-tighter">
+          <div className="flex gap-3">
+            <span className="flex items-center gap-1 text-orange-500">
+              <Flame size={12} fill="currentColor" /> {userData?.streak || 0}
+            </span>
+            <span className="flex items-center gap-1 text-yellow-500">
+              <Coins size={12} fill="currentColor" /> {userData?.coins || 0}
+            </span>
+          </div>
+          
+          <div className="flex gap-3 items-center">
+            {userData?.activeCourse && (
+              <span className="text-blue-400 truncate max-w-[100px]">
+                {userData.activeCourse}
+              </span>
+            )}
+            <span className="bg-slate-800 px-2 py-0.5 rounded text-green-400 border border-green-900/50">
+              LV {level}
+            </span>
+          </div>
         </div>
-      )}
 
-      {/* NAV */}
-      <div className="flex justify-around text-xs">
+        {/* NAV PRINCIPAL */}
+        <div className="flex justify-around items-center pb-1">
+          {navLink("/hub", Home)}
+          {navLink("/course", BookOpen)}
+          {navLink("/new", Brain)}
+          {navLink("/shop", ShoppingCart)}
+          {navLink("/vault", Vault)}
+          {navLink("/profile", User)}
+          <SoundButton />
+        </div>
 
-        <Link href="/hub">
-          <Home />
-        </Link>
-
-        <Link href="/course">
-          <BookOpen />
-        </Link>
-
-        <Link href="/new">
-          <Brain />
-        </Link>
+        {/* ALERTA DE ENGINE */}
+        {!userData?.engineReady && (
+          <div className="text-[8px] text-center text-red-500/70 animate-pulse uppercase tracking-widest mt-1">
+            Core Engine Offline
+          </div>
+        )}
+      </div>
+    </>
+  );
+}        </Link>
 
         <Link href="/shop">
           <ShoppingCart />
