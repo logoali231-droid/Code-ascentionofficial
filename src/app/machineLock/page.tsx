@@ -5,38 +5,38 @@ import { initEngine } from "@/lib/webllm";
 import { Cpu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const models = [
-  { 
-    id: "Phi-3.5-mini-instruct-q4f16_1-MLC", 
-    name: "Phi-3.5-mini", 
-    desc: "Melhor para lógica (Recomendado para o M23)" 
+// Adicionada a propriedade 'desc' para resolver o erro de tipo
+export const modelList = [
+  {
+    id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    name: "Phi 3.5",
+    desc: "Modelo leve e rápido, ideal para dispositivos com menos memória."
   },
-  { 
-    id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", 
-    name: "Llama-3.2-1B", 
-    desc: "O mais leve e rápido" 
+  {
+    id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+    name: "Llama 3.2",
+    desc: "Equilíbrio perfeito entre inteligência e velocidade de resposta."
   },
-  { 
-    id: "gemma-2-2b-it-q4f16_1-MLC", 
-    name: "Gemma-2-2B", 
-    desc: "Boa escrita criativa" 
+  {
+    id: "gemma-2-2b-it-q4f16_1-MLC",
+    name: "Gemma 2",
+    desc: "Alta precisão para tarefas complexas de codificação."
   }
 ];
 
 export default function MachineLock() {
-  // Alterado para usar o ID como valor de referência
-  const [selectedId, setSelectedId] = useState(models[0].id); 
+  const [selectedId, setSelectedId] = useState(modelList[0].id); 
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
   async function start() {
-    if (loading) return; // Evita iniciar dois downloads ao mesmo tempo
+    if (loading) return;
     setLoading(true);
 
     try {
-      // Agora passamos o ID técnico correto para a biblioteca
+      // Inicializa o motor WebLLM com o ID selecionado
       await initEngine(selectedId, (p: any) => {
         setProgress(Math.floor(p.progress * 100));
       });
@@ -56,7 +56,7 @@ export default function MachineLock() {
       </h1>
 
       <div className="space-y-3">
-        {models.map((m) => (
+        {modelList.map((m) => (
           <div
             key={m.id}
             onClick={() => !loading && setSelectedId(m.id)}
@@ -67,6 +67,7 @@ export default function MachineLock() {
             } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <h3 className="font-semibold">{m.name}</h3>
+            {/* Agora a propriedade m.desc é reconhecida pelo TypeScript */}
             <p className="text-sm text-slate-400">{m.desc}</p>
           </div>
         ))}

@@ -13,8 +13,10 @@ import {
   Flame,
   Coins
 } from "lucide-react";
+import SoundButton from "./SoundButton";
 
 export default function Navbar() {
+  <SoundButton />
   const [cognitive, setCognitive] = useState("Standard");
   const [coins, setCoins] = useState(0);
   const [streak, setStreak] = useState(0);

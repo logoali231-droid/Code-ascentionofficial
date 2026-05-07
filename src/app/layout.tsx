@@ -1,21 +1,20 @@
-import Navbar from "@/components/Navbar";
-import "./styles/globals.css";
+import "@/app/styles/globals.css";
 import ClientBody from "@/components/ClientBody";
 
 export const metadata = {
-  title: "Code Ascent",
-  description: "Adaptive AI learning",
-  manifest: "/manifest.json",
+  title: "Code Ascension",
+  description: "Code Ascension official app",
 };
 
-export default function RootLayout({ children }: any) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="pt">
       <body>
-        <ClientBody>
-          <Navbar />
-          {children}
-        </ClientBody>
+        <ClientBody>{children}</ClientBody>
       </body>
     </html>
   );

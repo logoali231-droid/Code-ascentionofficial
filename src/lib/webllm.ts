@@ -2,6 +2,8 @@
 
 import * as webllm from "@mlc-ai/web-llm";
 import { get, save } from "@/lib/db";
+import { playSound } from "./sounds";
+
 
 let engine: any = null;
 let loadingPromise: Promise<any> | null = null;
@@ -85,29 +87,23 @@ export function resetEngine() {
 function trimMessages(messages: any[], max: number) {
   return messages.slice(-max);
 }
-
-export async function generate(
-  prompt: string,
-  history: { role: string; content: string }[] = []
-) {
+export async function generate(prompt: string) {
   const eng = getEngine();
-  const config = getConfig();
 
-  const messages = [
-    ...trimMessages(history, config.maxHistory),
-    { role: "user", content: prompt },
-  ];
+  playSound("click", 0.2);
 
   try {
     const res = await eng.chat.completions.create({
-      messages,
-      max_tokens: config.maxTokens,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 350,
       temperature: 0.7,
     });
 
-    return res?.choices?.[0]?.message?.content || "";
+    playSound("success", 0.35);
+
+    return res.choices[0].message.content;
   } catch (err) {
-    console.error("Generation error:", err);
+    playSound("error", 0.4);
     throw err;
   }
 }

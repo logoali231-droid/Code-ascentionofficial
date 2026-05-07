@@ -1,41 +1,43 @@
-// src/lib/sounds.ts
+"use client";
 
-type SoundType = 
-  | 'correct' 
-  | 'wrong' 
-  | 'click' 
-  | 'streak' 
-  | 'levelup' 
-  | 'purchase' 
-  | 'start_lesson' 
-  | 'lesson_finish' 
-  | 'lock' 
-  | 'claim' 
-  | 'error' 
-  | 'ai_message';
+const cache: Record<string, HTMLAudioElement> = {};
 
-export function playAudio(soundName: SoundType) {
-  if (typeof window === 'undefined') return; // Executa apenas no cliente
+let enabled = true;
 
-  try {
-    const audio = new Audio(`/sounds/${soundName}.mp3`);
-    audio.volume = 0.5; // Ajuste o volume de 0.0 a 1.0 conforme necessário
-    audio.play().catch((err) => {
-      console.warn('Erro ao tentar reproduzir o áudio:', err);
-    });
-  } catch (error) {
-    console.error('Falha ao inicializar o áudio:', error);
-  }
+// 🎧 mapa dos sons reais
+const soundMap: Record<string, string> = {
+  click: "/sounds/mixkit-cool-interface-click-tone-2568.mp3",
+  success: "/sounds/success.mp3",
+  error: "/sounds/error.mp3",
+};
+
+export function setSoundEnabled(value: boolean) {
+  enabled = value;
 }
 
+export function isSoundEnabled() {
+  return enabled;
+}
 
-export function vibrateDevice(pattern: number | number[] = 200) {
-  if (typeof window === 'undefined' || !navigator.vibrate) return;
+export function playSound(
+  name: keyof typeof soundMap,
+  volume = 0.5
+) {
+  if (!enabled) return;
 
   try {
-    // Vibra o dispositivo pelo tempo ou padrão especificado (em milissegundos)
-    navigator.vibrate(pattern);
-  } catch (error) {
-    console.error('Falha ao tentar vibrar o dispositivo:', error);
+    if (!cache[name]) {
+      cache[name] = new Audio(soundMap[name]);
+    }
+
+    const audio = cache[name];
+
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = volume;
+
+    audio.play().catch(() => {});
+  } catch (err) {
+    console.warn("Sound error:", err);
   }
 }
