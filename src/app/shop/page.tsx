@@ -20,7 +20,11 @@ export default function ShopPage() {
 
   async function load() {
     const u = await get("user", "main");
-    const generated = (await getAll("shop")) || [];
+    const raw = await getAll("shop");
+
+const generated = Array.isArray(raw)
+  ? raw
+  : [];
     setUser(u);
     // Remove duplicados por ID caso existam
     const combined = [...generated, ...baseItems];
@@ -39,8 +43,10 @@ export default function ShopPage() {
   return;
       }
       const generated = await generateAIItem(input);
+			setLastForge(Date.now());
       const newItem = {
         ...generated,
+				setLastForge(Date.now());
         id: generated.id || `ai-${Date.now()}`,
         fake: true, // Tag para identificar itens criados por IA
       };
@@ -67,7 +73,7 @@ export default function ShopPage() {
     }
   }
 
-  const level = Math.floor((user?.xp || 0) / 100);
+  const level = Math.max(1, Math.floor((xp || 0) / 100));
 
   return (
     <div className="p-4 pb-24 space-y-4 max-w-2xl mx-auto">
