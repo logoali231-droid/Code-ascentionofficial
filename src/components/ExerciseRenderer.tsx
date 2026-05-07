@@ -1,111 +1,179 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { evaluate } from "@/lib/evaluator";
-import { updateUser, updateMemory } from "@/lib/userMemory";
-import { get, save } from "@/lib/db";
-import { updateStreak } from "@/lib/streak";
-import CodeEditor from "./CodeEditor";
-import { updateDailyProgress } from "@/lib/daily";
-import RewardPopup from "./RewardPopup";
-import { playSound } from "@/lib/useSound";
+import { useState, useEffect, useRef } from "react";
+import { playSound } from "@/lib/sounds";
+import { addXP } from "@/lib/economy";
+import { CheckCircle2, XCircle, Zap, Shield, Target, Terminal, Code2 } from "lucide-react";
 
-export default function ExerciseRenderer({ exercise, onNext, course }: any) {
-  const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<null | boolean>(null);
-  const [loading, setLoading] = useState(false);
-  const [reward, setReward] = useState("");
-  const [user, setUser] = useState<any>(null);
-  const [cognitive, setCognitive] = useState("Standard");
+interface ExerciseProps {
+  exercise: {
+    id?: string;
+    type: "mcq" | "code" | "ordering";
+    question: string;
+    codeSnippet?: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+  };
+  rarity?: "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
+  onComplete?: (success: boolean) => void;
+}
 
-  useEffect(() => {
-    let mounted = true;
+export default function ExerciseRenderer({ exercise, rarity = "Common", onComplete }: ExerciseProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "checking" | "success" | "error">("idle");
+  const [revealed, setRevealed] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [glitchText, setGlitchText] = useState(exercise.question);
 
-    async function load() {
-      const u = await get("user", "main");
-      if (!mounted) return;
+  // Efeito visual de Raridade
+  const rarityConfig = {
+    Common: { border: "border-slate-700", bg: "bg-slate-900/50", accent: "text-slate-400", glow: "shadow-none" },
+    Uncommon: { border: "border-green-800", bg: "bg-green-950/20", accent: "text-green-400", glow: "shadow-[0_0_15px_rgba(34,197,94,0.1)]" },
+    Rare: { border: "border-blue-700", bg: "bg-blue-950/20", accent: "text-blue-400", glow: "shadow-[0_0_20px_rgba(59,130,246,0.15)]" },
+    Epic: { border: "border-purple-600", bg: "bg-purple-950/20", accent: "text-purple-400", glow: "shadow-[0_0_25px_rgba(168,85,247,0.2)]" },
+    Legendary: { border: "border-yellow-500", bg: "bg-yellow-950/30", accent: "text-yellow-400", glow: "shadow-[0_0_35px_rgba(234,179,8,0.3)]" }
+  };
 
-      setUser(u);
-      setCognitive(u?.cognitive || "Standard");
-    }
+  const style = rarityConfig[rarity];
 
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const handleCheck = async (option: string) => {
+    if (status === "success" || status === "checking") return;
 
-  async function submit() {
-    if (!answer) return;
+    setSelected(option);
+    setStatus("checking");
+    
+    // Pequeno delay para "simular" processamento neural
+    await new Promise(r => setTimeout(r, 600));
 
-    setLoading(true);
-
-    await updateDailyProgress(1);
-
-    const correct = await evaluate(
-      answer,
-      exercise.answer,
-      exercise.type
-    );
-
-    // 🧠 MEMORY
-    await updateMemory({
-      topic: course?.topic || "general",
-      correct,
-      type: exercise.type,
-      input: answer,
-    });
-
-    await updateUser(correct);
-    await updateStreak();
-
-    if (correct) {
-      playSound("correct", cognitive);
-      setReward("+10 XP");
+    if (option === exercise.answer) {
+      setStatus("success");
+      setRevealed(true);
+      playSound("success", 0.5);
+      await addXP(rarity === "Legendary" ? 50 : 20);
+      if (onComplete) onComplete(true);
     } else {
-      playSound("wrong", cognitive);
-      setReward("Try again");
-
-      const userExplanation = prompt(
-        "What did you try to do? (helps AI explain better)"
-      );
-
-      await save("errors", {
-        question: exercise.question,
-        correct: exercise.answer,
-        userAnswer: answer,
-        userExplanation: userExplanation || "",
-        difficulty: exercise.difficulty || 1,
-        type: exercise.type,
-        timestamp: Date.now(),
-      });
+      setStatus("error");
+      setShake(true);
+      playSound("error", 0.4);
+      setTimeout(() => setShake(false), 500);
+      // Mantém status error por um tempo antes de permitir nova tentativa
+      setTimeout(() => setStatus("idle"), 1000);
+      if (onComplete) onComplete(false);
     }
+  };
 
-    setFeedback(correct);
-    setLoading(false);
-
-    setTimeout(() => {
-      setFeedback(null);
-      setAnswer("");
-      setReward("");
-      onNext(correct);
-    }, 900);
-  }
-
-  // 🧠 cognitive-driven layout
-  const containerStyle =
-    cognitive === "ADHD_Focus"
-      ? "space-y-6 text-lg"
-      : cognitive === "Deep_Dive"
-      ? "space-y-2 text-sm"
-      : "space-y-3";
+  // Efeito de "Digitando" Cyberpunk no título
+  useEffect(() => {
+    if (status === "success") {
+      setGlitchText("CORE_SEQUENCE_VALIDATED");
+    }
+  }, [status]);
 
   return (
-    <div className={`card relative bg-slate-800 p-4 rounded-xl ${containerStyle}`}>
+    <div className={`
+      relative w-full p-6 rounded-xl border-2 transition-all duration-500
+      ${style.border} ${style.bg} ${style.glow}
+      ${shake ? "animate-shake" : ""}
+      ${status === "success" ? "border-green-500 ring-1 ring-green-500" : ""}
+    `}>
+      
+      {/* HEADER DO EXERCÍCIO */}
+      <div className="flex justify-between items-start mb-6">
+        <div className="flex items-center gap-2">
+          <Terminal size={18} className={style.accent} />
+          <span className={`text-[10px] font-mono tracking-widest uppercase ${style.accent}`}>
+            {rarity} Node Input
+          </span>
+        </div>
+        {status === "success" && <Zap size={18} className="text-yellow-400 animate-pulse" />}
+      </div>
 
-      {/* QUESTION */}
-      <p className="mb-3">{exercise.question}</p>
+      {/* QUESTÃO */}
+      <div className="mb-6">
+        <h2 className="text-lg md:text-xl font-bold leading-tight text-slate-100 font-mono">
+          <span className="text-cyan-500 mr-2 opacity-50">{">"}</span>
+          {glitchText}
+        </h2>
+      </div>
 
+      {/* SNIPPET DE CÓDIGO (OPCIONAL) */}
+      {exercise.codeSnippet && (
+        <div className="mb-6 bg-black/60 p-4 rounded border border-slate-800 font-mono text-sm overflow-x-auto">
+          <div className="flex items-center gap-2 mb-2 border-b border-slate-800 pb-2">
+            <Code2 size={14} className="text-slate-500" />
+            <span className="text-slate-500 text-[10px]">main.js</span>
+          </div>
+          <pre className="text-cyan-300">
+            <code>{exercise.codeSnippet}</code>
+          </pre>
+        </div>
+      )}
+
+      {/* OPÇÕES (MCQ) */}
+      <div className="grid gap-3">
+        {exercise.options.map((option, idx) => {
+          const isSelected = selected === option;
+          const isCorrect = option === exercise.answer;
+          
+          let btnClass = "border-slate-800 bg-slate-900/50 hover:border-slate-600 hover:bg-slate-800";
+          if (status === "success" && isCorrect) btnClass = "border-green-500 bg-green-950/30 text-green-200 shadow-[0_0_15px_rgba(34,197,94,0.2)]";
+          if (isSelected && status === "error") btnClass = "border-red-500 bg-red-950/30 text-red-200";
+          if (isSelected && status === "checking") btnClass = "border-cyan-500 animate-pulse bg-cyan-950/20";
+
+          return (
+            <button
+              key={idx}
+              onClick={() => handleCheck(option)}
+              disabled={status === "success" || status === "checking"}
+              className={`
+                group relative flex items-center justify-between p-4 rounded-lg border-2 
+                text-left transition-all duration-200 font-mono text-sm
+                ${btnClass}
+                disabled:cursor-default
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xs opacity-30">{String.fromCharCode(65 + idx)}|</span>
+                {option}
+              </div>
+              
+              {status === "success" && isCorrect && <CheckCircle2 size={16} className="text-green-500" />}
+              {isSelected && status === "error" && <XCircle size={16} className="text-red-500" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* FOOTER: EXPLICAÇÃO / FEEDBACK */}
+      {revealed && (
+        <div className="mt-8 pt-6 border-t border-slate-800 animate-in fade-in slide-in-from-top-2 duration-700">
+          <div className="flex items-start gap-3 bg-blue-950/20 p-4 rounded border border-blue-900/50">
+            <Target className="text-blue-400 mt-1 flex-shrink-0" size={18} />
+            <div>
+              <p className="text-xs uppercase font-bold text-blue-400 mb-1 tracking-tighter">Neural Insight:</p>
+              <p className="text-sm text-slate-300 leading-relaxed italic">
+                {exercise.explanation}
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-4 flex justify-end">
+            <div className="text-[10px] font-mono text-slate-500 flex items-center gap-2">
+              <Shield size={12} />
+              ENCRYPTION_STABLE // SYSTEM_SYNC_COMPLETE
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LAYER DE DECORAÇÃO CYBERPUNK (SCANLINES) */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl opacity-[0.03]">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+      </div>
+    </div>
+  );
+}
       {/* SECONDARY (hidden in ADHD) */}
       <div className="secondary text-xs text-slate-400">
         Type: {exercise.type}
