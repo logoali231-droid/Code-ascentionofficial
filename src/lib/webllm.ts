@@ -29,11 +29,11 @@ export async function initEngine(
   isInitializing = true;
 
   try {
-    const engineConfig: webllm.Config = {
+    const config: webllm.Config = {
       initProgressCallback: (p: any) => { if (onProgress) onProgress(p); },
       logLevel: "INFO",
     };
-    const newEngine = await webllm.CreateMLCEngine(modelId, engineConfig);
+    const newEngine = await webllm.CreateMLCEngine(modelId, config);
     engine = newEngine;
     const user = await get("user", "main");
     if (user) await save("user", { ...user, engineReady: true, model: modelId }, "main");
@@ -49,22 +49,8 @@ export async function initEngine(
 export async function generate(prompt: string, temperature: number = 0.7) {
   if (!engine) {
     await initEngine();
-    if (!engine) throw new Error("AI_OFFLINE");
+    if (!engine) throw new Error("OFFLINE");
   }
-
-  const fallbackJson = {
-    lessons: [{
-      title: "Connection Glitch",
-      explanation: "Neural link unstable.",
-      exercises: [{
-        type: "mcq",
-        question: "Status?",
-        options: ["Glitched"],
-        answer: "Glitched",
-        explanation: "Reconnecting..."
-      }]
-    }]
-  };
 
   try {
     const timeout = new Promise((_, reject) => 
@@ -73,7 +59,7 @@ export async function generate(prompt: string, temperature: number = 0.7) {
 
     const request = engine.chat.completions.create({
       messages: [
-        { role: "system", content: "Cyberpunk AI. Return ONLY JSON." },
+        { role: "system", content: "Return ONLY JSON." },
         { role: "user", content: prompt }
       ],
       temperature,
@@ -85,7 +71,7 @@ export async function generate(prompt: string, temperature: number = 0.7) {
     return response.choices[0].message.content;
   } catch (err) {
     console.error("Gen Error:", err);
-    return JSON.stringify(fallbackJson);
+    return JSON.stringify({ error: "Failed to connect to core." });
   }
 }
 
@@ -100,29 +86,7 @@ export async function unloadEngine() {
 
 export function getEngineInstance() {
   return engine;
-}      temperature: temperature,
-      max_tokens: 1512, // Aumentado levemente para cursos mais longos
-      response_format: { type: "json_object" }
-    });
-
-    const response: any = await Promise.race([request, timeout]);
-    const content = response.choices[0].message.content;
-    
-    return content;
-
-  } catch (err: any) {
-    console.error("WebLLM Generation Error:", err);
-    playSound("error", 0.4);
-
-    if (err.message?.includes("out of memory") || err.message === "GENERATION_TIMEOUT") {
-      console.error("Critical Memory/Time Failure. Purging Engine...");
-      await unloadEngine();
-    }
-
-    return JSON.stringify(fallbackJson);
-  }
 }
-
 /**
  * Libera memória (VRAM) explicitamente
  */
