@@ -16,7 +16,7 @@ import {
 import SoundButton from "./SoundButton";
 
 export default function Navbar() {
-  <SoundButton />
+  
   const [cognitive, setCognitive] = useState("Standard");
   const [coins, setCoins] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -63,6 +63,7 @@ export default function Navbar() {
   }
 
   return (
+    <SoundButton />
     <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 p-2">
 
       {/* STATUS BAR */}
