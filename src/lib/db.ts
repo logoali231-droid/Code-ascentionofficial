@@ -57,7 +57,7 @@ export async function get<T = any>(
   });
 }
 
-// ✅ GENERIC SAVE (keeps old behavior)
+// ✅ GENERIC SAVE
 export async function save(
   store: string,
   value: any,
@@ -89,13 +89,18 @@ export async function getAll(store: string) {
   });
 }
 
-// Convenience: save a single record by id (keeps backward compatibility)
+// ✅ Helper para atualizar campos específicos sem perder o resto
+export async function updateUser(updates: any) {
+  const current = await get("user", "main") || {};
+  const merged = { ...current, ...updates };
+  await save("user", merged, "main");
+  return merged;
+}
+
 export async function saveRecord(store: string, value: any, id?: string | number) {
-  // if id is provided, save as a keyed record; otherwise fallback to save(store, value)
   if (typeof id !== "undefined") {
     return save(store, value, String(id));
   }
-
   return save(store, value);
 }
 
