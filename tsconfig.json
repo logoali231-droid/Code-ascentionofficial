@@ -1,42 +1,25 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": false,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    /* Checagem de Erros e Rigor */
+    "strict": true,                           // Ativa todas as verificações rigorosas de tipo
+    "noImplicitAny": true,                    // Erro se você esquecer de tipar algo
+    "strictNullChecks": true,                 // Impede erros de "null" ou "undefined" inesperados
+    "noUnusedLocals": true,                   // Avisa se você criou uma variável e não usou
+    "noUnusedParameters": true,               // Avisa se uma função tem parâmetros sobrando
+    "checkJs": true,                          // TAMBÉM checa erros em arquivos .js e .cjs
+
+    /* Ambiente e Módulos */
+    "target": "ESNext",                       // Suporta as versões mais novas do JS
+    "module": "NodeNext",                     // Ideal para Node.js moderno e arquivos .cjs/.mjs
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,                  // Melhora compatibilidade com bibliotecas antigas
+    "skipLibCheck": true,                     // Ignora erros dentro da pasta node_modules (ganha velocidade)
+    "forceConsistentCasingInFileNames": true, // Evita problemas entre Windows (case-insensitive) e Linux
+    
+    /* Configurações de Saída */
+    "outDir": "./dist",                       // Onde os arquivos compilados vão parar
+    "sourceMap": true                         // Ajuda no Debug
   },
-  "include": [
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src/**/*", "**/*.ts", "**/*.js"], // Quais pastas ele deve vigiar
+  "exclude": ["node_modules", "dist"]            // O que ele deve ignorar
 }
