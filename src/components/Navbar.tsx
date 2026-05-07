@@ -30,7 +30,7 @@ export default function Navbar() {
     load();
 
     // 🔁 auto refresh (important for reactivity)
-    const interval = setInterval(load, 4000);
+    const interval = setInterval(load, 15000);
 
     return () => clearInterval(interval);
   }, []);
