@@ -1,32 +1,45 @@
+export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
+
 /**
- * Constrói um prompt para gerar cursos adaptativos baseado nas entradas do usuário.
- * @param {object} input - Objeto contendo detalhes do usuário.
- * @param {string} input.topic - O tópico do curso.
- * @param {string} input.style - O estilo de explicação.
- * @param {string} input.level - O nível de habilidade do usuário.
- * @param {string} input.cognitive - O estilo cognitivo.
- * @param {string} [input.userBase] - Base de conhecimento opcional do usuário.
- * @returns {string} O prompt gerado para a IA.
+ * Retorna as instruções específicas para cada perfil cognitivo
+ */
+export function getCognitiveInstruction(profile: CognitiveProfile): string {
+  switch (profile) {
+    case "tdah":
+      return "ADHD MODE: Use extremely short sentences. Use dopamine-driven language. Break concepts into 3-word bullet points. Use frequent emojis. High urgency.";
+    case "Visual_Logic":
+      return "VISUAL MODE: Use ASCII diagrams. Explain code flow as a physical map or network. Focus on structural relationships between functions.";
+    case "Deep_Dive":
+      return "EXPERT MODE: Low-level details only. Explain memory allocation, pointers, and CPU behavior. No fluff. Use highly technical jargon.";
+    default:
+      return "STANDARD MODE: Balanced narrative, clear analogies, and progressive difficulty.";
+  }
+}
+
+/**
+ * Constrói o prompt final respeitando as regras originais e a adaptação cognitiva
  */
 export function buildCoursePrompt(config: any) {
+  const cognitiveStyle = getCognitiveInstruction(config.cognitive || "Standard");
+
   return `
-Create a programming course.
+Create a programming course in JSON format.
 
 TOPIC: ${config.topic}
 LEVEL: ${config.level}
 DIFFICULTY: ${config.difficulty}
 
+LEARNING STYLE & COGNITIVE ADAPTATION:
+${cognitiveStyle}
+${config.stylePrompt || "Explain clearly following the tone above."}
 
-LEARNING STYLE:
-${config.stylePrompt || "Explain clearly"}
-
-${config.userBase ? `BASE MATERIAL:\n${config.userBase}` : ""}
+${config.userBase ? `BASE MATERIAL (USE ONLY THIS):\n${config.userBase}` : ""}
 
 RULES:
 - Follow LEARNING STYLE strictly
-- If base material exists, use ONLY it
+- If base material exists, do not add external info
 - Do not hallucinate
-- Return structured JSON
+- Output ONLY valid JSON
 
 FORMAT:
 {
@@ -34,7 +47,9 @@ FORMAT:
     {
       "title": "...",
       "explanation": "...",
-      "exercises": [...]
+      "exercises": [
+        { "type": "mcq", "question": "...", "options": ["..."], "answer": "..." }
+      ]
     }
   ]
 }
