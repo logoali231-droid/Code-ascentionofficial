@@ -23,6 +23,7 @@ export default function Navbar() {
   const [level, setLevel] = useState(0);
   const [activeCourse, setActiveCourse] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [ready, setReady] = useState(false)
 
 
   useEffect(() => {
