@@ -41,7 +41,7 @@ export default function ShopPage() {
       };
 
       await save("shop", newItem);
-      setItems((prev) => [newItem, ...prev]);
+      await load();
       setInput("");
       setMsg("Item forged successfully!");
     } catch (e) {
