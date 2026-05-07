@@ -1,10 +1,10 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { baseItems } from "@/lib/shopItems";
 import { generateAIItem } from "@/lib/aiShop";
 import { buyItem } from "@/lib/economy";
 import { get, save, getAll } from "@/lib/db";
+import { calculateLevel } from "@/lib/level";
 
 export default function ShopPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -20,47 +20,56 @@ export default function ShopPage() {
 
   async function load() {
     const u = await get("user", "main");
-    const raw = await getAll("shop");
-
-const generated = Array.isArray(raw)
-  ? raw
-  : [];
     setUser(u);
-    // Remove duplicados por ID caso existam
-    const combined = [...generated, ...baseItems];
-    const uniqueItems = Array.from(new Map(combined.map(item => [item.id, item])).values());
-    setItems(uniqueItems);
+    
+    const raw = await getAll("shop");
+    const generated = Array.isArray(raw) ? raw : [];
+    
+    // Base items sempre disponíveis + os gerados
+    setItems([...generated, ...baseItems]);
   }
 
   async function forgeItem() {
     if (!input.trim() || loading) return;
+    
+    // Simples rate-limit visual
+    if (Date.now() - lastForge < 5000) {
+      setMsg("Forge cooling down...");
+      return;
+    }
+
     setLoading(true);
     setMsg("");
 
     try {
-      if (Date.now() - lastForge < 3000) {
-  setMsg("Forge cooling down...");
-  return;
-      }
       const generated = await generateAIItem(input);
-			setLastForge(Date.now());
+      setLastForge(Date.now());
+      
       const newItem = {
         ...generated,
-				setLastForge(Date.now());
         id: generated.id || `ai-${Date.now()}`,
         fake: true, // Tag para identificar itens criados por IA
       };
 
-      await save("shop", newItem);
-	  const all = await getAll("shop");
+      // Carrega loja atual e aplica limite FIFO no banco de dados
+      const currentShopRaw = await getAll("shop");
+      let allGenerated = Array.isArray(currentShopRaw) ? currentShopRaw : [];
+      
+      allGenerated.push(newItem);
 
-if (all.length > 50) {
-  all.shift();
-}
+      // Limita a 50 itens procedurais para não estourar o banco
+      if (allGenerated.length > 50) {
+        allGenerated.shift();
+      }
+
+      await save("shop", allGenerated, "all"); // Assumindo chave "all" para persistência global
+      
       await load();
       setInput("");
       setMsg("Item forged successfully!");
+
     } catch (e) {
+      console.error(e);
       setMsg("The forge failed to stabilize the energy.");
     } finally {
       setLoading(false);
@@ -78,34 +87,55 @@ if (all.length > 50) {
     }
   }
 
-  const level = Math.max(1, Math.floor((xp || 0) / 100));
+  const currentLevel = calculateLevel(user?.xp);
 
   return (
-    <div className="p-4 pb-24 space-y-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-purple-400">🛒 Forge Market</h1>
-
-      <div className="bg-slate-800 p-4 rounded-xl shadow-lg flex justify-between items-center border border-slate-700">
-        <div className="flex flex-col">
-          <span className="text-xs opacity-60 uppercase">Credits</span>
-          <span className="text-xl font-mono text-yellow-400">💰 {user?.coins || 0}</span>
-        </div>
-        <div className="h-8 w-[1px] bg-slate-700" />
-        <div className="flex flex-col items-center">
-          <span className="text-xs opacity-60 uppercase">Rank</span>
-          <span className="font-bold">⭐ Level {level}</span>
-        </div>
-        <div className="h-8 w-[1px] bg-slate-700" />
-        <div className="flex flex-col items-end">
-          <span className="text-xs opacity-60 uppercase">Streak</span>
-          <span className="text-orange-500 font-bold">🔥 {user?.streak || 0}</span>
-        </div>
+    <div className="p-6 pb-24 max-w-md mx-auto space-y-6">
+      <h1 className="text-2xl font-bold text-center">🛒 Forge Market</h1>
+      
+      <div className="card text-center space-y-2">
+        <p>Coins: <span className="text-yellow-400 font-bold">{user?.coins || 0}</span></p>
+        <p>Level: {currentLevel}</p>
+        <p className="text-xs text-gray-400">{msg}</p>
       </div>
 
-      <div className="bg-slate-800 p-4 rounded-xl border border-purple-500/30">
-        <h3 className="text-sm font-semibold mb-2">Forge New Equipment</h3>
-        <div className="flex gap-2">
-          <input
-            value={input}
+      <div className="card space-y-4">
+        <h2 className="font-bold">Forge AI Item</h2>
+        <input 
+          className="w-full p-2 rounded" 
+          placeholder="e.g. A sword that ignores errors" 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+        />
+        <button 
+          onClick={forgeItem} 
+          disabled={loading}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-2 rounded"
+        >
+          {loading ? "Forging..." : "Forge Item"}
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {items.map((item, idx) => (
+          <div key={item.id || idx} className="card flex items-center justify-between border border-slate-700">
+            <div className="flex-1">
+              <h3 className="font-bold">{item.name}</h3>
+              <p className="text-sm text-slate-400">{item.description}</p>
+              <p className="text-xs text-blue-400 mt-1">Price: {item.price}</p>
+            </div>
+            <button 
+              onClick={() => handleBuy(item)}
+              className="ml-4 px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-sm font-bold"
+            >
+              Buy
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}            value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe a legendary sword..."
             className="flex-1 p-2 bg-slate-900 rounded-lg border border-slate-700 focus:outline-none focus:border-purple-500 transition-colors"
