@@ -46,7 +46,7 @@ export default function Navbar() {
     setStreak(user?.streak || 0);
 
     // ✅ LEVEL SYSTEM
-    const lvl = Math.floor((user?.xp || 0) / 100);
+    const lvl = Math.max(1, Math.floor((xp || 0) / 100));
     setLevel(lvl);
 
     // ✅ ACTIVE COURSE
