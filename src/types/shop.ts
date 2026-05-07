@@ -7,4 +7,6 @@ export type ShopItem = {
   fake?: boolean;
   rarity?: string;
   type?: string;
+  requiredLevel?: number;
+  requiredStreak?: number;
 };
