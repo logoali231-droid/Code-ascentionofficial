@@ -1,34 +1,31 @@
-"use client";
-
-export type ShopItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  effect: string;
-  icon: string;
-  requiredLevel?: number;
-  requiredStreak?: number;
-  fake?: boolean;
-};
-
-export const baseItems: ShopItem[] = [
+export const baseItems = [
   {
-    id: "potion_x2",
-    name: "Potion x2",
-    description: "Double XP for next lesson",
+    id: "xp_potion",
+    name: "XP Potion x2",
+    description: "Double XP gain for 15 minutes.",
     price: 120,
-    effect: "double_xp",
-    icon: "⚗️",
-    requiredLevel: 2,
+    rarity: "rare",
+    type: "boost",
+    icon: "/icons/xp_potion_hd.png",
   },
+
   {
-    id: "vault_skin",
-    name: "Obsidian Vault",
-    description: "Pure style",
-    price: 90,
-    effect: "cosmetic",
-    icon: "🧱",
-    requiredStreak: 3,
+    id: "memory_patch",
+    name: "Memory Patch",
+    description: "Improves AI learning stability.",
+    price: 180,
+    rarity: "epic",
+    type: "utility",
+    icon: "/icons/default_chip.png",
+  },
+
+  {
+    id: "code_fragment",
+    name: "Code Fragment",
+    description: "Small knowledge artifact.",
+    price: 40,
+    rarity: "common",
+    type: "resource",
+    icon: "/icons/default_scroll.png",
   },
 ];
