@@ -6,6 +6,8 @@ import { get, save } from "@/lib/db";
 let engine: any = null;
 let loadingPromise: Promise<any> | null = null;
 
+
+
 // 🧠 SSR-safe + detecção leve
 function getDeviceTier() {
   if (typeof navigator === "undefined") return "high";
@@ -34,6 +36,8 @@ function getConfig() {
 }
 
 export async function initEngine(model: string, cb?: any) {
+
+  
   const user = await get("user", "main");
 
   // 🔁 troca de modelo

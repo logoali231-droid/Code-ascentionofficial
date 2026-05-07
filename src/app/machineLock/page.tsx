@@ -6,26 +6,47 @@ import { Cpu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const models = [
-  { name: "Phi-3.5-mini", desc: "Best for coding" },
-  { name: "Llama-3.2-1B", desc: "Fast & light" },
-  { name: "Gemma-2-2B", desc: "Balanced" },
+  { 
+    id: "Phi-3.5-mini-instruct-q4f16_1-MLC", 
+    name: "Phi-3.5-mini", 
+    desc: "Melhor para lógica (Recomendado para o M23)" 
+  },
+  { 
+    id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", 
+    name: "Llama-3.2-1B", 
+    desc: "O mais leve e rápido" 
+  },
+  { 
+    id: "gemma-2-2b-it-q4f16_1-MLC", 
+    name: "Gemma-2-2B", 
+    desc: "Boa escrita criativa" 
+  }
 ];
 
 export default function MachineLock() {
-  const [selected, setSelected] = useState(models[0].name);
+  // Alterado para usar o ID como valor de referência
+  const [selectedId, setSelectedId] = useState(models[0].id); 
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
   async function start() {
+    if (loading) return; // Evita iniciar dois downloads ao mesmo tempo
     setLoading(true);
 
-    await initEngine(selected, (p: any) => {
-      setProgress(Math.floor(p.progress * 100));
-    });
+    try {
+      // Agora passamos o ID técnico correto para a biblioteca
+      await initEngine(selectedId, (p: any) => {
+        setProgress(Math.floor(p.progress * 100));
+      });
 
-    router.push("/hub");
+      router.push("/hub");
+    } catch (err) {
+      console.error("Erro ao baixar modelo:", err);
+      setLoading(false);
+      alert("Erro ao baixar o modelo. Verifique sua conexão ou memória.");
+    }
   }
 
   return (
@@ -37,13 +58,13 @@ export default function MachineLock() {
       <div className="space-y-3">
         {models.map((m) => (
           <div
-            key={m.name}
-            onClick={() => setSelected(m.name)}
-            className={`p-3 rounded-xl border cursor-pointer ${
-              selected === m.name
+            key={m.id}
+            onClick={() => !loading && setSelectedId(m.id)}
+            className={`p-3 rounded-xl border cursor-pointer transition-colors ${
+              selectedId === m.id
                 ? "border-blue-500 bg-slate-800"
-                : "border-slate-700"
-            }`}
+                : "border-slate-700 hover:border-slate-500"
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <h3 className="font-semibold">{m.name}</h3>
             <p className="text-sm text-slate-400">{m.desc}</p>
@@ -53,20 +74,27 @@ export default function MachineLock() {
 
       <button
         onClick={start}
-        className="mt-4 w-full bg-blue-600 py-2 rounded-xl"
+        disabled={loading}
+        className={`mt-4 w-full py-3 rounded-xl font-bold transition-all ${
+          loading 
+            ? "bg-slate-700 cursor-not-allowed" 
+            : "bg-blue-600 hover:bg-blue-500 active:scale-95"
+        }`}
       >
-        {loading ? "Downloading..." : "Download Engine"}
+        {loading ? `Downloading ${progress}%...` : "Download Engine"}
       </button>
 
       {loading && (
         <div className="mt-4">
-          <div className="h-2 bg-slate-700 rounded">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="h-2 bg-blue-500 rounded"
+              className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-sm mt-1">{progress}%</p>
+          <p className="text-center text-xs mt-2 text-slate-400">
+            Isso pode demorar alguns minutos dependendo da sua internet.
+          </p>
         </div>
       )}
     </div>
