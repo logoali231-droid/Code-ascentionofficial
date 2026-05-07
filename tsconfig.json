@@ -1,25 +1,29 @@
 {
   "compilerOptions": {
-    /* Checagem de Erros e Rigor */
-    "strict": true,                           // Ativa todas as verificações rigorosas de tipo
-    "noImplicitAny": true,                    // Erro se você esquecer de tipar algo
-    "strictNullChecks": true,                 // Impede erros de "null" ou "undefined" inesperados
-    "noUnusedLocals": true,                   // Avisa se você criou uma variável e não usou
-    "noUnusedParameters": true,               // Avisa se uma função tem parâmetros sobrando
-    "checkJs": true,                          // TAMBÉM checa erros em arquivos .js e .cjs
-
-    /* Ambiente e Módulos */
-    "target": "ESNext",                       // Suporta as versões mais novas do JS
-    "module": "NodeNext",                     // Ideal para Node.js moderno e arquivos .cjs/.mjs
-    "moduleResolution": "NodeNext",
-    "esModuleInterop": true,                  // Melhora compatibilidade com bibliotecas antigas
-    "skipLibCheck": true,                     // Ignora erros dentro da pasta node_modules (ganha velocidade)
-    "forceConsistentCasingInFileNames": true, // Evita problemas entre Windows (case-insensitive) e Linux
-    
-    /* Configurações de Saída */
-    "outDir": "./dist",                       // Onde os arquivos compilados vão parar
-    "sourceMap": true                         // Ajuda no Debug
+    "target": "ESNext",
+    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*", "**/*.ts", "**/*.js"], // Quais pastas ele deve vigiar
-  "exclude": ["node_modules", "dist"]            // O que ele deve ignorar
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/**/*"],
+  "exclude": ["node_modules"]
 }

@@ -290,7 +290,7 @@ function ErrorsTab({ course }: any) {
 
     // ⚡ parallel AI
     const results = await Promise.all(
-      last.map((err) =>
+      last.map((err : any) =>
         explainError({
           ...err,
           course, // 👈 THIS IS THE MAGIC LINE

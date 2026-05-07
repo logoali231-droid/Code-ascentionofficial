@@ -36,13 +36,15 @@ export default function ShopPage() {
     setMsg("");
 
     try {
+     
+      // 🧠 FIX: store consistente (cada item é um registro)
       const item = await generateAIItem(input);
 
-      // 🧠 FIX: store consistente (cada item é um registro)
-      const newItem = {
-        id: Date.now(),
-        ...item,
-      };
+// Se 'item' já tiver ID, use-o; caso contrário, gere um novo.
+const newItem = {
+  ...item,
+  id: item.id || Date.now(), 
+};
 
       await save("shop", newItem);
 
