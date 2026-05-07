@@ -52,6 +52,11 @@ const generated = Array.isArray(raw)
       };
 
       await save("shop", newItem);
+	  const all = await getAll("shop");
+
+if (all.length > 50) {
+  all.shift();
+}
       await load();
       setInput("");
       setMsg("Item forged successfully!");
