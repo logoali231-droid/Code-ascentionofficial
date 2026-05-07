@@ -195,4 +195,94 @@ export default function NewCoursePage() {
       </div>
     </div>
   );
+}          Inject topic to generate procedural learning path
+        </p>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <form onSubmit={handleForge} className="space-y-6">
+          {/* INPUT PRINCIPAL */}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg blur opacity-25 group-focus-within:opacity-50 transition duration-1000"></div>
+            <div className="relative bg-slate-900 rounded-lg border border-slate-700">
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g. Asynchronous JavaScript Mastery"
+                className="w-full bg-transparent p-4 outline-none text-cyan-50 font-bold placeholder:text-slate-600"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* INDICADOR DE CARREGAMENTO / PROGRESSO */}
+          {loading ? (
+            <div className="space-y-4 animate-in fade-in duration-500">
+              <div className="flex justify-between text-[10px] text-cyan-400">
+                <span>{status}</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                <div 
+                  className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 transition-all duration-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]" 
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-[9px] text-slate-500">
+                <Cpu size={12} className="animate-spin" />
+                <span>LOCAL_GPU_EXECUTION_IN_PROGRESS... DO NOT CLOSE TAB.</span>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              className="w-full group relative overflow-hidden p-4 rounded-lg bg-slate-100 text-slate-950 font-black uppercase tracking-tighter hover:bg-white transition-all active:scale-95"
+            >
+              <div className="flex items-center justify-center gap-2 relative z-10">
+                <Sparkles size={18} />
+                Forge New Course
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:animate-shimmer" />
+            </button>
+          )}
+        </form>
+
+        {/* INFO DE ADAPTAÇÃO COGNITIVA */}
+        {!loading && (
+          <div className="mt-12 grid grid-cols-2 gap-4">
+            <div className="p-4 rounded border border-slate-800 bg-slate-900/30">
+              <div className="flex items-center gap-2 text-purple-400 mb-1">
+                <Zap size={14} />
+                <span className="text-[10px] font-bold uppercase">Active Profile</span>
+              </div>
+              <p className="text-lg font-bold text-slate-300">{user?.cognitive || "Standard"}</p>
+              <p className="text-[9px] text-slate-500 leading-tight mt-1">
+                Content density and explanation style will be adjusted to your neural pattern.
+              </p>
+            </div>
+            
+            <div className="p-4 rounded border border-slate-800 bg-slate-900/30">
+              <div className="flex items-center gap-2 text-cyan-400 mb-1">
+                <Terminal size={14} />
+                <span className="text-[10px] font-bold uppercase">Local Core</span>
+              </div>
+              <p className="text-lg font-bold text-slate-300">WebLLM 3.0</p>
+              <p className="text-[9px] text-slate-500 leading-tight mt-1">
+                No server calls. Your privacy is encrypted locally in your device's VRAM.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* AVISO DE ERRO */}
+        {status === "LINK_CRITICAL_FAILURE" && (
+          <div className="mt-6 p-4 rounded border border-red-900 bg-red-950/20 flex items-center gap-3 text-red-500 text-xs">
+            <AlertTriangle size={20} />
+            <p>The neural forge failed. Check if WebGPU is active or if your device memory is full.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
