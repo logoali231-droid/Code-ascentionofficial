@@ -12,6 +12,7 @@ export default function ShopPage() {
   const [msg, setMsg] = useState("");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [lastForge, setLastForge] = useState(0);
 
   useEffect(() => {
     load();
@@ -33,6 +34,10 @@ export default function ShopPage() {
     setMsg("");
 
     try {
+      if (Date.now() - lastForge < 3000) {
+  setMsg("Forge cooling down...");
+  return;
+      }
       const generated = await generateAIItem(input);
       const newItem = {
         ...generated,
