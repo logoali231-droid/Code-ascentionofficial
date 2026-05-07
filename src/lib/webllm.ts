@@ -4,8 +4,14 @@ import * as webllm from "@mlc-ai/web-llm";
 import { get, save } from "@/lib/db";
 import { playSound } from "./sounds";
 
-// Configurações de modelo e memória
-const SELECTED_MODEL = "Llama-3-8B-Instruct-v0.1-q4f16_1-MLC";
+// Definição centralizada dos modelos para evitar erros de build em page.tsx
+export const AVAILABLE_MODELS = [
+  { id: "Llama-3-8B-Instruct-v0.1-q4f16_1-MLC", name: "Llama 3 8B (Fast)", size: "4.5GB", vram: "High" },
+  { id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", name: "Phi-3 Mini", size: "2.3GB", vram: "Mid" },
+  { id: "gemma-2b-it-q4f16_1-MLC", name: "Gemma 2B", size: "1.6GB", vram: "Low" }
+];
+
+const DEFAULT_MODEL = AVAILABLE_MODELS[0].id;
 
 let engine: webllm.MLCEngine | null = null;
 let isInitializing = false;
@@ -23,7 +29,7 @@ export interface InitProgress {
  * Inicializa a Engine WebLLM com controle total de estado
  */
 export async function initEngine(
-  modelId: string = SELECTED_MODEL, 
+  modelId: string = DEFAULT_MODEL, 
   onProgress?: (progress: InitProgress) => void
 ) {
   if (engine) return engine;
@@ -32,9 +38,8 @@ export async function initEngine(
   isInitializing = true;
 
   try {
-    console.log("Initializing WebLLM Engine...");
+    console.log(`Initializing WebLLM Engine with model: ${modelId}`);
     
-    // Configurações de baixa memória para dispositivos mobile
     const engineConfig: webllm.Config = {
       initProgressCallback: (p: any) => {
         if (onProgress) onProgress(p);
@@ -50,7 +55,7 @@ export async function initEngine(
     // Marca no banco que a engine está pronta para o Navbar/UI
     const user = await get("user", "main");
     if (user) {
-      await save("user", { ...user, engineReady: true }, "main");
+      await save("user", { ...user, engineReady: true, model: modelId }, "main");
     }
 
     return engine;
@@ -91,22 +96,61 @@ export async function generate(prompt: string, temperature: number = 0.7) {
   };
 
   try {
-    // Configuração de Timeout (25s para Mobile)
+    // Configuração de Timeout (30s para garantir em conexões lentas)
     const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("GENERATION_TIMEOUT")), 25000)
+      setTimeout(() => reject(new Error("GENERATION_TIMEOUT")), 30000)
     );
 
     const request = engine.chat.completions.create({
       messages: [
-        { role: "system", content: "You are a Cyberpunk AI. Return ONLY JSON." },
+        { role: "system", content: "You are a Cyberpunk AI assistant. Return ONLY valid JSON." },
         { role: "user", content: prompt }
       ],
       temperature: temperature,
-      max_tokens: 1024,
+      max_tokens: 1512, // Aumentado levemente para cursos mais longos
       response_format: { type: "json_object" }
     });
 
-    // Corrida entre a geração e o timeout
+    const response: any = await Promise.race([request, timeout]);
+    const content = response.choices[0].message.content;
+    
+    return content;
+
+  } catch (err: any) {
+    console.error("WebLLM Generation Error:", err);
+    playSound("error", 0.4);
+
+    if (err.message?.includes("out of memory") || err.message === "GENERATION_TIMEOUT") {
+      console.error("Critical Memory/Time Failure. Purging Engine...");
+      await unloadEngine();
+    }
+
+    return JSON.stringify(fallbackJson);
+  }
+}
+
+/**
+ * Libera memória (VRAM) explicitamente
+ */
+export async function unloadEngine() {
+  if (engine) {
+    await engine.unload();
+    engine = null;
+    
+    const user = await get("user", "main");
+    if (user) {
+      await save("user", { ...user, engineReady: false }, "main");
+    }
+    console.log("WebLLM Engine purged from memory.");
+  }
+}
+
+/**
+ * Getter para estado da Engine
+ */
+export function getEngineInstance() {
+  return engine;
+}    // Corrida entre a geração e o timeout
     const response: any = await Promise.race([request, timeout]);
     
     const content = response.choices[0].message.content;
