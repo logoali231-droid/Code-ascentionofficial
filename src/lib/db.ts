@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 
+
 /**
  * CONFIGURAÇÃO DO BANCO DE DADOS (DEXIE)
  */
@@ -40,21 +41,24 @@ class CodeAscensionDB extends Dexie {
   explanations!: Table<Explanation>;
   shop!: Table<any>;
   daily!: Table<any>;
+
   memory!: Table<any>;
+  curriculum!: Table<any>;
 
   constructor() {
     super("codeascent_db");
-    
+
     // Define o esquema. 
     // Adicionado courseId como índice em errors para suportar getErrorLogs
-    this.version(1).stores({
+    this.version(2).stores({
       user: 'id',
       courses: 'id',
-      errors: '++id, timestamp, courseId', 
+      errors: '++id, timestamp, courseId',
       explanations: '++id, timestamp',
       shop: 'id',
       daily: 'id',
-      memory: 'id, timestamp'
+      memory: 'id, timestamp',
+      curriculum: 'courseId, updatedAt'
     });
   }
 }
@@ -154,15 +158,15 @@ export async function get<T = any>(storeName: string, key: string): Promise<T | 
 export async function save(storeName: string, value: any, key: string = "main") {
   try {
     const table = (db as any)[storeName];
-    
-    const dataToSave = typeof value === 'object' 
-      ? { ...value, id: key, timestamp: Date.now() } 
+
+    const dataToSave = typeof value === 'object'
+      ? { ...value, id: key, timestamp: Date.now() }
       : value;
 
     await table.put(dataToSave);
 
     if (Math.random() < 0.1) cleanupOldData();
-    
+
     return true;
   } catch (e) {
     console.error(`Erro ao salvar em ${storeName}:`, e);
@@ -205,7 +209,7 @@ export async function updateUser(updates: any) {
 export async function performStorageCleanup() {
   console.log(" [System] Iniciando manutenção...");
   await cleanupOldData();
-  
+
   await db.courses
     .filter(c => !c.lessons || c.lessons.length === 0)
     .delete();

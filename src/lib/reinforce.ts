@@ -1,48 +1,174 @@
 "use client";
 
 import { generate } from "./webllm";
+
 import { getAdaptiveMetrics } from "./adaptive";
+
 import { getMemory } from "./userMemory";
+
 import { get } from "./db";
+
 import { safeParse } from "./safeParse";
 
-export async function generateReinforcement(error: any, course: any) {
-  const baseDifficulty = error.difficulty || 1;
+import {
+  buildPromptFragments,
+  compressContext,
+} from "./promptFragments";
 
-  const user = await get("user", "main");
-  const memory = await getMemory();
-  const topic = course?.topic || "programming";
-  const level = course?.level || "beginner";
+/* =========================================
+   GENERATE REINFORCEMENT
+========================================= */
 
-  // 🎯 Sincronizado com getAdaptiveMetrics
-  // Agora desestruturamos para pegar apenas a 'difficulty' para o prompt
-  const metrics = await getAdaptiveMetrics();
-  
-  const difficulty = metrics.difficulty;
+export async function generateReinforcement(
+  error: any,
+  course: any
+) {
+  const baseDifficulty =
+    error?.difficulty || 1;
 
-  const recentErrors = memory.lastErrors?.slice(-5) || [];
+  const user =
+    await get("user", "main");
 
-  // 🧠 detect repetition
-  const sameTopicErrors = memory.lastErrors.filter(
-    (e: any) => e.topic === topic
-  ).length;
+  const memory =
+    await getMemory();
 
-  const struggling = sameTopicErrors >= 3;
+  const topic =
+    course?.topic ||
+    "programming";
+
+  const level =
+    course?.level ||
+    "beginner";
+
+  /* =========================================
+     ADAPTIVE METRICS
+  ========================================= */
+
+  const metrics =
+    await getAdaptiveMetrics();
+
+  /*
+    FINAL DIFFICULTY:
+    mistura:
+    - adaptive system
+    - error difficulty
+    - struggling state
+  */
+
+  let difficulty =
+    Math.round(
+      (
+        metrics.difficulty +
+        baseDifficulty
+      ) / 2
+    );
+
+  const recentErrors =
+    memory.lastErrors?.slice(-5) || [];
+
+  const sameTopicErrors =
+    memory.lastErrors.filter(
+      (e: any) =>
+        e.topic === topic
+    ).length;
+
+  const struggling =
+    sameTopicErrors >= 3;
+
+  /*
+    se struggling:
+    reduz dificuldade REALMENTE
+  */
+
+  if (struggling) {
+    difficulty = Math.max(
+      1,
+      difficulty - 1
+    );
+  }
+
+  /*
+    clamp
+  */
+
+  difficulty = Math.min(
+    5,
+    Math.max(1, difficulty)
+  );
+
+  /* =========================================
+     PROMPT FRAGMENTS
+  ========================================= */
+
+  const cognitiveFragments =
+    buildPromptFragments({
+      cognitive:
+        user?.cognitive ||
+        "Standard",
+
+      difficulty,
+
+      mastery:
+        struggling ? 30 : 65,
+
+      reinforcement: true,
+    });
+
+  const compressedErrors =
+    compressContext(
+      JSON.stringify(
+        recentErrors
+      ),
+      1200
+    );
+
+  const compressedWeaknesses =
+    compressContext(
+      JSON.stringify(
+        memory.weaknesses || {}
+      ),
+      1000
+    );
+
+  /* =========================================
+     PROMPT
+  ========================================= */
 
   const prompt = `
-You are an adaptive programming tutor.
+You are an elite adaptive programming tutor.
 
-TASK:
-Create ONE reinforcement exercise to fix a specific mistake.
+Your mission:
+repair understanding,
+not just test memory.
 
-CONTEXT:
-- Topic: ${topic}
-- User Level: ${level}
-- Cognitive Mode: ${user?.cognitive}
-- Target Difficulty: ${difficulty}
+${cognitiveFragments}
 
-LEARNING STYLE:
+================================
+TASK
+================================
+
+Create ONE reinforcement exercise
+focused ONLY on the user's mistake.
+
+================================
+COURSE CONTEXT
+================================
+
+TOPIC:
+${topic}
+
+USER LEVEL:
+${level}
+
+COGNITIVE PROFILE:
+${user?.cognitive || "Standard"}
+
+STYLE:
 ${course?.stylePrompt || "Explain clearly"}
+
+================================
+ERROR CONTEXT
+================================
 
 ORIGINAL QUESTION:
 ${error.question}
@@ -53,58 +179,149 @@ ${error.userAnswer}
 CORRECT ANSWER:
 ${error.correct}
 
-WEAKNESSES:
-${JSON.stringify(memory.weaknesses)}
+================================
+ADAPTIVE STATE
+================================
 
-RECENT ERRORS:
-${JSON.stringify(recentErrors)}
+BASE ERROR DIFFICULTY:
+${baseDifficulty}
 
-STATE:
-- User is ${struggling ? "STRUGGLING" : "LEARNING"}
+ADAPTIVE SYSTEM DIFFICULTY:
+${metrics.difficulty}
 
-RULES:
+FINAL TARGET DIFFICULTY:
+${difficulty}
+
+USER STATE:
+${struggling ? "STRUGGLING" : "LEARNING"}
+
+================================
+WEAKNESSES
+================================
+
+${compressedWeaknesses}
+
+================================
+RECENT ERRORS
+================================
+
+${compressedErrors}
+
+================================
+RULES
+================================
+
 - Return ONLY valid JSON
-- Do NOT include explanations outside JSON
+- No markdown
+- No explanations outside JSON
 - Focus ONLY on the mistake
-- Do NOT introduce new concepts
-- If unsure, return a simpler version of the same concept
+- Avoid introducing unrelated concepts
+- Repair the misunderstanding
+- Reinforce mental model
+- Keep continuity with previous mistakes
 
-DIFFICULTY RULES:
-- If STRUGGLING → make it easier and simpler
-- Otherwise → match TARGET DIFFICULTY
+================================
+STYLE RULES
+================================
 
-COGNITIVE RULES:
-- ADHD_Focus → short, 1 concept, minimal text
-- Deep_Dive → multi-step reasoning
-- Visual_Logic → patterns, examples
-- Standard → balanced
+Maintain the teaching style consistently,
+BUT clarity comes first.
 
-LEVEL RULES:
-- beginner → no jargon
-- intermediate → moderate abstraction
-- advanced → technical depth
-- NEVER exceed user level
+================================
+DIFFICULTY RULES
+================================
 
-OUTPUT FORMAT:
+If user is STRUGGLING:
+- simplify wording
+- reduce abstraction
+- isolate ONE concept
+- reduce cognitive load
+
+Otherwise:
+- match FINAL TARGET DIFFICULTY
+- encourage active reasoning
+
+================================
+COGNITIVE RULES
+================================
+
+ADHD / tdah:
+- short blocks
+- minimal text
+- fast feedback
+- one concept only
+
+Deep_Dive:
+- deeper reasoning
+- conceptual understanding
+
+Visual_Logic:
+- patterns
+- examples
+- comparisons
+
+Standard:
+- balanced pacing
+
+================================
+LEVEL RULES
+================================
+
+beginner:
+- avoid jargon
+- practical intuition
+
+intermediate:
+- moderate abstraction
+
+advanced:
+- technical precision
+
+NEVER exceed user level.
+
+================================
+OUTPUT FORMAT
+================================
+
 {
   "type": "short | multiple_choice | code | logic",
+
   "question": "...",
-  "options": ["..."] (only if multiple_choice),
+
+  "options": ["..."],
+
   "answer": "...",
+
   "explanation": "short explanation"
 }
 `;
 
-  const res = await generate(prompt);
-  const parsed = safeParse(res);
+  const res =
+    await generate(prompt);
 
-  if (parsed) return parsed;
+  const parsed =
+    safeParse(res);
 
-  // 🛟 fallback
+  if (parsed) {
+    return parsed;
+  }
+
+  /* =========================================
+     FALLBACK
+  ========================================= */
+
   return {
     type: "short",
-    question: `Let's try again: ${error.question}`,
-    answer: error.correct || "",
-    explanation: "Retry focusing on the correct concept.",
+
+    question:
+      `Let's retry carefully:\n${error.question}`,
+
+    answer:
+      error.correct || "",
+
+    explanation:
+      struggling
+        ? "Focus on the core concept only."
+        : "Retry focusing on the correct reasoning.",
   };
 }
