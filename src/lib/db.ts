@@ -20,7 +20,10 @@ export interface Course {
 export interface AppError {
   id?: number;
   message: string;
+  question?: string; // Adicionado para compatibilidade com o log de exercícios
+  courseId?: string; // Adicionado para o índice de busca
   timestamp: number;
+  [key: string]: any;
 }
 
 export interface Explanation {
@@ -43,12 +46,11 @@ class CodeAscensionDB extends Dexie {
     super("codeascent_db");
     
     // Define o esquema. 
-    // O primeiro campo é a Primary Key. '++' significa auto-incremento.
-    // Campos após a vírgula são índices (para busca rápida e cleanup).
+    // Adicionado courseId como índice em errors para suportar getErrorLogs
     this.version(1).stores({
       user: 'id',
       courses: 'id',
-      errors: '++id, timestamp',
+      errors: '++id, timestamp, courseId', 
       explanations: '++id, timestamp',
       shop: 'id',
       daily: 'id',
@@ -60,9 +62,6 @@ class CodeAscensionDB extends Dexie {
 export const db = new CodeAscensionDB();
 
 /**
- * CONSTANTES DE LIMPEZA
- */
-/**
  * CONSTANTES DE MANUTENÇÃO REFINADAS
  */
 const MAX_LOG_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias (Explicações e Logs)
@@ -71,15 +70,12 @@ const MAX_ERRORS_TOTAL = 50;
 
 /**
  * LÓGICA DE CLEANUP (AUTO-DELETE)
- * Garante que o banco não cresça indefinidamente, deletando o que é antigo.
  */
 export async function cleanupOldData() {
   const now = Date.now();
   const expirationThreshold = now - MAX_LOG_AGE_MS;
 
   try {
-    // 1. Deleta por ANTIGUIDADE (Explicações, Erros e Logs de Performance)
-    // Se o usuário não vê há 1 mês, provavelmente não precisa mais.
     const deletedExplanations = await db.explanations
       .where('timestamp')
       .below(expirationThreshold)
@@ -88,13 +84,11 @@ export async function cleanupOldData() {
     await db.errors.where('timestamp').below(expirationThreshold).delete();
     await db.memory.where('timestamp').below(expirationThreshold).delete();
 
-    // 2. Limita a QUANTIDADE TOTAL (Caso ele gere 1000 explicações em 1 dia)
-    // Mantemos as mais recentes (maior ID ou maior Timestamp)
     const currentExpCount = await db.explanations.count();
     if (currentExpCount > MAX_EXPLANATIONS_TOTAL) {
       const overflow = currentExpCount - MAX_EXPLANATIONS_TOTAL;
       await db.explanations
-        .orderBy('timestamp') // Deleta as mais velhas primeiro
+        .orderBy('timestamp')
         .limit(overflow)
         .delete();
     }
@@ -114,7 +108,35 @@ export async function cleanupOldData() {
 }
 
 /**
- * WRAPPERS COMPATÍVEIS (Para não quebrar o resto do app)
+ * NOVAS FUNÇÕES REQUISITADAS PELO COURSE PAGE
+ */
+
+// Busca logs de erro de um curso específico
+export async function getErrorLogs(courseId: string): Promise<AppError[]> {
+  try {
+    return await db.errors
+      .where('courseId')
+      .equals(courseId)
+      .toArray();
+  } catch (e) {
+    console.error("Erro ao buscar logs de erro:", e);
+    return [];
+  }
+}
+
+// Remove um log de erro específico após o reforço
+export async function clearErrorLog(id: number) {
+  try {
+    await db.errors.delete(id);
+    return true;
+  } catch (e) {
+    console.error("Erro ao deletar log de erro:", e);
+    return false;
+  }
+}
+
+/**
+ * WRAPPERS COMPATÍVEIS
  */
 
 // ✅ GENERIC GET
@@ -128,7 +150,7 @@ export async function get<T = any>(storeName: string, key: string): Promise<T | 
   }
 }
 
-// ✅ GENERIC SAVE (Injeta timestamp automaticamente)
+// ✅ GENERIC SAVE
 export async function save(storeName: string, value: any, key: string = "main") {
   try {
     const table = (db as any)[storeName];
@@ -139,7 +161,6 @@ export async function save(storeName: string, value: any, key: string = "main") 
 
     await table.put(dataToSave);
 
-    // Background cleanup (10% de chance)
     if (Math.random() < 0.1) cleanupOldData();
     
     return true;
@@ -168,7 +189,7 @@ export async function saveRecord(store: string, value: any, id?: string | number
   return save(store, value, id !== undefined ? String(id) : "main");
 }
 
-// ✅ UPDATE USER (O Mutex agora é tratado internamente pelo Dexie na transação)
+// ✅ UPDATE USER
 export async function updateUser(updates: any) {
   return await db.transaction('rw', db.user, async () => {
     const current = await db.user.get('main') || {};
@@ -185,7 +206,6 @@ export async function performStorageCleanup() {
   console.log(" [System] Iniciando manutenção...");
   await cleanupOldData();
   
-  // Limpeza de cursos inválidos
   await db.courses
     .filter(c => !c.lessons || c.lessons.length === 0)
     .delete();
