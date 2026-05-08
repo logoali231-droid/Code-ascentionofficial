@@ -4,14 +4,26 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/db";
 import { playSound } from "@/lib/sounds";
-import { 
+import {
   ShieldAlert, Cpu, Lock, Unlock, ChevronRight, Zap, AlertCircle, Database
 } from "lucide-react";
-import { initEngine, AVAILABLE_MODELS } from "@/lib/webllm";
+
+import { detectSystemCapabilities, AVAILABLE_MODELS } from "@/lib/modelManager";
+import { initEngine } from "@/lib/webllm";
 
 export default function MachineLockPage() {
   const router = useRouter();
-  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
+
+
+  // Dentro do componente:
+  const [selectedModel, setSelectedModel] = useState("");
+  const [hardwareInfo, setHardwareInfo] = useState<any>(null);
+
+  useEffect(() => {
+    const specs = detectSystemCapabilities();
+    setHardwareInfo(specs);
+    setSelectedModel(specs.recommended.id); // <- AUTO FALLBACK AQUI!
+  }, []);
   const [isInitializing, setIsInitializing] = useState(false);
   const [progress, setProgress] = useState({ progress: 0, text: "INITIALIZING..." });
   const [user, setUser] = useState<any>(null);
@@ -31,15 +43,19 @@ export default function MachineLockPage() {
       await initEngine(selectedModel, (p) => {
         setProgress({ progress: Math.round(p.progress * 100), text: p.text });
       });
+      
       if (user) {
         await save("user", { ...user, model: selectedModel, engineReady: true }, "main");
       }
       playSound("success", 0.5);
       setTimeout(() => router.push("/hub"), 1000);
     } catch (err) {
-      setIsInitializing(false);
-      playSound("error", 0.5);
-    }
+  setIsInitializing(false);
+  playSound("error", 0.5);
+  // Alerta o usuário que o modelo pode ser pesado demais
+  alert("Memory Pressure Detected. Try a smaller model (TinyLlama).");
+  console.error("Engine Init Failed:", err);
+}
   };
 
   return (
@@ -68,7 +84,7 @@ export default function MachineLockPage() {
                   >
                     <div className="text-left">
                       <p className="text-sm font-bold">{m.name}</p>
-                      <p className="text-[9px] opacity-60">{m.size}</p>
+                      <p className="text-[10px] text-slate-500">{m.sizeMb} MB</p>
                     </div>
                     {selectedModel === m.id && <Zap size={14} className="text-cyan-400" />}
                   </button>
