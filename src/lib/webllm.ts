@@ -5,7 +5,7 @@ import { playSound } from "./sounds";
 
 export const AVAILABLE_MODELS = [
   { id: "Llama-3-8B-Instruct-v0.1-q4f16_1-MLC", name: "Llama 3 8B (Fast)", size: "4.5GB", vram: "High" },
-  { id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", name: "Phi-3 Mini", size: "2.3GB", vram: "Mid" },
+  { id: "Phi-3-mini-4k-instruct-q3f16_1-MLC", name: "Phi-3 Mini", size: "2.3GB", vram: "Mid" },
   { id: "gemma-2b-it-q4f16_1-MLC", name: "Gemma 2B", size: "1.6GB", vram: "Low" }
 ];
 
