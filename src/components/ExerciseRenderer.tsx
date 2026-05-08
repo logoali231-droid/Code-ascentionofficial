@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { playSound } from "@/lib/sounds";
-import { addXP } from "@/lib/economy";
+import { addXP } from "@/lib/updateUser";
 import { updateLearningState } from "@/lib/learningState";
 import { CheckCircle2, Terminal, Trophy } from "lucide-react";
 

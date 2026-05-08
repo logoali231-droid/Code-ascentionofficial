@@ -7,6 +7,11 @@ import { generate } from "@/lib/webllm";
 import { buildCoursePrompt } from "@/lib/aiPrompt";
 import { suggestDifficulty } from "@/lib/learningState";
 import { playSound } from "@/lib/sounds";
+
+// --- CORREÇÃO DA IMPORTAÇÃO ---
+// Importamos a constante exportada do seu novo arquivo
+import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector"; 
+
 import { 
   Terminal, 
   Cpu, 
@@ -21,13 +26,10 @@ import {
 export default function NewCoursePage() {
   const router = useRouter();
   
-  // Estado do Formulário
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
-  
-  // Estado do Usuário para Adaptação
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -42,18 +44,24 @@ export default function NewCoursePage() {
     e.preventDefault();
     if (!topic.trim() || loading) return;
 
+    // --- NOVA VALIDAÇÃO USANDO A CLASSE ---
+    // Passamos o 'topic' e o contexto 'promptTheme' exigido pelo seu método
+    if (gibberishDetector.isTotalGibberish(topic, 'promptTheme')) {
+      setStatus("INPUT_REJECTED: NEURAL_NOISE_DETECTED");
+      playSound("error", 0.5);
+      return;
+    }
+
     setLoading(true);
     setStatus("INITIALIZING_NEURAL_LINK...");
     setProgress(10);
     playSound("click", 0.3);
 
     try {
-      // 1. Sugere dificuldade baseada no LearningState
       const difficulty = await suggestDifficulty(topic, user?.cognitive || "Standard");
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
 
-      // 2. Constrói o Prompt Adaptativo
       const promptConfig = {
         topic,
         level: Math.max(1, Math.floor((user?.xp || 0) / 100)),
@@ -66,14 +74,12 @@ export default function NewCoursePage() {
       setProgress(40);
       setStatus("FORGING_CURRICULUM_DATA...");
 
-      // 3. Executa Geração Local (WebLLM)
       const aiResponse = await generate(fullPrompt);
       if (!aiResponse) throw new Error("EMPTY_AI_RESPONSE");
       
       setProgress(80);
       setStatus("STABILIZING_ENCRYPTION...");
 
-      // 4. Parse e Validação
       const courseData = JSON.parse(aiResponse);
       const courseId = `course_${Date.now()}`;
 
@@ -86,7 +92,6 @@ export default function NewCoursePage() {
         status: "active"
       };
 
-      // 5. Salva no IndexedDB
       await save("courses", newCourse, courseId);
       await save("user", { ...user, activeCourse: topic }, "main");
 
@@ -108,7 +113,6 @@ export default function NewCoursePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
-      {/* HEADER */}
       <div className="max-w-2xl mx-auto mb-8 border-b border-slate-800 pb-6">
         <button 
           onClick={() => router.back()}
@@ -130,12 +134,15 @@ export default function NewCoursePage() {
       <div className="max-w-2xl mx-auto">
         <form onSubmit={handleForge} className="space-y-8">
           <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
+            <div className={`absolute -inset-1 bg-gradient-to-r ${status.includes('REJECTED') ? 'from-red-500 to-orange-600' : 'from-cyan-500 to-purple-600'} rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}></div>
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
               <input
                 type="text"
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                    setTopic(e.target.value);
+                    if(status.includes('REJECTED')) setStatus(""); 
+                }}
                 placeholder="INPUT_LEARNING_TOPIC_HERE..."
                 className="w-full bg-transparent p-4 outline-none text-cyan-50 font-bold placeholder:text-slate-700 text-lg"
                 disabled={loading}
@@ -169,22 +176,30 @@ export default function NewCoursePage() {
               </div>
             </div>
           ) : (
-            <button
-              type="submit"
-              className="group relative w-full overflow-hidden p-[2px] rounded-xl transition-transform active:scale-[0.98]"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-purple-500 to-blue-500 animate-gradient-x" />
-              <div className="relative bg-slate-950 rounded-[10px] p-5 flex items-center justify-center gap-3 group-hover:bg-transparent transition-colors">
-                <Sparkles size={20} className="text-cyan-400 group-hover:text-slate-950" />
-                <span className="text-slate-100 font-black uppercase tracking-tighter group-hover:text-slate-950">
-                  Begin Sequential Forge
-                </span>
-              </div>
-            </button>
+            <div className="space-y-4">
+               {status.includes('REJECTED') && (
+                <div className="text-red-500 text-[10px] font-black uppercase flex items-center gap-2 mb-2">
+                    <AlertTriangle size={12} />
+                    {status}
+                </div>
+              )}
+              <button
+                type="submit"
+                className="group relative w-full overflow-hidden p-[2px] rounded-xl transition-transform active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-purple-500 to-blue-500 animate-gradient-x" />
+                <div className="relative bg-slate-950 rounded-[10px] p-5 flex items-center justify-center gap-3 group-hover:bg-transparent transition-colors">
+                  <Sparkles size={20} className="text-cyan-400 group-hover:text-slate-950" />
+                  <span className="text-slate-100 font-black uppercase tracking-tighter group-hover:text-slate-950">
+                    Begin Sequential Forge
+                  </span>
+                </div>
+              </button>
+            </div>
           )}
         </form>
 
-        {/* PROFILE INFO */}
+        {/* ... Restante do código do Profile Info permanece igual ... */}
         {!loading && (
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
@@ -208,18 +223,6 @@ export default function NewCoursePage() {
               <div className="h-1 w-12 bg-cyan-500/30 my-2" />
               <p className="text-[10px] text-slate-500 leading-normal uppercase">
                 Zero data exfiltration. All processing happens in device sandbox.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {status === "LINK_CRITICAL_FAILURE" && (
-          <div className="mt-8 p-5 rounded-xl border border-red-900/50 bg-red-950/20 flex items-center gap-4 text-red-500 animate-in slide-in-from-top-2">
-            <AlertTriangle size={24} className="shrink-0" />
-            <div className="space-y-1">
-              <p className="text-xs font-black uppercase">Forge_Interrupted</p>
-              <p className="text-[10px] opacity-70">
-                Insufficient VRAM or WebGPU context lost. Restart your neural interface (browser) and try again.
               </p>
             </div>
           </div>

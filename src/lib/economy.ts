@@ -4,6 +4,7 @@ import { get, save, updateUser } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { InventoryItem } from "@/types";
+import { addXP } from "./updateUser";
 
 /**
  * FILA DE EXECUÇÃO (MUTEX)
@@ -22,29 +23,7 @@ async function enqueueTransaction<T>(task: () => Promise<T>): Promise<T> {
  * ADICIONAR XP (ATÔMICO)
  * Gerencia progressão e dispara Level Up
  */
-export async function addXP(amount: number) {
-  return enqueueTransaction(async () => {
-    const user = await get("user", "main");
-    if (!user) return;
 
-    const currentXP = user.xp || 0;
-    const oldLevel = calculateLevel(currentXP);
-    const newXP = currentXP + amount;
-    const newLevel = calculateLevel(newXP);
-
-    const updates: any = { xp: newXP };
-
-    // Lógica de Level Up
-    if (newLevel > oldLevel) {
-      playSound("levelup", 0.6);
-      updates.coins = (user.coins || 0) + (newLevel * 50); // Bônus progressivo
-      console.log(`LEVEL UP: ${oldLevel} -> ${newLevel}`);
-    }
-
-    await updateUser(updates);
-    return updates;
-  });
-}
 
 /**
  * COMPRAR ITEM (ATÔMICO)
@@ -147,3 +126,4 @@ export async function addCoins(amount: number) {
     return updated;
   });
 }
+

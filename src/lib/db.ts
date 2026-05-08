@@ -46,12 +46,10 @@ export async function get<T = any>(
   key: string
 ): Promise<T | null> {
   const d = await init();
-
   return new Promise((resolve, reject) => {
     const tx = d.transaction(store, "readonly");
     const st = tx.objectStore(store);
     const req = st.get(key);
-
     req.onsuccess = () => resolve(req.result || null);
     req.onerror = () => reject(req.error);
   });
@@ -64,12 +62,10 @@ export async function save(
   key: string = "main"
 ) {
   const d = await init();
-
   return new Promise((resolve, reject) => {
     const tx = d.transaction(store, "readwrite");
     const st = tx.objectStore(store);
     const req = st.put(value, key);
-
     req.onsuccess = () => resolve(true);
     req.onerror = () => reject(req.error);
   });
@@ -78,37 +74,39 @@ export async function save(
 // ✅ GET ALL
 export async function getAll(store: string) {
   const d = await init();
-
   return new Promise<any[]>((resolve, reject) => {
     const tx = d.transaction(store, "readonly");
     const st = tx.objectStore(store);
     const req = st.getAll();
-
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
 }
 
-// ✅ Helper para atualizar campos específicos sem perder o resto
-export async function updateUser(updates: any) {
-  const current = await get("user", "main") || {};
-  const merged = { ...current, ...updates };
-  await save("user", merged, "main");
-  return merged;
+/**
+ * NOVAS IMPLEMENTAÇÕES PADRONIZADAS (RECORD PATTERN)
+ */
+
+export async function getRecord<T = any>(store: string, id?: string | number): Promise<T | null> {
+  if (typeof id === "undefined") return get<T>(store, "main");
+  return get<T>(store, String(id));
 }
 
 export async function saveRecord(store: string, value: any, id?: string | number) {
   if (typeof id !== "undefined") {
     return save(store, value, String(id));
   }
-  return save(store, value);
-}
-
-export async function getRecord(store: string, id?: string | number) {
-  if (typeof id === "undefined") return get(store, "main");
-  return get(store, String(id));
+  return save(store, value, "main");
 }
 
 export async function getAllRecords(store: string) {
   return getAll(store);
+}
+
+// ✅ Helper atualizado para usar getRecord/saveRecord
+export async function updateUser(updates: any) {
+  const current = await getRecord("user", "main") || {};
+  const merged = { ...current, ...updates };
+  await saveRecord("user", merged, "main");
+  return merged;
 }

@@ -7,12 +7,14 @@ import { getRecord } from "@/lib/db";
 import {
   Home,
   BookOpen,
-  Brain,
+  Brain, // Este agora será o MIND PALACE (Review)
+  PlusSquare, // Usaremos este para "New Course"
   ShoppingCart,
   Vault,
   User,
   Flame,
-  Coins
+  Coins,
+  SearchCode // Ícone temático para revisão
 } from "lucide-react";
 import SoundButton from "./SoundButton";
 
@@ -41,7 +43,7 @@ export default function Navbar() {
       Deep_Dive: "text-blue-500",
       Standard: "text-cyan-400"
     };
-    
+
     const activeColor = profileColors[user?.cognitive] || "text-cyan-400";
 
     return (
@@ -52,7 +54,7 @@ export default function Navbar() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 p-2 z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-700 p-2 z-50">
       
       {/* STATUS BAR */}
       <div className="flex justify-between text-[10px] mb-2 px-2 font-mono">
@@ -64,7 +66,7 @@ export default function Navbar() {
             <Coins size={12} fill="currentColor" /> {user?.coins || 0}
           </span>
         </div>
-        
+
         <div className="flex gap-2 items-center">
           <span className="text-slate-500 italic uppercase">
             {user?.cognitive || "Standard"}
@@ -75,21 +77,21 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* LINKS */}
+      {/* LINKS PRINCIPAIS */}
       <div className="flex justify-around items-center">
         {navLink("/hub", Home)}
         {navLink("/course", BookOpen)}
-        {navLink("/new", Brain)}
+        {navLink("/review", Brain)} {/* MIND PALACE - REVISÃO */}
+        {navLink("/new", PlusSquare)} 
         {navLink("/shop", ShoppingCart)}
-        {navLink("/vault", Vault)}
         {navLink("/profile", User)}
         <SoundButton />
       </div>
 
-      {/* LOCK WARNING */}
+      {/* AI STATUS WARNING */}
       {!user?.engineReady && (
         <div className="text-[9px] text-center text-red-500 mt-1 animate-pulse font-bold">
-          ⚠ AI ENGINE OFFLINE
+          ⚠ NEURAL ENGINE OFFLINE
         </div>
       )}
     </div>
