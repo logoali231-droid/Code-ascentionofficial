@@ -37,7 +37,7 @@ export interface UserStats {
   model?: string;
 }
 
-// ... mantenha Exercise, Lesson, Course e AppDatabase com 'export' na frente
+
 
  export interface Exercise {
     id: string;
