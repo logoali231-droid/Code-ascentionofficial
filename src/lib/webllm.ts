@@ -1,5 +1,4 @@
 "use client";
-
 import * as webllm from "@mlc-ai/web-llm";
 import { get, save } from "@/lib/db";
 import { playSound } from "./sounds";
@@ -10,37 +9,18 @@ export const AVAILABLE_MODELS = [
   { id: "gemma-2b-it-q4f16_1-MLC", name: "Gemma 2B", size: "1.6GB", vram: "Low" }
 ];
 
-const DEFAULT_MODEL = AVAILABLE_MODELS[0].id;
 let engine: webllm.MLCEngine | null = null;
 let isInitializing = false;
 
-export interface InitProgress {
-  progress: number;
-  timeElapsed: number;
-  text: string;
-}
-
-export async function initEngine(
-  modelId: string = DEFAULT_MODEL, 
-  onProgress?: (progress: InitProgress) => void
-) {
-  if (engine) return engine;
-  if (isInitializing) return null;
+export async function initEngine(modelId: string = AVAILABLE_MODELS[0].id, onProgress?: (p: any) => void) {
+  if (engine || isInitializing) return engine;
   isInitializing = true;
-
   try {
-    const config: webllm.Config = {
-      initProgressCallback: (p: any) => { if (onProgress) onProgress(p); },
-      logLevel: "INFO",
-    };
-    const newEngine = await webllm.CreateMLCEngine(modelId, config);
-    engine = newEngine;
+    const config: webllm.Config = { initProgressCallback: onProgress, logLevel: "INFO" };
+    engine = await webllm.CreateMLCEngine(modelId, config);
     const user = await get("user", "main");
     if (user) await save("user", { ...user, engineReady: true, model: modelId }, "main");
     return engine;
-  } catch (error) {
-    isInitializing = false;
-    throw error;
   } finally {
     isInitializing = false;
   }
@@ -52,65 +32,23 @@ export async function generate(prompt: string, temperature: number = 0.7) {
     if (!engine) throw new Error("AI_OFFLINE");
   }
 
-  const fallbackJson = {
-    lessons: [{
-      title: "Connection Glitch",
-      explanation: "Neural link unstable. System using emergency local cache.",
-      exercises: [{
-        type: "mcq",
-        question: "System status check: Connection lost. Current state?",
-        options: ["Stable", "Glitched", "Offline"],
-        answer: "Glitched",
-        explanation: "The engine is recovering from a memory overflow."
-      }]
-    }]
-  };
-
   try {
-    // Timeout de 30s para evitar congelamento no mobile (Galaxy M23)
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("TIMEOUT")), 30000)
-    );
-
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 30000));
     const request = engine.chat.completions.create({
       messages: [
         { role: "system", content: "You are a Cyberpunk AI. Return ONLY JSON." },
         { role: "user", content: prompt }
       ],
       temperature,
-      max_tokens: 1024,
       response_format: { type: "json_object" }
     });
 
     const response: any = await Promise.race([request, timeout]);
-    const content = response.choices[0].message.content;
-    console.log("AI Response received");
-    
-    return content;
-
+    return response.choices[0].message.content;
   } catch (err: any) {
-    console.error("WebLLM Generation Error:", err);
+    console.error("WebLLM Error:", err);
     playSound("error", 0.4);
-
-    // Se houver erro de memória ou timeout, limpa a engine
-    if (err.message === "TIMEOUT" || err.message?.includes("out of memory")) {
-      await unloadEngine();
-    }
-
-    return JSON.stringify(fallbackJson);
+    if (err.message === "TIMEOUT") await engine.unload();
+    return JSON.stringify({ error: "System Glitch" });
   }
-}
-
-export async function unloadEngine() {
-  if (engine) {
-    await engine.unload();
-    engine = null;
-    const user = await get("user", "main");
-    if (user) await save("user", { ...user, engineReady: false }, "main");
-    console.log("WebLLM Engine purged.");
-  }
-}
-
-export function getEngineInstance() {
-  return engine;
 }
