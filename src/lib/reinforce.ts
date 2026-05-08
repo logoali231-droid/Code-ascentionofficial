@@ -1,7 +1,7 @@
 "use client";
 
 import { generate } from "./webllm";
-import { getAdaptiveDifficulty } from "./adaptive";
+import { getAdaptiveMetrics } from "./adaptive";
 import { getMemory } from "./userMemory";
 import { get } from "./db";
 import { safeParse } from "./safeParse";
@@ -13,18 +13,19 @@ export async function generateReinforcement(error: any, course: any) {
   const memory = await getMemory();
   const topic = course?.topic || "programming";
   const level = course?.level || "beginner";
-  // 🎯 adaptive difficulty (central brain)
-  const difficulty = await getAdaptiveDifficulty(
+
+  // 🎯 Sincronizado com getAdaptiveMetrics
+  // Agora desestruturamos para pegar apenas a 'difficulty' para o prompt
+  const metrics = await getAdaptiveMetrics(
     baseDifficulty,
-    topic, // ✅ instead of error.question
-    user
+    topic
   );
-
-
+  
+  const difficulty = metrics.difficulty;
 
   const recentErrors = memory.lastErrors?.slice(-5) || [];
 
-  // 🧠 detect repetition (VERY important for loop behavior)
+  // 🧠 detect repetition
   const sameTopicErrors = memory.lastErrors.filter(
     (e: any) => e.topic === topic
   ).length;
@@ -102,7 +103,7 @@ OUTPUT FORMAT:
 
   if (parsed) return parsed;
 
-  // 🛟 fallback (anti-break safety)
+  // 🛟 fallback
   return {
     type: "short",
     question: `Let's try again: ${error.question}`,

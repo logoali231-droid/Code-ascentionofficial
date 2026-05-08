@@ -1,7 +1,4 @@
-/**
- * PARTE 1: HEURÍSTICAS ESTRUTURAIS E GEOMETRIA DE TECLADO
- * Foco: Detectar "Keyboard Smashing" e anomalias fonéticas brutas.
- */
+
 
 interface GibberishResult {
   isGibberish: boolean;

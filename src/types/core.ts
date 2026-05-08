@@ -35,6 +35,7 @@ export interface UserStats {
   activeCourse?: string;
   inventory: InventoryItem[];
   model?: string;
+  level: number;
 }
 
 

@@ -1,78 +1,103 @@
-
 "use client";
 
-import { getMemory } from "./userMemory";
-import { UserStats, CognitiveProfile } from "@/types/core";
+import { db, getUser } from "./db";
+import { UserStats, CognitiveProfile } from "@/types/core"; 
+
+interface RewardMultiplier {
+  xpMultiplier: number;
+  coinMultiplier: number;
+  difficulty: number;
+}
 
 /**
- * Calcula a dificuldade ideal para a próxima lição ou exercício
- * @param base Dificuldade base do curso/lição
- * @param topic Tópico atual (ex: 'react', 'typescript')
- * @param user Perfil do usuário vindo do banco
+ * Calcula métricas adaptativas baseadas no histórico real do IndexedDB
+ * e no perfil cognitivo do utilizador.
  */
-export async function getAdaptiveDifficulty(
-  base: number,
-  topic: string,
-  user: UserStats
-): Promise<number> {
-  const memory = await getMemory();
-  let difficulty = base;
+export async function getAdaptiveMetrics(
+  baseDifficulty: number,
+  topic: string
+): Promise<RewardMultiplier> {
+  // 1. Busca os dados do utilizador
+  const user = await getUser() as unknown as UserStats;
+  if (!user) return { xpMultiplier: 1, coinMultiplier: 1, difficulty: baseDifficulty };
 
-  // 1. ANÁLISE DE ERROS POR TÓPICO
-  // Se o usuário errou muito este tópico específico recentemente, baixamos a barra
-  const sameTopicErrors = memory.lastErrors?.filter(
-    (e) => e.topic === topic
-  ).length || 0;
+  let difficulty = baseDifficulty;
 
-  if (sameTopicErrors >= 2) difficulty -= 1;
-  if (sameTopicErrors >= 5) difficulty -= 1;
+  // 2. Busca histórico real da tabela 'memory' para análise de performance
+  const recentLogs = await db.table('memory')
+    .where('topic').equals(topic)
+    .reverse()
+    .limit(5)
+    .toArray();
 
-  // 2. MAESTRIA (Streak de acertos)
-  // Se o histórico recente mostra facilidade (acerto de primeira), subimos a dificuldade
-  const recentHistory = memory.history?.slice(-3) || [];
-  
-  if (recentHistory.length >= 3) {
-    const perfectStreak = recentHistory.every(
-      (h) => h.success === true && h.attempts <= 1
-    );
+  const todayStr = new Date().toDateString();
+
+  if (recentLogs.length > 0) {
+    const successCount = recentLogs.filter(log => log.success).length;
+    const avgAttempts = recentLogs.reduce((acc, curr) => acc + (curr.attempts || 1), 0) / recentLogs.length;
     
-    if (perfectStreak) {
+    const sessionsToday = recentLogs.filter(log => 
+      new Date(log.timestamp).toDateString() === todayStr
+    ).length;
+
+    // Ajuste: Se a taxa de sucesso for baixa ou muitas tentativas, reduz dificuldade
+    if (successCount / recentLogs.length < 0.5 || avgAttempts > 2) {
+      difficulty -= 1;
+    } 
+    // Se performance for perfeita, aumenta
+    else if (successCount === recentLogs.length && avgAttempts === 1) {
       difficulty += 1;
     }
+
+    // Fadiga: Reduz carga mental após 8 exercícios no mesmo dia
+    if (sessionsToday > 8) difficulty -= 0.5;
   }
 
-  // 3. SKILL GROWTH (Baseado no XP acumulado)
-  // Níveis baseados na progressão do Core (XP/1000 por exemplo, ou direto do nível calculado)
-  const userLevel = Math.floor(user.xp / 1000) + 1; 
-  if (userLevel > 5) difficulty += 1;
-  if (userLevel > 15) difficulty += 1;
-
-  // 4. COGNITIVE TUNING (Sincronizado com core.ts)
-  // "tdah": Reduzimos o teto de dificuldade para manter o engajamento sem frustração
-  // "Deep_Dive": Forçamos um desafio maior
+  // 3. INTEGRAÇÃO COGNITIVA
   const profile: CognitiveProfile = user.cognitive;
 
   if (profile === "tdah") {
-    difficulty = Math.min(difficulty, 3); 
-  } 
-  
-  if (profile === "Deep_Dive") {
-    difficulty += 1;
+    difficulty = Math.min(difficulty, 3); // Hard cap para evitar burnout
+  } else if (profile === "Deep_Dive") {
+    difficulty += 1; // Deep Dive prefere desafios complexos
   }
 
-  // 5. AJUSTE DE "FADIGA"
-  // Evita burnout: se o usuário já estudou muito hoje, suavizamos a carga
-  if (memory.history && memory.history.length > 0) {
-    const todayStr = new Date().toDateString();
-    const sessionsToday = memory.history.filter((h) => 
-      new Date(h.timestamp).toDateString() === todayStr
-    ).length;
+  // 4. PROGRESSÃO POR XP
+  const userLevel = Math.floor(user.xp / 1000);
+  if (userLevel > 10) difficulty += 0.5;
 
-    if (sessionsToday > 12) {
-      difficulty -= 1;
-    }
-  }
+  // Clamping (1-5) conforme o sistema de estrelas/raridade
+  const finalDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
 
-  // Clamping: Garante que o resultado esteja no range 1-5 (Sistema de Estrelas/Raridade)
-  return Math.max(1, Math.min(5, difficulty));
+  // 5. CÁLCULO DE RECOMPENSA ECONOMIA
+  const xpMultiplier = 1 + (finalDifficulty - 1) * 0.25;
+  const coinMultiplier = 1 + (finalDifficulty - 1) * 0.15;
+
+  return {
+    difficulty: finalDifficulty,
+    xpMultiplier,
+    coinMultiplier
+  };
+}
+
+/**
+ * Retorna o prompt de estilo de explicação baseado no perfil
+ */
+export function getExplanationStyle(profile: CognitiveProfile): string {
+  const styles: Record<string, string> = {
+    "tdah": "Explicações em tópicos curtos, objetivos e visualmente espaçados.",
+    "Deep_Dive": "Explicações detalhadas, conceituais e com mergulho técnico profundo.",
+    "Standard": "Equilíbrio entre teoria e prática com exemplos claros.",
+    "Visual_Logic": "Foco em fluxogramas mentais e analogias estruturais."
+  };
+
+  return styles[profile] || styles["Standard"];
+}
+
+/**
+ * HELPER para o reinforce.ts (Retrocompatibilidade e clareza)
+ */
+export async function getAdaptiveDifficulty(baseDifficulty: number, topic: string) {
+    const metrics = await getAdaptiveMetrics(baseDifficulty, topic);
+    return metrics.difficulty;
 }

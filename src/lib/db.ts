@@ -178,3 +178,11 @@ export async function performStorageCleanup() {
 export function useAutoCleanup() {
   return performStorageCleanup;
 }
+
+export async function getUser(): Promise<User | null> {
+  try {
+    return await db.user.get('main') || null;
+  } catch (e) {
+    return null;
+  }
+}
