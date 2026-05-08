@@ -49,17 +49,32 @@ export async function initEngine(
 export async function generate(prompt: string, temperature: number = 0.7) {
   if (!engine) {
     await initEngine();
-    if (!engine) throw new Error("OFFLINE");
+    if (!engine) throw new Error("AI_OFFLINE");
   }
 
+  const fallbackJson = {
+    lessons: [{
+      title: "Connection Glitch",
+      explanation: "Neural link unstable. System using emergency local cache.",
+      exercises: [{
+        type: "mcq",
+        question: "System status check: Connection lost. Current state?",
+        options: ["Stable", "Glitched", "Offline"],
+        answer: "Glitched",
+        explanation: "The engine is recovering from a memory overflow."
+      }]
+    }]
+  };
+
   try {
+    // Timeout de 30s para evitar congelamento no mobile (Galaxy M23) [cite: 9, 148]
     const timeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("TIMEOUT")), 30000)
     );
 
     const request = engine.chat.completions.create({
       messages: [
-        { role: "system", content: "Return ONLY JSON." },
+        { role: "system", content: "You are a Cyberpunk AI. Return ONLY JSON." },
         { role: "user", content: prompt }
       ],
       temperature,
@@ -69,9 +84,17 @@ export async function generate(prompt: string, temperature: number = 0.7) {
 
     const response: any = await Promise.race([request, timeout]);
     return response.choices[0].message.content;
-  } catch (err) {
-    console.error("Gen Error:", err);
-    return JSON.stringify({ error: "Failed to connect to core." });
+
+  } catch (err: any) {
+    console.error("WebLLM Generation Error:", err);
+    playSound("error", 0.4);
+
+    // Se houver erro de memória ou timeout, limpa a engine 
+    if (err.message === "TIMEOUT" || err.message?.includes("out of memory")) {
+      await unloadEngine();
+    }
+
+    return JSON.stringify(fallbackJson);
   }
 }
 
@@ -81,32 +104,13 @@ export async function unloadEngine() {
     engine = null;
     const user = await get("user", "main");
     if (user) await save("user", { ...user, engineReady: false }, "main");
+    console.log("WebLLM Engine purged.");
   }
 }
 
 export function getEngineInstance() {
   return engine;
-}
-/**
- * Libera memória (VRAM) explicitamente
- */
-export async function unloadEngine() {
-  if (engine) {
-    await engine.unload();
-    engine = null;
-    
-    const user = await get("user", "main");
-    if (user) {
-      await save("user", { ...user, engineReady: false }, "main");
-    }
-    console.log("WebLLM Engine purged from memory.");
-  }
-}
-
-/**
- * Getter para estado da Engine
- */
-export function getEngineInstance() {
+}export function getEngineInstance() {
   return engine;
 }    // Corrida entre a geração e o timeout
     const response: any = await Promise.race([request, timeout]);
