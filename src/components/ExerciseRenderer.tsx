@@ -1,21 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { playSound } from "@/lib/sounds";
 import { addXP } from "@/lib/economy";
 import { updateLearningState } from "@/lib/learningState";
 import { 
-  CheckCircle2, 
-  XCircle, 
-  Zap, 
-  Shield, 
-  Target, 
-  Terminal, 
-  Code2, 
-  Info,
-  ChevronRight,
-  RefreshCcw,
-  Trophy
+  CheckCircle2, XCircle, Zap, Terminal, Code2, Info, ChevronRight, Trophy
 } from "lucide-react";
 
 interface ExerciseProps {
@@ -27,13 +17,13 @@ interface ExerciseProps {
     options: string[];
     answer: string;
     explanation: string;
-    onNext: (correct: boolean) => Promise<void> | void;
   };
   rarity?: "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
   onComplete?: (success: boolean) => void;
+  onNext?: (correct: boolean) => Promise<void> | void; // Adicionado aqui para resolver o erro de build
 }
 
-export default function ExerciseRenderer({ exercise, rarity = "Common", onComplete }: ExerciseProps) {
+export default function ExerciseRenderer({ exercise, rarity = "Common", onComplete, onNext }: ExerciseProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "checking" | "success" | "error">("idle");
   const [revealed, setRevealed] = useState(false);
@@ -41,7 +31,6 @@ export default function ExerciseRenderer({ exercise, rarity = "Common", onComple
   const [glitchText, setGlitchText] = useState(exercise.question);
   const [reward, setReward] = useState<string | null>(null);
 
-  // Configuração de estilo por raridade (Visual Fidelity)
   const rarityConfig = {
     Common: { border: "border-slate-800", bg: "bg-slate-900/40", accent: "text-slate-500", glow: "" },
     Uncommon: { border: "border-green-900/50", bg: "bg-green-950/10", accent: "text-green-400", glow: "shadow-[0_0_15px_rgba(34,197,94,0.05)]" },
@@ -54,60 +43,99 @@ export default function ExerciseRenderer({ exercise, rarity = "Common", onComple
 
   const handleCheck = async (option: string) => {
     if (status === "success" || status === "checking") return;
-
     setSelected(option);
     setStatus("checking");
     playSound("click", 0.2);
     
-    // Simulação de processamento neural para imersão
     await new Promise(r => setTimeout(r, 800));
-
     const isCorrect = option === exercise.answer;
 
-    // Atualiza a maestria no LearningState
     await updateLearningState(exercise.id || "general", isCorrect, rarity === "Legendary" ? 5 : 2);
 
     if (isCorrect) {
       setStatus("success");
       setRevealed(true);
       playSound("success", 0.5);
-      
       const xpGained = rarity === "Legendary" ? 100 : rarity === "Epic" ? 50 : 25;
       setReward(`+${xpGained} XP_STABILIZED`);
-      
       await addXP(xpGained);
       if (onComplete) onComplete(true);
+      if (onNext) await onNext(true); // Chama a função que a Vercel estava reclamando
     } else {
       setStatus("error");
       setShake(true);
       playSound("error", 0.4);
-      setTimeout(() => {
-        setShake(false);
-        setStatus("idle");
-      }, 1000);
+      setTimeout(() => { setShake(false); setStatus("idle"); }, 1000);
       if (onComplete) onComplete(false);
+      if (onNext) await onNext(false);
     }
   };
 
   useEffect(() => {
-    if (status === "success") {
-      setGlitchText("NEURAL_LINK_STABLE");
-    } else {
-      setGlitchText(exercise.question);
-    }
+    setGlitchText(status === "success" ? "NEURAL_LINK_STABLE" : exercise.question);
   }, [status, exercise.question]);
 
   return (
-    <div className={`
-      relative w-full p-6 rounded-2xl border-2 transition-all duration-700
-      ${style.border} ${style.bg} ${style.glow}
-      ${shake ? "animate-shake" : ""}
-      ${status === "success" ? "border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.15)]" : ""}
-    `}>
-      
-      {/* SCANLINE OVERLAY */}
+    <div className={`relative w-full p-6 rounded-2xl border-2 transition-all duration-700 ${style.border} ${style.bg} ${style.glow} ${shake ? "animate-shake" : ""} ${status === "success" ? "border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.15)]" : ""}`}>
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl opacity-[0.03] z-0">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+      </div>
+
+      <div className="relative z-10">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded bg-slate-900 border ${style.border}`}>
+              <Terminal size={14} className={style.accent} />
+            </div>
+            <span className={`text-[10px] font-mono tracking-widest uppercase font-bold ${style.accent}`}>{rarity}_NODE_CHALLENGE</span>
+          </div>
+          {status === "success" && <div className="flex items-center gap-2 text-yellow-500 animate-bounce"><Trophy size={16} /> <span className="text-[10px] font-bold">COMPLETED</span></div>}
+        </div>
+
+        <div className="mb-8">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-100 font-mono italic uppercase">
+            <span className="text-cyan-500 mr-3 opacity-40">#</span>{glitchText}
+          </h2>
+        </div>
+
+        {exercise.codeSnippet && (
+          <div className="mb-8 relative group">
+            <div className="relative bg-[#0d1117] p-5 rounded-lg border border-slate-800 font-mono text-sm overflow-x-auto shadow-2xl">
+              <pre className="text-cyan-300/90"><code>{exercise.codeSnippet}</code></pre>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {exercise.options.map((option, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleCheck(option)}
+              disabled={status === "success" || status === "checking"}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all font-mono text-sm ${
+                selected === option 
+                  ? (status === "error" ? "border-red-500 bg-red-950/30" : "border-cyan-500 bg-cyan-950/30") 
+                  : "border-slate-800 bg-slate-900/60"
+              }`}
+            >
+              <span>{option}</span>
+              {status === "success" && option === exercise.answer && <CheckCircle2 size={18} className="text-green-500" />}
+            </button>
+          ))}
+        </div>
+
+        {revealed && (
+          <div className="mt-8 pt-6 border-t border-slate-800/50">
+            <div className="bg-blue-950/10 rounded-xl border border-blue-900/30 p-5">
+              <p className="text-sm text-slate-300 italic">{exercise.explanation}</p>
+              {reward && <div className="mt-4 text-yellow-500 font-bold text-xs uppercase">{reward}</div>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
       </div>
 
       <div className="relative z-10">
