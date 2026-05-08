@@ -1,0 +1,31 @@
+name: Check Everything (TS + Next + ML)
+on: [push, pull_request]
+
+jobs:
+  check-errors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm install
+
+      - name: TypeScript Deep Check
+        # O 'tsc --noEmit' vai varrer TODO o seu projeto em busca de erros de tipo.
+        # Se você esqueceu de tratar um 'undefined' da IA, ele vai acusar aqui.
+        run: npx tsc --noEmit
+
+      - name: Next.js Lint
+        # Verifica se você quebrou regras do React ou Next (ex: hooks mal usados).
+        run: npx next lint
+
+      - name: Production Build
+        # O teste final. Se o WebLLM ou os modelos criarem conflitos no pacote final, 
+        # o build vai falhar e o robô te avisa com o "X" vermelho.
+        run: npm run build
