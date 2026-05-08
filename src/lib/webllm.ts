@@ -16,7 +16,7 @@ export async function initEngine(modelId: string = AVAILABLE_MODELS[0].id, onPro
   if (engine || isInitializing) return engine;
   isInitializing = true;
   try {
-    const config: webllm.Config = { initProgressCallback: onProgress, logLevel: "INFO" };
+    const config: webllm.MLCEngineConfig = { initProgressCallback: onProgress, logLevel: "INFO" };
     engine = await webllm.CreateMLCEngine(modelId, config);
     const user = await get("user", "main");
     if (user) await save("user", { ...user, engineReady: true, model: modelId }, "main");
