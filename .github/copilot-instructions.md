@@ -60,4 +60,5 @@ Small do/don't checklist for edits (short)
 - Do: preserve prompt wording if only small UI changes are required; changing prompt text has wide impact.
 - Don't: convert client-only components to server components unless you also move or adapt browser APIs (IndexedDB, window).
 
-If anything here is unclear or you want examples for another area (tests, CI, or adding new LLM prompts), tell me which area to expand and I'll update this file.
+
+Always answer concisely. Don't explain the code unless I ask. Prioritize modern TypeScript syntax. In the Code Ascension project, always use the cyberpunk color scheme (hex codes) for UI components.

@@ -1,4 +1,5 @@
-export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
+// src/lib/aiprompt.ts
+import { CognitiveProfile } from "@/types/core"; // Importando do seu central de tipos
 
 /**
  * Retorna as instruções específicas para cada perfil cognitivo
@@ -6,13 +7,13 @@ export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive
 export function getCognitiveInstruction(profile: CognitiveProfile): string {
   switch (profile) {
     case "tdah":
-      return "ADHD MODE: Use extremely short sentences. Use dopamine-driven language. Break concepts into 3-word bullet points. Use frequent emojis. High urgency.";
+      return "ADHD MODE: Use extremely short sentences...";
     case "Visual_Logic":
-      return "VISUAL MODE: Use ASCII diagrams. Explain code flow as a physical map or network. Focus on structural relationships between functions.";
+      return "VISUAL MODE: Use ASCII diagrams...";
     case "Deep_Dive":
-      return "EXPERT MODE: Low-level details only. Explain memory allocation, pointers, and CPU behavior. No fluff. Use highly technical jargon.";
+      return "EXPERT MODE: Low-level details only...";
     default:
-      return "STANDARD MODE: Balanced narrative, clear analogies, and progressive difficulty.";
+      return "STANDARD MODE: Balanced narrative...";
   }
 }
 

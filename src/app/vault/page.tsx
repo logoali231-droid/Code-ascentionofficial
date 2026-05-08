@@ -13,6 +13,7 @@ import {
   CheckCircle2, 
   Layers 
 } from "lucide-react";
+import { InventoryItem } from "@/types/core";
 
 
 export default function VaultPage() {

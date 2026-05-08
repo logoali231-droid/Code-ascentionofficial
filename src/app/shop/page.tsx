@@ -15,6 +15,7 @@ import {
   ArrowRight,
   TrendingUp
 } from "lucide-react";
+import { InventoryItem } from "@/types/core";
 
 
 export default function ShopPage() {

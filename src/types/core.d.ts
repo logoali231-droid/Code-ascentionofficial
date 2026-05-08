@@ -1,40 +1,45 @@
 // src/types/core.d.ts
-export {};
 
-declare global {
-  type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
-  type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
-  type ItemType = "chip" | "relic" | "booster" | "cosmetic";
 
-  interface InventoryItem {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    rarity: ItemRarity;
-    type: ItemType;
-    effect?: string;
-    effectValue?: number;
-    quantity: number;
-    equipped?: boolean;
-    acquiredAt: number;
-    fake?: boolean;
-  }
 
-  interface UserStats {
-    id: string;
-    xp: number;
-    coins: number;
-    streak: number;
-    lastLogin: number;
-    cognitive: CognitiveProfile;
-    engineReady: boolean;
-    activeCourse?: string;
-    inventory: InventoryItem[];
-    model?: string;
-  }
+  // src/types/core.ts
 
-  interface Exercise {
+// Exportando os tipos básicos primeiro
+export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
+export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
+export type ItemType = "chip" | "relic" | "booster" | "cosmetic";
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  rarity: ItemRarity;
+  type: ItemType;
+  effect?: string;
+  effectValue?: number;
+  quantity: number;
+  equipped?: boolean;
+  acquiredAt: number;
+  fake?: boolean;
+}
+
+export interface UserStats {
+  id: string;
+  xp: number;
+  coins: number;
+  streak: number;
+  lastLogin: number;
+  cognitive: CognitiveProfile;
+  engineReady: boolean;
+  activeCourse?: string;
+  inventory: InventoryItem[];
+  model?: string;
+}
+
+// ... mantenha Exercise, Lesson, Course e AppDatabase com 'export' na frente
+
+ export interface Exercise {
     id: string;
     type: "mcq" | "code" | "ordering";
     question: string;
@@ -44,7 +49,7 @@ declare global {
     explanation: string;
   }
 
-  interface Lesson {
+ export interface Lesson {
     id: string;
     title: string;
     explanation: string;
@@ -53,7 +58,7 @@ declare global {
     completed?: boolean;
   }
 
-  interface Course {
+ export interface Course {
     id: string;
     topic: string;
     level: number;
@@ -63,11 +68,10 @@ declare global {
     createdAt: number;
   }
 
-  interface AppDatabase {
+   export interface AppDatabase {
     user: { main: UserStats };
     courses: { [courseId: string]: Course };
     shop: { all: InventoryItem[] };
     memory: { [key: string]: any };
     errors: { [id: string]: { exerciseId: string; error: string; timestamp: number } };
   }
-}
