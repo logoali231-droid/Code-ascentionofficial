@@ -14,14 +14,14 @@ export const MODEL_TIERS = {
     type: "high"
   },
   MID: {
-    id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", // Perfeito para mobile intermediário
+    id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
     name: "Phi-3 Mini (Q4)",
     minRam: 4,
     sizeMb: 2300,
     type: "mid"
   },
   LOW: {
-    id: "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", // Salva-vidas para aparelhos fracos
+    id: "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", // Fallback ultra-leve
     name: "TinyLlama 1.1B (Q4)",
     minRam: 2,
     sizeMb: 650,
@@ -36,23 +36,23 @@ export const AVAILABLE_MODELS = Object.values(MODEL_TIERS);
 // =========================================================
 export function detectSystemCapabilities() {
   // navigator.deviceMemory retorna a RAM em GB (Aproximado: 2, 4, 6, 8)
-  // Alguns navegadores (Safari) não suportam, então o fallback seguro é 4GB.
   const ram = (navigator as any).deviceMemory || 4;
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   let recommended = MODEL_TIERS.LOW;
 
+  // Lógica de recomendação para evitar crash no M23
   if (ram >= 8 && !isMobile) {
     recommended = MODEL_TIERS.HIGH;
   } else if (ram >= 4) {
-    recommended = MODEL_TIERS.MID;
+    recommended = MODEL_TIERS.MID; // M23 cai aqui
   }
 
   return {
     ram,
     isMobile,
     recommended,
-    isM23Profile: isMobile && ram <= 6 // Identifica aparelhos com risco de crash
+    isM23Profile: isMobile && ram <= 6
   };
 }
 
@@ -61,6 +61,7 @@ export function detectSystemCapabilities() {
 // =========================================================
 export async function isModelCached(modelId: string): Promise<boolean> {
   try {
+    // Verifica se os arquivos do modelo já estão no IndexedDB/Cache
     return await webllm.hasModelInCache(modelId);
   } catch (e) {
     console.warn("[ModelManager] Falha ao verificar cache:", e);
@@ -69,7 +70,7 @@ export async function isModelCached(modelId: string): Promise<boolean> {
 }
 
 export async function clearModelCache() {
-  console.log("[ModelManager] Iniciando purga do cache...");
+  console.log("[ModelManager] Iniciando limpeza de modelos antigos...");
   try {
     const cacheNames = await caches.keys();
     let cleared = false;
@@ -89,7 +90,6 @@ export async function clearModelCache() {
 // =========================================================
 // 4. DOWNLOAD MANAGER & PRELOAD
 // =========================================================
-// Permite baixar o modelo em background sem instanciar na memória RAM
 export async function preloadModel(
   modelId: string,
   onProgress: (progress: number, text: string) => void
@@ -101,14 +101,15 @@ export async function preloadModel(
       onProgress(percentage, report.text);
     });
 
-    // Baixa os pesos para o IndexedDB do navegador
+    // Baixa os pesos sem manter a engine ativa na memória
     await engine.reload(modelId);
     
-    // Descarrega da VRAM (memória ativa), mas os arquivos continuam offline no Cache!
+    // Libera a VRAM imediatamente após o download para manter o celular "fresco"
     await engine.unload(); 
     return true;
   } catch (e) {
     console.error("[ModelManager] Falha crítica no preload:", e);
+    // Sugestão de Fallback Real
     return false;
   }
 }
