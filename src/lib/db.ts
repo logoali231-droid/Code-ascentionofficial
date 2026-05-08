@@ -62,35 +62,54 @@ export const db = new CodeAscensionDB();
 /**
  * CONSTANTES DE LIMPEZA
  */
-const MAX_LOG_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
-const MAX_EXPLANATIONS = 50;
-const MAX_ERRORS = 30;
+/**
+ * CONSTANTES DE MANUTENÇÃO REFINADAS
+ */
+const MAX_LOG_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias (Explicações e Logs)
+const MAX_EXPLANATIONS_TOTAL = 100; // Limite de registros para evitar lentidão no index
+const MAX_ERRORS_TOTAL = 50;
 
 /**
  * LÓGICA DE CLEANUP (AUTO-DELETE)
- * Muito mais simples e performática com Dexie
+ * Garante que o banco não cresça indefinidamente, deletando o que é antigo.
  */
 export async function cleanupOldData() {
   const now = Date.now();
-  const threshold = now - MAX_LOG_AGE_MS;
+  const expirationThreshold = now - MAX_LOG_AGE_MS;
 
   try {
-    // Deleta por tempo usando os índices que criamos
-    await db.errors.where('timestamp').below(threshold).delete();
-    await db.memory.where('timestamp').below(threshold).delete();
-    
-    // Limita quantidade total (Cap)
-    const expCount = await db.explanations.count();
-    if (expCount > MAX_EXPLANATIONS) {
+    // 1. Deleta por ANTIGUIDADE (Explicações, Erros e Logs de Performance)
+    // Se o usuário não vê há 1 mês, provavelmente não precisa mais.
+    const deletedExplanations = await db.explanations
+      .where('timestamp')
+      .below(expirationThreshold)
+      .delete();
+
+    await db.errors.where('timestamp').below(expirationThreshold).delete();
+    await db.memory.where('timestamp').below(expirationThreshold).delete();
+
+    // 2. Limita a QUANTIDADE TOTAL (Caso ele gere 1000 explicações em 1 dia)
+    // Mantemos as mais recentes (maior ID ou maior Timestamp)
+    const currentExpCount = await db.explanations.count();
+    if (currentExpCount > MAX_EXPLANATIONS_TOTAL) {
+      const overflow = currentExpCount - MAX_EXPLANATIONS_TOTAL;
       await db.explanations
-        .orderBy('id')
-        .limit(expCount - MAX_EXPLANATIONS)
+        .orderBy('timestamp') // Deleta as mais velhas primeiro
+        .limit(overflow)
         .delete();
     }
 
-    console.log(" [Cleanup] Manutenção concluída com sucesso.");
+    const currentErrorCount = await db.errors.count();
+    if (currentErrorCount > MAX_ERRORS_TOTAL) {
+      await db.errors
+        .orderBy('timestamp')
+        .limit(currentErrorCount - MAX_ERRORS_TOTAL)
+        .delete();
+    }
+
+    console.log(`[Cleanup] Manutenção concluída. Registros expirados removidos.`);
   } catch (err) {
-    console.error(" [Cleanup] Erro na manutenção:", err);
+    console.error("[Cleanup] Falha crítica na manutenção do DB:", err);
   }
 }
 

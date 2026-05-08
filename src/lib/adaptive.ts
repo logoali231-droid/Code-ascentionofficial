@@ -1,7 +1,8 @@
 "use client";
 
 import { db, getUser } from "./db";
-import { UserStats, CognitiveProfile } from "@/types/core"; 
+// Forçamos o cast para UserStats para resolver o erro 2322
+import { UserStats, MemoryLog, CognitiveProfile, AdaptiveMetrics } from '@/types/index';
 
 interface RewardMultiplier {
   xpMultiplier: number;
@@ -9,95 +10,78 @@ interface RewardMultiplier {
   difficulty: number;
 }
 
-/**
- * Calcula métricas adaptativas baseadas no histórico real do IndexedDB
- * e no perfil cognitivo do utilizador.
- */
 export async function getAdaptiveMetrics(
-  baseDifficulty: number,
-  topic: string
-): Promise<RewardMultiplier> {
-  // 1. Busca os dados do utilizador
-  const user = await getUser() as unknown as UserStats;
-  if (!user) return { xpMultiplier: 1, coinMultiplier: 1, difficulty: baseDifficulty };
+  currentDifficulty?: number,
+  currentTopic?: string
+): Promise<AdaptiveMetrics & RewardMultiplier> {
+  
+  // 1. Coleta de dados (Resolvendo o Type Mismatch)
+  const user = await getUser() as unknown as UserStats; 
+  
+  const profile: CognitiveProfile = user?.cognitive || 'Standard';
+  const userXP = user?.xp || 0;
+  const userLevel = user?.level || 1;
+  const streak = user?.streak || 0;
+  
+  // 2. Filtro de Memória inteligente
+  const history: MemoryLog[] = await db.table('memory').toArray();
+  const topicLogs = currentTopic 
+    ? history.filter(h => h.topic === currentTopic).slice(-5)
+    : history.slice(-5);
 
-  let difficulty = baseDifficulty;
+  // 3. Cálculos de Performance
+  const avgAttempts = topicLogs.length > 0 
+    ? topicLogs.reduce((acc, h) => acc + (h.attempts || 1), 0) / topicLogs.length 
+    : 1.5;
 
-  // 2. Busca histórico real da tabela 'memory' para análise de performance
-  const recentLogs = await db.table('memory')
-    .where('topic').equals(topic)
-    .reverse()
-    .limit(5)
-    .toArray();
+  const successRate = topicLogs.length > 0
+    ? topicLogs.filter(h => h.success).length / topicLogs.length
+    : 0.7;
 
-  const todayStr = new Date().toDateString();
+  // 4. Lógica de Dificuldade (Agora usando Level do UserStats)
+  // A base sobe conforme o nível do usuário, não só XP
+  let baseDifficulty = currentDifficulty || Math.min(5, (userLevel * 0.5) + 1);
 
-  if (recentLogs.length > 0) {
-    const successCount = recentLogs.filter(log => log.success).length;
-    const avgAttempts = recentLogs.reduce((acc, curr) => acc + (curr.attempts || 1), 0) / recentLogs.length;
-    
-    const sessionsToday = recentLogs.filter(log => 
-      new Date(log.timestamp).toDateString() === todayStr
-    ).length;
+  if (successRate > 0.8) baseDifficulty += 0.5;
+  if (successRate < 0.4) baseDifficulty -= 0.8;
 
-    // Ajuste: Se a taxa de sucesso for baixa ou muitas tentativas, reduz dificuldade
-    if (successCount / recentLogs.length < 0.5 || avgAttempts > 2) {
-      difficulty -= 1;
-    } 
-    // Se performance for perfeita, aumenta
-    else if (successCount === recentLogs.length && avgAttempts === 1) {
-      difficulty += 1;
-    }
+  const finalDifficulty = calculateGranularDifficulty(baseDifficulty, successRate, avgAttempts);
 
-    // Fadiga: Reduz carga mental após 8 exercícios no mesmo dia
-    if (sessionsToday > 8) difficulty -= 0.5;
-  }
-
-  // 3. INTEGRAÇÃO COGNITIVA
-  const profile: CognitiveProfile = user.cognitive;
-
-  if (profile === "tdah") {
-    difficulty = Math.min(difficulty, 3); // Hard cap para evitar burnout
-  } else if (profile === "Deep_Dive") {
-    difficulty += 1; // Deep Dive prefere desafios complexos
-  }
-
-  // 4. PROGRESSÃO POR XP
-  const userLevel = Math.floor(user.xp / 1000);
-  if (userLevel > 10) difficulty += 0.5;
-
-  // Clamping (1-5) conforme o sistema de estrelas/raridade
-  const finalDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
-
-  // 5. CÁLCULO DE RECOMPENSA ECONOMIA
-  const xpMultiplier = 1 + (finalDifficulty - 1) * 0.25;
-  const coinMultiplier = 1 + (finalDifficulty - 1) * 0.15;
+  // 5. Customização por Perfil e Multiplicadores
+  const isADHD = profile === 'tdah';
+  
+  // Bonus de Streak: Mais moedas e XP se o usuário estiver em sequência
+  const streakBonus = Math.min(2, 1 + (streak * 0.1));
 
   return {
     difficulty: finalDifficulty,
-    xpMultiplier,
-    coinMultiplier
+    // Se for TDAH, o multiplicador de XP é maior para manter o dopamina alta
+    xpMultiplier: parseFloat((finalDifficulty * (isADHD ? 1.8 : 1.2) * streakBonus).toFixed(2)),
+    // Moedas escalam com o nível do usuário (UserStats servindo pra algo!)
+    coinMultiplier: Math.floor(finalDifficulty * 10 * (1 + userLevel * 0.1)),
+    focusMode: isADHD && (finalDifficulty > 3.5 || avgAttempts > 2),
+    style: getExplanationStyle(profile)
   };
 }
 
-/**
- * Retorna o prompt de estilo de explicação baseado no perfil
- */
 export function getExplanationStyle(profile: CognitiveProfile): string {
   const styles: Record<string, string> = {
-    "tdah": "Explicações em tópicos curtos, objetivos e visualmente espaçados.",
-    "Deep_Dive": "Explicações detalhadas, conceituais e com mergulho técnico profundo.",
-    "Standard": "Equilíbrio entre teoria e prática com exemplos claros.",
-    "Visual_Logic": "Foco em fluxogramas mentais e analogias estruturais."
+    "tdah": "Explicações atômicas. Use [B] para termos chave. Máximo 3 tópicos.",
+    "Deep_Dive": "Explique a arquitetura por trás do conceito. Use analogias de baixo nível.",
+    "Standard": "Exemplo prático seguido de teoria breve.",
+    "Visual_Logic": "Descreva o fluxo de dados como um mapa ou engrenagens."
   };
-
   return styles[profile] || styles["Standard"];
 }
 
-/**
- * HELPER para o reinforce.ts (Retrocompatibilidade e clareza)
- */
-export async function getAdaptiveDifficulty(baseDifficulty: number, topic: string) {
-    const metrics = await getAdaptiveMetrics(baseDifficulty, topic);
-    return metrics.difficulty;
+function calculateGranularDifficulty(
+  base: number, 
+  successRate: number, 
+  avgAttempts: number
+): number {
+  const consistencyBonus = successRate > 0.9 ? 0.3 : 0;
+  const struggleTax = avgAttempts > 2.5 ? 0.5 : 0;
+  const finalValue = base + consistencyBonus - struggleTax;
+
+  return parseFloat(Math.max(1, Math.min(5, finalValue)).toFixed(3));
 }

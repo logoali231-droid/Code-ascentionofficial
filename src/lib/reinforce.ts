@@ -16,10 +16,7 @@ export async function generateReinforcement(error: any, course: any) {
 
   // 🎯 Sincronizado com getAdaptiveMetrics
   // Agora desestruturamos para pegar apenas a 'difficulty' para o prompt
-  const metrics = await getAdaptiveMetrics(
-    baseDifficulty,
-    topic
-  );
+  const metrics = await getAdaptiveMetrics();
   
   const difficulty = metrics.difficulty;
 

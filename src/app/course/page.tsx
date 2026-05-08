@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { get, save, getAll } from "@/lib/db";
+import { get, save, getAll, updateUser } from "@/lib/db";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
 import { generateReinforcement } from "@/lib/reinforce";
@@ -84,7 +84,9 @@ export default function CoursePage() {
     );
     const tooManyErrorsSameTopic = sameQuestionErrors.length >= 2;
 
+    // --- REINFORCEMENT LOOP LOGIC ---
     if (!correct) {
+      // Se errou, gera reforço e injeta na lista logo após o exercício atual
       const newExercise = await generateReinforcement(
         {
           ...exercise,
@@ -102,6 +104,8 @@ export default function CoursePage() {
           ...updatedLessons[currentLesson].exercises.slice(currentExercise + 1),
         ],
       };
+
+      // Nota: Não incrementamos currentExercise. O usuário tentará o próximo (que é o reforço)
     }
 
     const errorEntry = {
@@ -114,6 +118,7 @@ export default function CoursePage() {
       courseId: course.id,
     };
 
+    // Persiste o erro para análise da IA
     await save("errors", [...existingErrors, errorEntry]);
 
     await updateMemory({
@@ -126,13 +131,19 @@ export default function CoursePage() {
     let nextExercise = currentExercise;
     let nextLesson = currentLesson;
 
+    // SÓ AVANÇA SE ESTIVER CORRETO
     if (correct) {
       nextExercise = currentExercise + 1;
       const updatedLessonData = updatedLessons[currentLesson];
+      
+      // Verifica se a lição acabou
       if (nextExercise >= updatedLessonData.exercises.length) {
         nextLesson += 1;
         nextExercise = 0;
       }
+    } else {
+      // Se estiver errado, o "next" na verdade aponta para o exercício de reforço que injetamos
+      nextExercise = currentExercise + 1;
     }
 
     const updated = {

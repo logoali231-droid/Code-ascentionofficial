@@ -1,13 +1,29 @@
-// src/types/core.d.ts
+// src/types/core.ts
 
-
-
-  // src/types/core.ts
-
-// Exportando os tipos básicos primeiro
 export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
 export type ItemType = "chip" | "relic" | "booster" | "cosmetic";
+
+// Nova interface para os logs de performance
+export interface MemoryLog {
+  id?: number;
+  topic: string;
+  exerciseId: string;
+  success: boolean;
+  attempts: number;
+  timestamp: number;
+  difficulty: number;
+}
+
+// Nova interface para o retorno do sistema adaptativo
+export interface AdaptiveMetrics {
+  difficulty: number;
+  xpMultiplier: number;
+  coinMultiplier: number;
+  style: string;
+  focusMode: boolean;
+
+}
 
 export interface InventoryItem {
   id: string;
@@ -21,7 +37,6 @@ export interface InventoryItem {
   quantity: number;
   equipped?: boolean;
   acquiredAt: number;
-  fake?: boolean;
 }
 
 export interface UserStats {
