@@ -27,6 +27,7 @@ interface ExerciseProps {
     options: string[];
     answer: string;
     explanation: string;
+    onNext: (correct: boolean) => Promise<void> | void;
   };
   rarity?: "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
   onComplete?: (success: boolean) => void;
