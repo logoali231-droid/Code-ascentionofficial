@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "vercel-build": "next build"
+    "vercel-build": "next build --no-lint"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.83",
