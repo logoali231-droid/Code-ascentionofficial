@@ -1,12 +1,7 @@
 {
-  "env": {
-    "browser": true,
-    "node": true,
-    "es2021": true
-  },
-  "extends": "eslint:recommended",
-  "rules": {
-    "no-unused-vars": "warn",
-    "no-undef": "error"
+  "extends": "next/core-web-vitals",
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": "latest"
   }
 }
