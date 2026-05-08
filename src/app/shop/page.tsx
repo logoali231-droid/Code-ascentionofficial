@@ -15,7 +15,7 @@ import {
   ArrowRight,
   TrendingUp
 } from "lucide-react";
-import { InventoryItem } from "@/types";
+
 
 export default function ShopPage() {
   const [userCoins, setUserCoins] = useState(0);
