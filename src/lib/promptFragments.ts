@@ -253,3 +253,152 @@ ${getDifficultyRules(difficulty || 1)}
 ${getMasteryRules(mastery || 0)}
 `;
 }
+
+// ADD THIS TO:
+// src/lib/promptFragments.ts
+
+/* =========================================================
+   LIGHTWEIGHT FRAGMENTS
+   Used by lessonGenerator
+========================================================= */
+
+
+
+/* =========================================================
+   COGNITIVE FRAGMENT
+========================================================= */
+
+export function buildCognitiveFragment(
+  profile?: CognitiveProfile
+) {
+  switch (profile) {
+    case "tdah":
+      return `
+COGNITIVE MODE: ADHD_FOCUS
+
+RULES:
+- Keep explanations short
+- Use concise sections
+- Avoid giant paragraphs
+- One core idea at a time
+- Fast pacing
+- Clear visual structure
+`;
+    case "Visual_Logic":
+      return `
+COGNITIVE MODE: VISUAL_LOGIC
+
+RULES:
+- Prefer structured reasoning
+- Use hierarchy
+- Explain relationships clearly
+- Use step-by-step logic
+- Emphasize patterns
+`;
+    case "Deep_Dive":
+      return `
+COGNITIVE MODE: DEEP_DIVE
+
+RULES:
+- Explore internal mechanics
+- Explain WHY things work
+- Include edge cases
+- Allow deeper reasoning
+- Technical precision encouraged
+`;
+    default:
+      return `
+COGNITIVE MODE: STANDARD
+
+RULES:
+- Balanced pacing
+- Moderate detail
+- Clear explanations
+- Avoid unnecessary complexity
+`;
+  }
+}
+
+/* =========================================================
+   DIFFICULTY FRAGMENT
+========================================================= */
+
+export function buildDifficultyFragment(
+  difficulty: number = 1
+) {
+  if (difficulty <= 1) {
+    return `
+DIFFICULTY: BEGINNER
+
+RULES:
+- Use simple language
+- Guided reasoning
+- Avoid advanced abstractions
+- Focus on intuition first
+`;
+  }
+
+  if (difficulty <= 3) {
+    return `
+DIFFICULTY: INTERMEDIATE
+
+RULES:
+- Moderate complexity
+- Encourage independent reasoning
+- Introduce abstraction gradually
+`;
+  }
+
+  return `
+DIFFICULTY: ADVANCED
+
+RULES:
+- Technical precision
+- Complex reasoning allowed
+- Use realistic coding scenarios
+- Require synthesis of concepts
+`;
+}
+
+/* =========================================================
+   STYLE FRAGMENT
+========================================================= */
+
+export function buildStyleFragment(
+  stylePrompt?: string
+) {
+  return `
+LEARNING STYLE:
+${stylePrompt || "Explain clearly and naturally"}
+
+IMPORTANT:
+Follow the learning style STRICTLY.
+`;
+}
+
+/* =========================================================
+   HISTORY COMPRESSION
+========================================================= */
+
+export function compressHistory(
+  history: any[] = [],
+  maxEntries: number = 6
+) {
+  if (!history?.length) {
+    return "No previous lessons.";
+  }
+
+  return history
+    .slice(-maxEntries)
+    .map((lesson, index) => {
+      return `
+${index + 1}. ${lesson?.title || "Untitled"}
+
+Summary:
+${String(
+  lesson?.explanation || ""
+).slice(0, 180)}
+`;
+    })
+    .join("\n");
+}

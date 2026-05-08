@@ -12,10 +12,23 @@ export interface User {
 }
 
 export interface Course {
-  id?: string;
-  title: string;
+  id: string;
+
+  title?: string;
+
+  topic?: string;
+
+  level?: number;
+
   lessons: any[];
-  timestamp?: number;
+
+  currentLesson?: number;
+
+  currentExercise?: number;
+
+  difficulty?: number;
+
+  stylePrompt?: string;
 }
 
 export interface AppError {

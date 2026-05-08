@@ -1,209 +1,333 @@
 "use client";
 
-import { generate } from "@/lib/webllm";
+import {
+  getKnowledgeGraph,
+  getNextConcept,
+  updateConceptMastery,
+  getReviewConcepts,
+} from "./knowledgeGraph";
 
 import {
   buildPromptFragments,
   compressContext,
-} from "@/lib/promptFragments";
+} from "./promptFragments";
+
+import { getUserProfile } from "./userMemory";
 
 import {
-  getCurriculumState,
-  getWeakTopics,
-} from "@/lib/curriculumState";
+  buildMemoryContext,
+} from "./vectorMemory";
 
-import { getUser } from "@/lib/db";
+/* =========================================================
+   TYPES
+========================================================= */
 
-import { safeParse } from "@/lib/safeParse";
+export interface LessonPlan {
+  conceptTitle: string;
 
-/* =========================
-   GENERATE LESSON
-========================= */
+  conceptId: string;
 
-export async function generateLesson({
-  courseId,
-  topic,
-  previousLessons = [],
-  reinforcement = false,
-}: {
-  courseId: string;
+  conceptDifficulty: number;
 
-  topic: string;
+  shouldReview: boolean;
 
-  previousLessons?: any[];
+  compressedHistory: string;
 
-  reinforcement?: boolean;
-}) {
-  const user = await getUser();
+  memoryContext: string;
 
-  const curriculum =
-    await getCurriculumState(courseId);
+  promptFragments: string;
 
-  const weakTopics =
-    await getWeakTopics(courseId);
+  reviewText: string;
 
-  const currentTopic =
-    curriculum.map[
-      topic.toLowerCase()
-    ];
+  course: any;
 
-  const mastery =
-    currentTopic?.mastery || 0;
+  profile: any;
+}
 
-  const difficulty =
-    currentTopic?.difficulty || 1;
+/* =========================================================
+   LESSON DIRECTOR
+========================================================= */
+
+export async function generateLessonPlan(
+  params: any
+): Promise<LessonPlan> {
+  const {
+    course,
+    history = [],
+  } = params;
+
+  const profile =
+    await getUserProfile();
+
+  /* =====================================================
+     KNOWLEDGE GRAPH
+  ===================================================== */
+
+  const graph =
+    await getKnowledgeGraph(
+      course.id
+    );
+
+  const nextConcept =
+    graph
+      ? getNextConcept(graph)
+      : null;
+
+  const reviewTargets =
+    graph
+      ? getReviewConcepts(graph)
+      : [];
+
+  /* =====================================================
+     CONCEPT
+  ===================================================== */
+
+  const conceptTitle =
+    nextConcept?.title ||
+    "Core Fundamentals";
+
+  const conceptId =
+    nextConcept?.id ||
+    "core_fundamentals";
+
+  const conceptDifficulty =
+    nextConcept?.difficulty ||
+    course.difficulty ||
+    1;
+
+  /* =====================================================
+     HISTORY
+  ===================================================== */
 
   const compressedHistory =
     compressContext(
-      JSON.stringify(
-        previousLessons.slice(-3)
-      ),
-      1500
+      JSON.stringify(history),
+      1200
     );
 
-  const weakSummary =
-    weakTopics
-      .slice(0, 5)
-      .map(
-        (t) =>
-          `${t.topic} (${t.mastery})`
-      )
-      .join(", ");
+  /* =====================================================
+     MEMORY CONTEXT
+  ===================================================== */
 
-  const systemFragments =
-    buildPromptFragments({
-      cognitive: user?.cognitive,
-      difficulty,
-      mastery,
-      reinforcement,
+  const memoryContext =
+    await buildMemoryContext({
+      query: `
+${course.topic}
+${conceptTitle}
+${compressedHistory}
+`,
+
+      tags: [
+        course.topic,
+        course.level,
+      ],
+
+      concepts: [
+        conceptTitle,
+      ],
+
+      limit: 4,
     });
 
-  const prompt = `
-${systemFragments}
+  /* =====================================================
+     REVIEW
+  ===================================================== */
 
-COURSE ID:
-${courseId}
+  const shouldReview =
+    reviewTargets.length >= 3;
 
-CURRENT TOPIC:
-${topic}
+  const reviewText =
+    shouldReview
+      ? `
+REVIEW TARGETS:
+${reviewTargets
+  .slice(0, 3)
+  .map(
+    (r) =>
+      `${r.title} (${r.mastery})`
+  )
+  .join(", ")}
 
-CURRENT MASTERY:
-${mastery}/100
+IMPORTANT:
+Reinforce weak concepts naturally.
+`
+      : "";
 
-CURRENT DIFFICULTY:
-${difficulty}/5
+  /* =====================================================
+     PROMPT FRAGMENTS
+  ===================================================== */
 
-WEAK TOPICS:
-${weakSummary || "none"}
+  const promptFragments =
+    buildPromptFragments({
+      cognitive:
+        profile?.cognitive,
 
-PREVIOUS LESSON CONTEXT:
-${compressedHistory}
+      difficulty:
+        conceptDifficulty,
 
-Generate ONE procedural lesson.
+      mastery:
+        nextConcept?.mastery || 0,
 
-The lesson must:
-- feel connected to previous lessons
-- maintain continuity
-- avoid repetition
-- adapt to mastery
-- adapt to cognitive profile
-- include practical intuition
-- include progressively harder exercises
+      reinforcement:
+        shouldReview,
+    });
 
-Output STRICT JSON:
+  return {
+    conceptTitle,
+
+    conceptId,
+
+    conceptDifficulty,
+
+    shouldReview,
+
+    compressedHistory,
+
+    memoryContext,
+
+    promptFragments,
+
+    reviewText,
+
+    course,
+
+    profile,
+  };
+}
+
+/* =========================================================
+   EXPLANATION PROMPT
+========================================================= */
+
+export function buildExplanationPrompt(
+  plan: LessonPlan
+) {
+  return `
+You are an adaptive programming tutor.
+
+COURSE:
+${plan.course.topic}
+
+CURRENT CONCEPT:
+${plan.conceptTitle}
+
+USER LEVEL:
+${plan.course.level}
+
+DIFFICULTY:
+${plan.conceptDifficulty}
+
+LEARNING STYLE:
+${plan.course?.stylePrompt || "Explain clearly and progressively"}
+
+${plan.promptFragments}
+
+${plan.reviewText}
+
+RELEVANT MEMORY:
+${plan.memoryContext || "No relevant memory."}
+
+RECENT HISTORY:
+${plan.compressedHistory}
+
+TASK:
+Generate ONLY the lesson explanation.
+
+RULES:
+- Avoid giant text walls
+- Keep pacing adaptive
+- Focus on intuition first
+- Then mechanics
+- Use practical examples
+- Respect cognitive profile
+- Respect learning style
+- Keep continuity with previous lessons
+
+RETURN JSON:
 
 {
   "title": "",
   "explanation": "",
-  "content": "",
-  "exercises": [
-    {
-      "id": "",
-      "type": "mcq",
-      "question": "",
-      "options": [],
-      "answer": "",
-      "explanation": ""
-    }
-  ]
+  "content": ""
 }
 `;
-
-  const raw = await generate(prompt);
-
-  const parsed = safeParse(raw);
-
-  if (!parsed) {
-    return fallbackLesson(topic);
-  }
-
-  return {
-    id:
-      "lesson_" +
-      Date.now(),
-
-    title:
-      parsed.title ||
-      `Lesson about ${topic}`,
-
-    explanation:
-      parsed.explanation ||
-      "No explanation generated.",
-
-    content:
-      parsed.content || "",
-
-    exercises:
-      parsed.exercises || [],
-
-    completed: false,
-  };
 }
 
-/* =========================
-   FALLBACK
-========================= */
+/* =========================================================
+   EXERCISE PROMPT
+========================================================= */
 
-function fallbackLesson(
-  topic: string
+export function buildExercisePrompt({
+  plan,
+  explanation,
+  index,
+}: {
+  plan: LessonPlan;
+
+  explanation: any;
+
+  index: number;
+}) {
+  return `
+You are generating ONE adaptive exercise.
+
+COURSE:
+${plan.course.topic}
+
+CONCEPT:
+${plan.conceptTitle}
+
+LESSON TITLE:
+${explanation?.title}
+
+LESSON EXPLANATION:
+${explanation?.explanation}
+
+DIFFICULTY:
+${plan.conceptDifficulty}
+
+LEARNING STYLE:
+${plan.course?.stylePrompt || "Explain clearly"}
+
+${plan.promptFragments}
+
+RULES:
+- Generate ONLY ONE exercise
+- Match the lesson difficulty
+- Avoid repetition
+- Avoid trick questions
+- Keep coherent progression
+- Practical coding focus
+- Respect cognitive profile
+
+RETURN JSON:
+
+{
+  "id": "",
+  "type": "mcq | code | ordering",
+  "question": "",
+  "options": [],
+  "answer": "",
+  "explanation": ""
+}
+`;
+}
+
+/* =========================================================
+   GRAPH SUCCESS UPDATE
+========================================================= */
+
+export async function completeLessonPlan(
+  plan: LessonPlan
 ) {
-  return {
-    id:
-      "fallback_" +
-      Date.now(),
-
-    title:
-      `Introduction to ${topic}`,
-
-    explanation:
-      `Basic explanation about ${topic}.`,
-
-    content:
-      `Generated fallback lesson for ${topic}.`,
-
-    exercises: [
-      {
-        id: "fallback_ex",
-
-        type: "mcq",
-
-        question:
-          `What best describes ${topic}?`,
-
-        options: [
-          "Concept",
-          "Tool",
-          "Language",
-          "Framework",
-        ],
-
-        answer: "Concept",
-
-        explanation:
-          "Fallback explanation.",
-      },
-    ],
-
-    completed: false,
-  };
+  if (
+    plan?.course?.id &&
+    plan?.conceptId
+  ) {
+    await updateConceptMastery(
+      plan.course.id,
+      plan.conceptId,
+      true
+    );
+  }
 }
