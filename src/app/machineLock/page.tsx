@@ -14,19 +14,28 @@ import { initEngine } from "@/lib/webllm";
 export default function MachineLockPage() {
   const router = useRouter();
 
-
-  // Dentro do componente:
   const [selectedModel, setSelectedModel] = useState("");
   const [hardwareInfo, setHardwareInfo] = useState<any>(null);
-
-  useEffect(() => {
-    const specs = detectSystemCapabilities();
-    setHardwareInfo(specs);
-    setSelectedModel(specs.recommended.id); // <- AUTO FALLBACK AQUI!
-  }, []);
   const [isInitializing, setIsInitializing] = useState(false);
   const [progress, setProgress] = useState({ progress: 0, text: "INITIALIZING..." });
   const [user, setUser] = useState<any>(null);
+
+  // CORREÇÃO AQUI: useEffect assíncrono para detectar capacidades
+  useEffect(() => {
+    async function initHardware() {
+      try {
+        const specs = await detectSystemCapabilities(); // Aguarda a promessa
+        setHardwareInfo(specs);
+        // Agora o specs existe e você pode acessar .recommended
+        setSelectedModel(specs.recommended.id); 
+      } catch (err) {
+        console.error("Falha ao detectar hardware:", err);
+        // Fallback manual caso a detecção falhe
+        setSelectedModel(AVAILABLE_MODELS[0].id);
+      }
+    }
+    initHardware();
+  }, []);
 
   useEffect(() => {
     async function loadUser() {
@@ -41,7 +50,6 @@ export default function MachineLockPage() {
     playSound("click", 0.3);
     try {
       await initEngine(selectedModel, (p) => {
-        
         setProgress({ progress: Math.round(p.progress * 100), text: p.text });
       });
       
@@ -51,12 +59,11 @@ export default function MachineLockPage() {
       playSound("success", 0.5);
       setTimeout(() => router.push("/hub"), 1000);
     } catch (err) {
-  setIsInitializing(false);
-  playSound("error", 0.5);
-  // Alerta o usuário que o modelo pode ser pesado demais
-  alert("Memory Pressure Detected. Try a smaller model (TinyLlama).");
-  console.error("Engine Init Failed:", err);
-}
+      setIsInitializing(false);
+      playSound("error", 0.5);
+      alert("Memory Pressure Detected. Try a smaller model (TinyLlama).");
+      console.error("Engine Init Failed:", err);
+    }
   };
 
   return (
@@ -67,6 +74,12 @@ export default function MachineLockPage() {
             {isInitializing ? <Unlock className="text-cyan-400" size={48} /> : <Lock className="text-slate-600" size={48} />}
           </div>
           <h1 className="text-2xl font-black uppercase italic">Machine_Auth</h1>
+          {/* Opcional: Mostrar info de hardware detectado */}
+          {hardwareInfo && (
+            <p className="text-[10px] text-slate-500 mt-2">
+              GPU_LIMIT: {hardwareInfo.gpuLimit}MB | TIER: {hardwareInfo.modelTier}
+            </p>
+          )}
         </div>
 
         {!isInitializing ? (
@@ -92,7 +105,11 @@ export default function MachineLockPage() {
                 ))}
               </div>
             </div>
-            <button onClick={handleInitialize} className="w-full bg-slate-100 text-slate-950 p-5 rounded-2xl font-black uppercase flex items-center justify-center gap-3">
+            <button 
+              onClick={handleInitialize} 
+              disabled={!selectedModel}
+              className="w-full bg-slate-100 text-slate-950 p-5 rounded-2xl font-black uppercase flex items-center justify-center gap-3 disabled:opacity-50"
+            >
               Authorize Link <ChevronRight size={18} />
             </button>
           </div>
