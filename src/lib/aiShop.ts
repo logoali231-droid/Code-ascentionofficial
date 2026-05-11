@@ -47,43 +47,56 @@ function shouldFake(power: number) {
  * @param {string} userPrompt - O prompt fornecido pelo usuário.
  * @returns {Promise<object>} O item gerado com propriedades como nome, descrição, etc.
  */
+/**
+ * Gera um item de IA baseado no prompt do usuário.
+ */
 export async function generateAIItem(userPrompt: string) {
   const power = evaluateIntent(userPrompt);
 
   const aiPrompt = `
 User wants: ${userPrompt}
-
 Create item JSON:
-
 {
  "name": "",
  "description": "",
  "icon": "emoji that visually matches",
  "effect": "cosmetic or small boost"
 }
-
 Keep balanced. Never OP.
 `;
 
-  const raw = await generate(aiPrompt);
-  const parsed = safeParse(raw);
+  // 1. Chama a geração
+  const response = await generate(aiPrompt);
+  
+  // 2. Transforma o stream/undefined em uma string limpa
+  let rawText = "";
+
+  if (response) {
+    if (typeof response === 'string') {
+      rawText = response;
+    } else {
+      // Se for o stream (AsyncIterable), percorre até o fim
+      for await (const chunk of response) {
+        const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
+        rawText += content;
+      }
+    }
+  }
+
+  // 3. Agora o 'rawText' é garantidamente uma string (mesmo que vazia)
+  const parsed = safeParse(rawText);
 
   const fake = shouldFake(power);
 
   return {
     id: "ai_" + Date.now(),
-
     name: parsed?.name || "Glitched Relic",
     description: parsed?.description || "Something unstable...",
     icon: parsed?.icon || "🧪",
-
     effect: fake ? "cosmetic" : parsed?.effect || "cosmetic",
-
     price: computePrice(power),
-
     requiredLevel: Math.min(power, 6),
     requiredStreak: Math.min(power, 5),
-
     fake,
   };
 }
