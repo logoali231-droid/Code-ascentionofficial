@@ -10,8 +10,12 @@ let engine: webllm.MLCEngine | null = null;
 let isInitializing = false;
 
 export async function initEngine(modelId: string = AVAILABLE_MODELS[0].id, onProgress?: (p: any) => void) {
+
+  
+
   if (engine || isInitializing) return engine;
   isInitializing = true;
+  
   try {
     const config: webllm.MLCEngineConfig = { initProgressCallback: onProgress, logLevel: "INFO" };
     engine = await webllm.CreateMLCEngine(modelId, config);

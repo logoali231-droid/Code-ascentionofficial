@@ -30,6 +30,8 @@ import {
   updateMemory,
 } from "@/lib/userMemory";
 
+
+
 export default function CoursePage() {
   const [course, setCourse] =
     useState<any>(null);
@@ -74,6 +76,8 @@ export default function CoursePage() {
 
   const [lessonTree, setLessonTree] =
     useState<any[]>([]);
+
+  const [downloadInfo, setDownloadInfo] = useState({ text: "", model: "" });
 
   /* =====================================================
      STREAMING STATES
