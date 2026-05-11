@@ -3,7 +3,6 @@
 import * as webllm from "@mlc-ai/web-llm";
 import { get, save } from "@/lib/db";
 import { playSound } from "./sounds";
-// Importamos a função de detecção e a lista de modelos
 import { AVAILABLE_MODELS, detectSystemCapabilities } from "./modelManager"; 
 
 /* =========================================================
@@ -19,14 +18,12 @@ let recovering = false;
 /* =====================================
    HARD MEMORY SAFE MODE
 ===================================== */
-const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad/i.test(navigator.userAgent);
 const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 
 /* =========================================================
    INIT ENGINE
 ========================================================= */
-// ... suas importações anteriores
-
 export async function initEngine(
   modelId?: string,
   onProgress?: (p: any) => void
@@ -48,30 +45,44 @@ export async function initEngine(
   }
 
   try {
-    // AJUSTE PARA O M23: Forçamos o WebLLM a trabalhar com buffers menores
     loadingPromise = webllm.CreateMLCEngine(
       selectedModelId, 
       {
         initProgressCallback: onProgress,
         logLevel: "INFO",
-        // Adicionamos a configuração de hardware específica abaixo:
         appConfig: {
           kvCacheConfig: {
-            // Reduzimos o cache para não estourar os 512MB da GPU do M23
             maxNumSteps: isMobile ? 128 : 256, 
           }
         },
-        // Forçamos o limite de memória para o que o M23 aceita sem erro
         requiredCapabilities: {
-          maxStorageBufferBindingSize: 536870912, // 512MB exatos
+          maxStorageBufferBindingSize: 536870912, // 512MB para o M23
         }
       }
     );
 
     engine = await loadingPromise;
-    // ... resto do seu código de recovery e save
+    currentModel = selectedModelId;
+
+    // Salva o estado no banco para persistência
+    const user = await get("user", "main");
+    if (user) {
+      await save("user", { ...user, engineReady: true, model: selectedModelId }, "main");
+    }
+
+    return engine;
+  } catch (err) {
+    console.error("[WebLLM Init Error]", err);
+    engine = null;
+    currentModel = null;
+    throw err;
+  } finally {
+    loadingPromise = null;
+  }
+} // <--- AQUI ESTAVA FALTANDO FECHAR!
+
 /* =========================================================
-   GET ENGINE & UNLOAD (Sem alterações necessárias)
+   GET ENGINE & UNLOAD
 ========================================================= */
 export function getEngine() { return engine; }
 
@@ -98,13 +109,12 @@ export async function generate(
   const myGenerationId = ++generationId;
 
   try {
-    // Agora o initEngine() decide o modelo sozinho se estiver vazio
     const currentEngine = await initEngine(); 
 
     if (!currentEngine) { throw new Error("AI_OFFLINE"); }
 
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 30000)
+      setTimeout(() => reject(new Error("TIMEOUT")), 45000) // Aumentado para 45s no mobile
     );
 
     const request = currentEngine.chat.completions.create({
