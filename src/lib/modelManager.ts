@@ -8,21 +8,21 @@ import * as webllm from "@mlc-ai/web-llm";
 export const MODEL_TIERS = {
 
   MID: {
-    id: "Phi-3-mini-1k-instruct-q4f32_1-MLC", // Ideal para o M23 (6GB RAM)
+  id: "Phi-3.5-mini-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
     name: "Phi-3 Mini (Q4)",
     minRam: 4,
     sizeMb: 2300,
     type: "mid"
   },
   LOW: {
-    id: "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", // Fallback ultra-leve
+    id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",// Fallback ultra-leve
     name: "TinyLlama 1.1B (Q4)",
     minRam: 2,
     sizeMb: 650,
     type: "low"
   },
   HIGH: {
-    id: "Llama-3-8B-Instruct-q4f16_1-MLC",
+    id: "Llama-3.1-8B-Instruct-q4f16_1-MLC",
     name: "Llama 3 8B (Q4)",
     minRam: 8,
     sizeMb: 4500,
