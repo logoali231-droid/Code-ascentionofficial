@@ -14,17 +14,16 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleReset() {
-    if (!confirm("Reset all data?")) return;
-
-  // Reset known stores. Use the default key for user/memory and array for courses/errors
-  await save("user", null, "main");
-  await save("courses", [], "all");
-  await save("errors", [], "all");
-  await save("memory", null, "main");
-
-    location.reload();
-  }
+async function handleReset() {
+  if (!confirm("Reset all data?")) return;
+  
+  await db.user.put({ id: 'main', xp: 0, coins: 0 }); // Reset limpo do usuário
+  await db.courses.clear(); // Use .clear() em vez de save("courses", [])
+  await db.errors.clear();
+  await db.memory.put({ id: 'main', data: [] });
+  
+  window.location.reload(); // Garante que o estado da UI limpe
+}
 
   return (
     <div className="p-4 space-y-4">
