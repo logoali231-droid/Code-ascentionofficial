@@ -192,14 +192,24 @@ RETURN JSON:
 `;
 
   try {
-    const raw =
-      await enqueueGeneration(
-        () =>
-          generate(prompt)
-      );
+    // 1. Pega o retorno (que pode ser string, stream ou undefined)
+const rawRes = await enqueueGeneration(() => generate(prompt));
 
-    const parsed =
-      safeParse(raw);
+// 2. Coletor Neural: Converte para string
+let raw = "";
+if (rawRes) {
+  if (typeof rawRes === 'string') {
+    raw = rawRes;
+  } else {
+    for await (const chunk of rawRes) {
+      const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
+      raw += content;
+    }
+  }
+}
+
+// 3. Agora o safeParse recebe string
+const parsed = safeParse(raw);
 
     if (!parsed) {
       return buildFallbackLesson(
