@@ -42,34 +42,38 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
   if (loadingPromise) {
     return loadingPromise;
   }
-
   try {
-    loadingPromise = webllm.CreateMLCEngine(selectedModelId, {
-      initProgressCallback: onProgress,
-      logLevel: "INFO",
-      appConfig: {
-        // Usando 'as any' para ignorar o erro de tipagem conforme solicitado
-        kvCacheConfig: {
-          maxNumSteps: isMobile ? 128 : 256,
-        }
-      } as any, 
-      requiredCapabilities: {
-        maxStorageBufferBindingSize: 536870912, // 512MB para o M23
-      },
-    } as any );
+    if (engine) return engine;
+    
+    // Reset de segurança para permitir novas tentativas
+    loadingPromise = null; 
 
-    engine = await loadingPromise;
-    currentModel = selectedModelId;
+    const config = {
+      kvCacheConfig: {
+        context_window_size: 2048, // Reduzido para economizar RAM no M23
+      },
+      requiredCapabilities: {
+        maxStorageBufferBindingSize: 419430400, // 400MB - Mais seguro para mobile
+      }
+    } as any;
+
+    console.log("[SYSTEM] Iniciando CreateMLCEngine...");
+    engine = await CreateMLCEngine(modelId, { 
+      initProgressCallback: onProgress,
+      appConfig: config 
+    });
+
     return engine;
-  } catch (err) {
-    console.error("[WebLLM Init Error]", err);
+  } catch (error: any) {
+    // Extrai a mensagem real para não vir o objeto vazio {}
+    const errorMsg = error?.message || JSON.stringify(error) || "Erro desconhecido de Hardware/WebGPU";
+    console.error("[ERROR] Engine Init Failed:", errorMsg);
+    
     engine = null;
-    currentModel = null;
-    throw err;
-  } finally {
     loadingPromise = null;
+    throw error;
   }
-} // <--- Verifique se esta chave fecha a initEngine!
+}// <--- Verifique se esta chave fecha a initEngine!
 
 /* ========================================================= 
    UNLOAD ENGINE
