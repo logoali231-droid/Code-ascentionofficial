@@ -9,6 +9,7 @@ import { safeParse } from "./safeParse";
 import {
   buildCognitiveFragment,
   buildDifficultyFragment,
+  buildPromptFragments,
   buildStyleFragment,
 } from "./promptFragments";
 
@@ -59,25 +60,21 @@ export async function generateLessonCore({
   course,
   concept,
   difficulty,
-  history = [],
 }: any) {
   const profile =
     await getUserProfile();
 
-  const cognitive =
-    buildCognitiveFragment(
-      profile?.cognitive
-    );
+  const promptFragments =
+    buildPromptFragments({
+      cognitive:
+        profile?.cognitive,
 
-  const style =
-    buildStyleFragment(
-      course?.stylePrompt
-    );
+      difficulty,
 
-  const difficultyRules =
-    buildDifficultyFragment(
-      difficulty
-    );
+      mastery: 50,
+
+      reinforcement: false,
+    });
 
   const memory =
     await buildMemoryContext({
@@ -102,11 +99,10 @@ ${concept}
 LEVEL:
 ${course.level}
 
-${style}
+LEARNING STYLE:
+${course?.stylePrompt || "Explain clearly and progressively"}
 
-${cognitive}
-
-${difficultyRules}
+${promptFragments}
 
 RELEVANT MEMORY:
 ${memory || "None"}
@@ -129,9 +125,9 @@ RETURN JSON:
 `;
 
   const raw =
-  await enqueueGeneration(() =>
-    generate(prompt)
-  );
+    await enqueueGeneration(() =>
+      generate(prompt)
+    );
 
   const parsed =
     safeParse(raw);

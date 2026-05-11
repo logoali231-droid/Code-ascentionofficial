@@ -239,3 +239,24 @@ export async function generate(
     });
   }
 }
+
+async function withTimeout(
+  promise: Promise<any>,
+  ms = 45000
+) {
+  const timeout = new Promise(
+    (_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error("LLM timeout")
+          ),
+        ms
+      )
+  );
+
+  return Promise.race([
+    promise,
+    timeout,
+  ]);
+}

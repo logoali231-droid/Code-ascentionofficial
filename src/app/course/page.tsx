@@ -398,6 +398,22 @@ export default function CoursePage() {
             ...prev,
           ];
 
+          const reinforcementCount =
+            clone.filter(
+              (e) => e.isReinforcement
+            ).length;
+
+          if (reinforcementCount < 5) {
+            clone.splice(
+              currentExercise + 1,
+              0,
+              {
+                ...reinforcement,
+                isReinforcement: true,
+              }
+            );
+          }
+
           clone.splice(
             currentExercise + 1,
             0,
