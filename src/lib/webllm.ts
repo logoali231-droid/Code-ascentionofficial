@@ -26,7 +26,6 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
   if (!selectedModelId) {
     const { modelTier } = await detectSystemCapabilities();
     selectedModelId = modelTier;
-    console.log(`[GPU Discovery] Iniciando com modelo: ${selectedModelId}`);
   }
 
   if (engine && currentModel === selectedModelId) {
@@ -40,35 +39,32 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
   loadingPromise = (async () => {
     try {
       if (engine) {
-        await unloadEngine();
+        await engine.unload();
       }
 
       console.log("[SYSTEM] Iniciando CreateMLCEngine...");
 
-      // Ajuste para evitar erro de tipagem: 
-      // Definimos o MLCEngineConfig de forma que o TS aceite as extensões de baixo nível
-      const mlcConfig: any = {
+      // Versão simplificada para evitar o erro .find() e passar na Vercel
+      // Removi o aninhamento complexo que causa erro de tipagem
+      const engineConfig: any = {
         initProgressCallback: onProgress,
-        logLevel: "warn",
+        logLevel: "error", // Menos ruído no log ajuda a performance no M23
         appConfig: {
-          // No M23, manter o buffer baixo é vital
-          requiredCapabilities: {
-            maxStorageBufferBindingSize: 419430400, 
-          }
+          // No M23, forçamos o buffer a ser o mínimo possível para WebGPU
+          requiredCapabilities: { maxStorageBufferBindingSize: 419430400 }
         },
-        // Mover kvCacheConfig para fora do appConfig se o TS reclamar, 
-        // ou usar o cast 'as any' para garantir que a lib receba o valor em runtime
+        // Configuração de cache no nível raiz (padrão MLC atual)
         kvCacheConfig: {
-          context_window_size: isMobile ? 1536 : 2048,
+          context_window_size: isMobile ? 1280 : 2048, // Reduzido agressivamente para o M23
         }
       };
 
-      engine = await webllm.CreateMLCEngine(selectedModelId as string, mlcConfig);
+      engine = await webllm.CreateMLCEngine(selectedModelId as string, engineConfig);
 
       currentModel = selectedModelId as string;
       return engine;
     } catch (error: any) {
-      console.error("[ERROR] Engine Init Failed:", error?.message || error);
+      console.error("[ERROR] Engine Init Failed:", error?.message || "GPU_REJECTED");
       engine = null;
       loadingPromise = null;
       throw error;
@@ -85,6 +81,7 @@ export async function unloadEngine() {
   try {
     if (engine) {
       await engine.unload();
+      console.log("[SYSTEM] Engine Unloaded para liberar VRAM");
     }
   } catch (err) {
     console.warn("[WebLLM Unload Error]", err);
@@ -96,23 +93,22 @@ export async function unloadEngine() {
 }
 
 /* =========================================================
-   GENERATE (LÓGICA COMPLETA)
+   GENERATE
 ========================================================= */
-export async function generate(
-  prompt: string,
-  temperature: number = 0.7
-) {
-  while (generationLock) { await sleep(50); }
+export async function generate(prompt: string, temperature: number = 0.7) {
+  // Trava de geração simultânea
+  while (generationLock) { await sleep(100); }
   generationLock = true;
   const myGenerationId = ++generationId;
 
   try {
     const currentEngine = await initEngine(); 
 
-    if (!currentEngine) { throw new Error("AI_OFFLINE"); }
+    if (!currentEngine) throw new Error("ENGINE_NOT_READY");
 
+    // Timeout de 90 segundos - o M23 pode ser lento no primeiro token
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 60000)
+      setTimeout(() => reject(new Error("TIMEOUT")), 90000)
     );
 
     const request = currentEngine.chat.completions.create({
@@ -127,7 +123,7 @@ export async function generate(
 
     const response: any = await Promise.race([request, timeout]);
 
-    if (myGenerationId !== generationId) { throw new Error("STALE_GENERATION"); }
+    if (myGenerationId !== generationId) throw new Error("STALE_GENERATION");
 
     return response?.choices?.[0]?.message?.content;
   } catch (err: any) {
@@ -135,18 +131,19 @@ export async function generate(
     playSound("error", 0.4);
     
     const msg = String(err);
-    if (msg.includes("OutOfMemory") || msg.includes("disposed") || msg.includes("find")) {
+    // Se a GPU "morreu", forçamos o unload para a próxima tentativa
+    if (msg.includes("OutOfMemory") || msg.includes("find") || msg.includes("undefined")) {
       if (!recovering) {
         recovering = true;
         await unloadEngine();
-        await sleep(1500);
+        await sleep(2000);
         recovering = false;
       }
     }
-    return JSON.stringify({ error: "System Glitch", details: msg });
+    return JSON.stringify({ error: "System Glitch", details: "Check Dev Console" });
   } finally {
     generationLock = false;
-    await sleep(isMobile ? 300 : 100);
+    await sleep(isMobile ? 500 : 100); 
   }
 }
 
