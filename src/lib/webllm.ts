@@ -87,39 +87,7 @@ export async function unloadEngine() {
   currentModel = null;
 }
 
-/* ========================================================= 
-   GENERATE 
-========================================================= */
-export async function generate(prompt: string, temperature: number = 0.7) {
-  while (generationLock) {
-    await sleep(50);
-  }
 
-  generationLock = true;
-  const myGenerationId = ++generationId;
-
-  try {
-    // Exemplo de uso da lógica de recuperação que causou o erro no log
-    if (!engine && !loadingPromise) {
-        // Se precisar de recuperação, a função unloadEngine agora está visível
-        if (!recovering) {
-            recovering = true;
-            await unloadEngine(); 
-            await sleep(1000);
-            recovering = false;
-        }
-    }
-    
-    const currentEngine = await initEngine();
-    // ... resto da sua lógica de geração
-  } catch (err: any) {
-    console.error("[WebLLM Generate Error]", err);
-    playSound("error", 0.4);
-  } finally {
-    generationLock = false;
-    await sleep(isMobile ? 180 : 80);
-  }
-}
 /* =========================================================
    GENERATE
 ========================================================= */
