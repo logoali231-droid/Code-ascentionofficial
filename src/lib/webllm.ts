@@ -1,9 +1,8 @@
 "use client";
 
 import * as webllm from "@mlc-ai/web-llm";
-import { get, save } from "@/lib/db";
 import { playSound } from "./sounds";
-import { AVAILABLE_MODELS, detectSystemCapabilities } from "./modelManager"; 
+import { detectSystemCapabilities } from "./modelManager"; 
 
 /* =========================================================
    SINGLETONS
@@ -21,11 +20,9 @@ let recovering = false;
 const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad/i.test(navigator.userAgent);
 const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 
-
 /* =========================================================
    INIT ENGINE
 ========================================================= */
-
 export async function initEngine(modelId?: string, onProgress?: (p: any) => void) {
   let selectedModelId = modelId;
 
@@ -42,30 +39,31 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
   if (loadingPromise) {
     return loadingPromise;
   }
+
   try {
-    if (engine) return engine;
-    
-    // Reset de segurança para permitir novas tentativas
+    // Reset de segurança
     loadingPromise = null; 
 
     const config = {
       kvCacheConfig: {
-        context_window_size: 2048, // Reduzido para economizar RAM no M23
+        context_window_size: 2048, // Reduzido para o M23
       },
       requiredCapabilities: {
-        maxStorageBufferBindingSize: 419430400, // 400MB - Mais seguro para mobile
+        maxStorageBufferBindingSize: 419430400, // 400MB estável
       }
     } as any;
 
     console.log("[SYSTEM] Iniciando CreateMLCEngine...");
-    engine = await CreateMLCEngine(modelId, { 
+    
+    // CORREÇÃO AQUI: Acessando via namespace webllm
+    engine = await webllm.CreateMLCEngine(selectedModelId as string, { 
       initProgressCallback: onProgress,
       appConfig: config 
     });
 
+    currentModel = selectedModelId as string;
     return engine;
   } catch (error: any) {
-    // Extrai a mensagem real para não vir o objeto vazio {}
     const errorMsg = error?.message || JSON.stringify(error) || "Erro desconhecido de Hardware/WebGPU";
     console.error("[ERROR] Engine Init Failed:", errorMsg);
     
@@ -73,7 +71,7 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
     loadingPromise = null;
     throw error;
   }
-}// <--- Verifique se esta chave fecha a initEngine!
+}
 
 /* ========================================================= 
    UNLOAD ENGINE
@@ -90,7 +88,6 @@ export async function unloadEngine() {
   loadingPromise = null;
   currentModel = null;
 }
-
 
 /* =========================================================
    GENERATE
@@ -109,7 +106,7 @@ export async function generate(
     if (!currentEngine) { throw new Error("AI_OFFLINE"); }
 
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 45000) // Aumentado para 45s no mobile
+      setTimeout(() => reject(new Error("TIMEOUT")), 45000)
     );
 
     const request = currentEngine.chat.completions.create({
