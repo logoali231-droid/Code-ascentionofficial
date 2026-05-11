@@ -21,18 +21,15 @@ async function enqueueTransaction<T>(task: () => Promise<T>): Promise<T> {
  * ATUALIZAÇÃO BASE (USADA PELAS OUTRAS)
  * Agora com tipagem correta para o build da Vercel
  */
-export async function updateUser(updates: Partial<UserStats>): Promise<UserStats> {
-  const currentUser = await get("user", "main") as UserStats;
-  if (!currentUser) throw new Error("USER_NOT_FOUND");
 
-  const updatedUser: UserStats = {
-    ...currentUser,
-    ...updates,
-  };
-
-  // Ajuste aqui conforme a assinatura do seu db.ts (Store, Valor, Key)
-  await save("user", updatedUser, "main");
-  return updatedUser;
+export async function updateUser(updates: any) {
+  return await db.transaction('rw', db.user, async () => {
+    const current = await db.user.get('main') || {};
+    // Não chame updateUser aqui dentro! Use db.user diretamente.
+    const merged = { ...current, ...updates, id: 'main' };
+    await db.user.put(merged);
+    return merged;
+  });
 }
 
 /**
