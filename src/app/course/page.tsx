@@ -636,21 +636,19 @@ function ErrorsTab({
 
       const results: string[] = [];
 
-      for (const err of last) {
-        try {
-          const explanation =
-            await explainError({
-              ...err,
-              course,
-            });
-
-          results.push(explanation);
-        } catch {
-          results.push(
-            "Failed to explain."
-          );
-        }
-      }
+      // Localize este bloco dentro da função loadErrors:
+for (const err of last) {
+  try {
+    const explanation = await explainError({
+      ...err,
+      course,
+    });
+    results.push(typeof explanation === 'string' ? explanation : "Explanation processing...");
+    
+  } catch {
+    results.push("Failed to explain.");
+  }
+}
 
       const map:
         Record<number, string> =
