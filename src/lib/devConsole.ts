@@ -81,7 +81,6 @@ function consoleOutput(text: string) {
       .reverse()
       .join("\n\n") || "";
 }
-
 function createOverlay() {
   if (
     document.getElementById(
@@ -90,6 +89,10 @@ function createOverlay() {
   ) {
     return;
   }
+
+  /* ======================================
+     OVERLAY
+  ====================================== */
 
   const overlay =
     document.createElement("pre");
@@ -101,13 +104,15 @@ function createOverlay() {
     "fixed";
 
   overlay.style.bottom = "0";
+
   overlay.style.left = "0";
+
   overlay.style.right = "0";
 
-  overlay.style.height = "40vh";
+  overlay.style.height = "45vh";
 
   overlay.style.background =
-    "rgba(0,0,0,0.92)";
+    "rgba(0,0,0,0.96)";
 
   overlay.style.color = "#00ff88";
 
@@ -131,42 +136,116 @@ function createOverlay() {
 
   overlay.style.display = "none";
 
+  overlay.style.lineHeight =
+    "1.4";
+
   document.body.appendChild(
     overlay
   );
 
-  /**
-   * Toggle:
-   * triple tap top-left
-   */
+  /* ======================================
+     OPEN BUTTON
+  ====================================== */
 
-  let taps = 0;
+  const button =
+    document.createElement(
+      "button"
+    );
 
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (
-        e.clientX < 80 &&
-        e.clientY < 80
-      ) {
-        taps++;
+  button.innerText = "🐞";
 
-        setTimeout(() => {
-          taps = 0;
-        }, 900);
+  button.id =
+    "__dev_console_button";
 
-        if (taps >= 3) {
-          overlay.style.display =
-            overlay.style.display ===
-            "none"
-              ? "block"
-              : "none";
+  button.style.position =
+    "fixed";
 
-          taps = 0;
-        }
-      }
-    }
+  button.style.bottom = "16px";
+
+  button.style.right = "16px";
+
+  button.style.width = "52px";
+
+  button.style.height = "52px";
+
+  button.style.borderRadius =
+    "999px";
+
+  button.style.border = "none";
+
+  button.style.background =
+    "#111";
+
+  button.style.color =
+    "#00ff88";
+
+  button.style.fontSize =
+    "22px";
+
+  button.style.zIndex =
+    "1000000";
+
+  button.style.boxShadow =
+    "0 0 12px rgba(0,255,136,0.5)";
+
+  button.style.cursor =
+    "pointer";
+
+  document.body.appendChild(
+    button
   );
+
+  /* ======================================
+     CLOSE BUTTON
+  ====================================== */
+
+  const close =
+    document.createElement(
+      "button"
+    );
+
+  close.innerText = "✕";
+
+  close.style.position =
+    "absolute";
+
+  close.style.top = "8px";
+
+  close.style.right = "8px";
+
+  close.style.background =
+    "#ff0033";
+
+  close.style.color = "white";
+
+  close.style.border = "none";
+
+  close.style.padding =
+    "4px 8px";
+
+  close.style.borderRadius =
+    "6px";
+
+  close.style.cursor =
+    "pointer";
+
+  overlay.appendChild(close);
+
+  /* ======================================
+     TOGGLE
+  ====================================== */
+
+  button.onclick = () => {
+    overlay.style.display =
+      "block";
+
+    consoleOutput("");
+  };
+
+  close.onclick = () => {
+    overlay.style.display =
+      "none";
+  };
 }
 
 /* =========================================
