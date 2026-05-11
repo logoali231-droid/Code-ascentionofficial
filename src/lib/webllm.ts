@@ -25,7 +25,7 @@ const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 /* =========================================================
    INIT ENGINE
 ========================================================= */
-/
+
 export async function initEngine(
   modelId?: string,
   onProgress?: (p: any) => void
