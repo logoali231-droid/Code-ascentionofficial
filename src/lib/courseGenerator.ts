@@ -189,11 +189,36 @@ Return ONLY valid JSON.
 }
 `;
 
-  const res =
-    await generate(prompt);
+  // ... dentro da generateCourse (Substitua a partir da linha 'const res = ...')
 
-  const parsed =
-    safeParse(res);
+  // 1. Inicia a geração
+  const res = await generate(prompt);
+
+  // 2. O COLETOR: Garante que tudo vire string antes do parse
+  let fullResponse = "";
+
+  if (res) {
+    if (typeof res === 'string') {
+      fullResponse = res;
+    } else {
+      // Se for Stream (AsyncIterable), esvazia a torneira no balde
+      for await (const chunk of res) {
+        const content = typeof chunk === 'string' 
+          ? chunk 
+          : (chunk as any).choices?.[0]?.delta?.content || "";
+        fullResponse += content;
+      }
+    }
+  }
+
+  // 3. O PARSE: Agora o safeParse recebe uma string garantida (mesmo que vazia)
+  const parsed = safeParse(fullResponse);
+
+  
+    
+  
+  
+    
 
   /*
     Fallback
