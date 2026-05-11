@@ -57,8 +57,8 @@ export async function initEngine(
           // O M23 precisa disso para não cair no limite de 128MB da WebGPU.
           // Forçamos 512MB para o modelo de código rodar com folga.
           maxStorageBufferBindingSize: 536870912, 
-        } as any
-      }
+        }
+      } as any 
     );
 
     engine = await loadingPromise;
