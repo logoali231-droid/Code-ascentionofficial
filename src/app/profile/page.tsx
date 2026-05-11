@@ -2,7 +2,7 @@
 
 import { exportMemory } from "@/lib/memoryExport";
 import { importMemory } from "@/lib/memoryImport";
-import { save } from "@/lib/db";
+import { save, db } from "@/lib/db";
 
 export default function SettingsPage() {
 
