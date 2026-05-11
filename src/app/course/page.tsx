@@ -274,6 +274,8 @@ export default function CoursePage() {
           (explanationStream as unknown as string) || streamed.explanation
         );
       }
+    }
+  }
 
   /* =====================================================
      NEXT
