@@ -194,11 +194,19 @@ function createUI() {
   */
 
   button.onclick = () => {
-    overlay.style.display =
-      "block";
+  const isOpen =
+    overlay.style.display ===
+    "block";
 
+  overlay.style.display =
+    isOpen
+      ? "none"
+      : "block";
+
+  if (!isOpen) {
     updateOverlay();
-  };
+  }
+};
 
   close.onclick = () => {
     overlay.style.display =
