@@ -6,9 +6,9 @@ import * as webllm from "@mlc-ai/web-llm";
 // 1. SUPPORTED MODELS & QUANTIZATION (TIERS)
 // =========================================================
 export const MODEL_TIERS = {
- 
+
   MID: {
-    id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
+    id: "Phi-3-mini-1k-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
     name: "Phi-3 Mini (Q4)",
     minRam: 4,
     sizeMb: 2300,
@@ -21,7 +21,7 @@ export const MODEL_TIERS = {
     sizeMb: 650,
     type: "low"
   },
-   HIGH: {
+  HIGH: {
     id: "Llama-3-8B-Instruct-q4f16_1-MLC",
     name: "Llama 3 8B (Q4)",
     minRam: 8,
@@ -30,7 +30,11 @@ export const MODEL_TIERS = {
   }
 };
 
-export const AVAILABLE_MODELS = Object.values(MODEL_TIERS);
+export const AVAILABLE_MODELS = [
+  MODEL_TIERS.MID,
+  MODEL_TIERS.LOW,
+  MODEL_TIERS.HIGH,
+];
 
 // =========================================================
 // 2. RAM DETECTION & FALLBACK (M23 SAFE)
@@ -93,24 +97,40 @@ export async function clearModelCache() {
 // =========================================================
 export async function preloadModel(
   modelId: string,
-  onProgress: (progress: number, text: string) => void
+  onProgress: (
+    progress: number,
+    text: string
+  ) => void
 ): Promise<boolean> {
   try {
-    const engine = new webllm.MLCEngine();
-    engine.setInitProgressCallback((report: webllm.InitProgressReport) => {
-      const percentage = Math.round(report.progress * 100);
-      onProgress(percentage, report.text);
-    });
+    await webllm.CreateMLCEngine(
+      modelId,
+      {
+        initProgressCallback: (
+          report
+        ) => {
+          const percentage =
+            Math.round(
+              report.progress * 100
+            );
 
-    // Baixa os pesos sem manter a engine ativa na memória
-    await engine.reload(modelId);
-    
-    // Libera a VRAM imediatamente após o download para manter o celular "fresco"
-    await engine.unload(); 
+          onProgress(
+            percentage,
+            report.text
+          );
+        },
+
+        logLevel: "WARN",
+      }
+    );
+
     return true;
   } catch (e) {
-    console.error("[ModelManager] Falha crítica no preload:", e);
-    // Sugestão de Fallback Real
+    console.error(
+      "[ModelManager] preload fail",
+      e
+    );
+
     return false;
   }
 }

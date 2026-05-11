@@ -7,9 +7,7 @@ import {
   save,
 } from "@/lib/db";
 
-import {
-  playSound,
-} from "./sounds";
+import { playSound } from "./sounds";
 
 import {
   AVAILABLE_MODELS,
@@ -27,6 +25,15 @@ let loadingPromise:
   Promise<webllm.MLCEngine> | null =
   null;
 
+let currentModel:
+  string | null = null;
+
+let generationLock = false;
+
+let generationId = 0;
+
+let recovering = false;
+
 /* =========================================================
    INIT ENGINE
 ========================================================= */
@@ -38,11 +45,16 @@ export async function initEngine(
   onProgress?: (p: any) => void
 ) {
   /* already ready */
-  if (engine) {
+
+  if (
+    engine &&
+    currentModel === modelId
+  ) {
     return engine;
   }
 
   /* already loading */
+
   if (loadingPromise) {
     return loadingPromise;
   }
@@ -61,6 +73,32 @@ export async function initEngine(
 
     engine =
       await loadingPromise;
+
+    currentModel =
+      modelId;
+
+    /* =====================================
+       DEVICE LOST RECOVERY
+    ===================================== */
+
+    try {
+      const gpuDevice: any =
+        (engine as any)
+          ?.engine
+          ?.device;
+
+      if (gpuDevice?.lost) {
+        gpuDevice.lost.then(
+          async () => {
+            console.warn(
+              "[WebGPU] Device lost"
+            );
+
+            await unloadEngine();
+          }
+        );
+      }
+    } catch {}
 
     const user =
       await get(
@@ -91,6 +129,8 @@ export async function initEngine(
     );
 
     engine = null;
+
+    currentModel = null;
 
     throw err;
   } finally {
@@ -125,6 +165,8 @@ export async function unloadEngine() {
   engine = null;
 
   loadingPromise = null;
+
+  currentModel = null;
 }
 
 /* =========================================================
@@ -136,16 +178,29 @@ export async function generate(
 
   temperature: number = 0.7
 ) {
-  const currentEngine =
-    await initEngine();
+  /* =====================================
+     PREVENT PARALLEL GPU GENERATION
+  ===================================== */
 
-  if (!currentEngine) {
-    throw new Error(
-      "AI_OFFLINE"
-    );
+  while (generationLock) {
+    await sleep(50);
   }
 
+  generationLock = true;
+
+  const myGenerationId =
+    ++generationId;
+
   try {
+    const currentEngine =
+      await initEngine();
+
+    if (!currentEngine) {
+      throw new Error(
+        "AI_OFFLINE"
+      );
+    }
+
     const timeout =
       new Promise(
         (_, reject) =>
@@ -168,7 +223,7 @@ export async function generate(
               role: "system",
 
               content:
-                "You are a Cyberpunk AI. Return ONLY JSON.",
+                "You are a Cyberpunk AI tutor. Return ONLY valid JSON.",
             },
 
             {
@@ -187,7 +242,6 @@ export async function generate(
                 "json_object",
             },
 
-          /* IMPORTANT */
           max_tokens: 256,
         }
       );
@@ -198,8 +252,21 @@ export async function generate(
         timeout,
       ]);
 
+    /* =====================================
+       CANCEL STALE GENERATIONS
+    ===================================== */
+
+    if (
+      myGenerationId !==
+      generationId
+    ) {
+      throw new Error(
+        "STALE_GENERATION"
+      );
+    }
+
     return response
-      .choices?.[0]
+      ?.choices?.[0]
       ?.message?.content;
   } catch (err: any) {
     console.error(
@@ -215,7 +282,9 @@ export async function generate(
     const msg =
       String(err);
 
-    /* GPU recovery */
+    /* =====================================
+       GPU RECOVERY
+    ===================================== */
 
     if (
       msg.includes(
@@ -228,35 +297,42 @@ export async function generate(
 
       msg.includes(
         "Device"
+      ) ||
+
+      msg.includes(
+        "STALE_GENERATION"
       )
     ) {
-      await unloadEngine();
+      if (!recovering) {
+        recovering = true;
+
+        await unloadEngine();
+
+        await sleep(1000);
+
+        recovering = false;
+      }
     }
 
     return JSON.stringify({
       error:
         "System Glitch",
     });
+  } finally {
+    generationLock = false;
   }
 }
 
-async function withTimeout(
-  promise: Promise<any>,
-  ms = 45000
-) {
-  const timeout = new Promise(
-    (_, reject) =>
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function sleep(ms: number) {
+  return new Promise(
+    (resolve) =>
       setTimeout(
-        () =>
-          reject(
-            new Error("LLM timeout")
-          ),
+        resolve,
         ms
       )
   );
-
-  return Promise.race([
-    promise,
-    timeout,
-  ]);
 }
