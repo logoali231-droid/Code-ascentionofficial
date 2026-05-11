@@ -34,11 +34,27 @@ let generationId = 0;
 
 let recovering = false;
 
+
+
+/* =====================================
+   HARD MEMORY SAFE MODE
+===================================== */
+
+const isMobile =
+  /Android|iPhone|iPad/i.test(
+    navigator.userAgent
+  );
+
+const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
+
+
 /* =========================================================
    INIT ENGINE
 ========================================================= */
 
 export async function initEngine(
+
+
   modelId: string =
     AVAILABLE_MODELS[0].id,
 
@@ -98,7 +114,7 @@ export async function initEngine(
           }
         );
       }
-    } catch {}
+    } catch { }
 
     const user =
       await get(
@@ -237,12 +253,12 @@ export async function generate(
           temperature,
 
           response_format:
-            {
-              type:
-                "json_object",
-            },
+          {
+            type:
+              "json_object",
+          },
 
-          max_tokens: 256,
+          max_tokens: SAFE_MAX_TOKENS,
         }
       );
 
@@ -320,6 +336,14 @@ export async function generate(
     });
   } finally {
     generationLock = false;
+
+    /* ============================
+       GPU THERMAL COOLDOWN
+    ============================ */
+
+    await sleep(
+      isMobile ? 180 : 80
+    );
   }
 }
 

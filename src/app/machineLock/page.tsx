@@ -41,6 +41,7 @@ export default function MachineLockPage() {
     playSound("click", 0.3);
     try {
       await initEngine(selectedModel, (p) => {
+        
         setProgress({ progress: Math.round(p.progress * 100), text: p.text });
       });
       

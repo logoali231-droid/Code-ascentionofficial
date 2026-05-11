@@ -8,7 +8,7 @@ import * as webllm from "@mlc-ai/web-llm";
 export const MODEL_TIERS = {
 
   MID: {
-    id: "Phi-3-mini-1k-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
+    id: "Phi-3-mini-1k-instruct-q4f32_1-MLC", // Ideal para o M23 (6GB RAM)
     name: "Phi-3 Mini (Q4)",
     minRam: 4,
     sizeMb: 2300,
