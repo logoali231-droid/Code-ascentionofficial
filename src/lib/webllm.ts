@@ -25,6 +25,7 @@ const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 /* =========================================================
    INIT ENGINE
 ========================================================= */
+/
 export async function initEngine(
   modelId?: string,
   onProgress?: (p: any) => void
@@ -34,34 +35,36 @@ export async function initEngine(
   if (!selectedModelId) {
     const { modelTier } = await detectSystemCapabilities();
     selectedModelId = modelTier;
-    console.log(`[GPU Discovery] Iniciando com modelo: ${selectedModelId}`);
   }
 
-  if (engine && currentModel === selectedModelId) {
-    return engine;
-  }
-
-  if (loadingPromise) {
-    return loadingPromise;
-  }
+  if (engine && currentModel === selectedModelId) return engine;
+  if (loadingPromise) return loadingPromise;
 
   try {
-    // 💡 A correção principal está aqui embaixo:
     loadingPromise = webllm.CreateMLCEngine(
       selectedModelId, 
       {
         initProgressCallback: onProgress,
         logLevel: "INFO",
-        // Removido o kvCacheConfig de dentro do appConfig para evitar erro de build
+        appConfig: {
+          // KV Cache: 128 é o "sweet spot" pro M23. 
+          // Não é tão pouco que ele esquece tudo, nem tanto que trava o Chrome.
+          kvCacheConfig: {
+            maxNumSteps: isMobile ? 128 : 256, 
+          }
+        } as any, 
         requiredCapabilities: {
-          maxStorageBufferBindingSize: 536870912, // Mantido 512MB para o Samsung M23
-        }
+          // O M23 precisa disso para não cair no limite de 128MB da WebGPU.
+          // Forçamos 512MB para o modelo de código rodar com folga.
+          maxStorageBufferBindingSize: 536870912, 
+        } as any
       }
     );
 
     engine = await loadingPromise;
     currentModel = selectedModelId;
 
+    // Persistência no banco
     const user = await get("user", "main");
     if (user) {
       await save("user", { ...user, engineReady: true, model: selectedModelId }, "main");
@@ -77,7 +80,6 @@ export async function initEngine(
     loadingPromise = null;
   }
 }
-
 /* =========================================================
    GENERATE
 ========================================================= */
