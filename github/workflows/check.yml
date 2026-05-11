@@ -29,3 +29,12 @@ jobs:
         # O teste final. Se o WebLLM ou os modelos criarem conflitos no pacote final, 
         # o build vai falhar e o robô te avisa com o "X" vermelho.
         run: npm run build
+        # ... (início igual)
+      - name: TypeScript Deep Check
+        # Adicione o --pretty para ler melhor o erro no log do GitHub
+        run: npx tsc --noEmit --pretty 
+
+      - name: Production Build
+        # Forçamos o build exato que a Vercel faz
+        run: npm run build
+
