@@ -1,11 +1,10 @@
-
+// src/lib/modelManager.ts
 
 export const AVAILABLE_MODELS = [
   { id: "Qwen2-0.5B-Instruct-q4f16_1-MLC", name: "Qwen 0.5B (Low Power)", sizeMb: 350 },
   { id: "Llama-3-8B-Instruct-v0.1-q4f16_1-MLC", name: "Llama 3 8B (High Power)", sizeMb: 4500 }
 ];
 
-// Definimos uma Interface para o TypeScript saber exatamente o que esperar
 export interface SystemSpecs {
   modelTier: string;
   gpuLimit: number;
@@ -13,16 +12,18 @@ export interface SystemSpecs {
 }
 
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
-    // 1. Verifica RAM aproximada
     const ram = (navigator as any).deviceMemory || 4;
     const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
     
-    let gpuLimit = 1024; // Padrão 1GB
+    let gpuLimit = 1024; 
 
-    // 2. Verifica limites REAIS da GPU (WebGPU)
     try {
-        if (navigator.gpu) {
-            const adapter = await navigator.gpu.requestAdapter();
+        // A CORREÇÃO: Forçamos o navigator para 'any' para acessar a propriedade .gpu 
+        // que o TS ainda não conhece nativamente
+        const nav = navigator as any;
+        
+        if (nav.gpu) {
+            const adapter = await nav.gpu.requestAdapter();
             if (adapter) {
                 // Converte bytes para MB
                 gpuLimit = adapter.limits.maxStorageBufferBindingSize / (1024 * 1024);
@@ -33,13 +34,11 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
         console.warn("[System] Could not detect WebGPU limits, using fallback.");
     }
 
-    // Lógica de recomendação
     const isLowEnd = gpuLimit < 600 || (isMobile && ram < 6);
     const recommendedModel = isLowEnd ? AVAILABLE_MODELS[0] : AVAILABLE_MODELS[1];
 
-    // O retorno agora contém o campo 'recommended' que o seu componente busca
     return {
-        modelTier: recommendedModel.id === AVAILABLE_MODELS[0].id ? "LOW" : "HIGH",
+        modelTier: isLowEnd ? "LOW" : "HIGH",
         gpuLimit,
         recommended: recommendedModel
     };
