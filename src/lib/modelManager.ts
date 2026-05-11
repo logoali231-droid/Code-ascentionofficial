@@ -134,3 +134,39 @@ export async function preloadModel(
     return false;
   }
 }
+ 
+
+export async function detectSystemCapabilities() {
+  const ram = (navigator as any).deviceMemory || 4;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // VERIFICAÇÃO CRÍTICA DE GPU
+  let gpuLimit = 1024 * 1024 * 1024; // Padrão 1GB
+  try {
+    const adapter = await navigator.gpu?.requestAdapter();
+    if (adapter) {
+      gpuLimit = adapter.limits.maxStorageBufferBindingSize;
+      console.log(`[GPU] Max Storage Buffer: ${gpuLimit / (1024 * 1024)}MB`);
+    }
+  } catch (e) {
+    console.warn("Falha ao detectar limites da GPU, usando fallback conservador.");
+    gpuLimit = 512 * 1024 * 1024; // Fallback para 512MB em mobile
+  }
+
+  let recommended = MODEL_TIERS.LOW;
+
+  // Se a GPU for limitada (como no M23), força o uso do tier LOW ou MID com cautela
+  if (gpuLimit < 1024 * 1024 * 1024) {
+     console.warn("Dispositivo com GPU limitada detectado. Forçando Tier de baixo consumo.");
+     return MODEL_TIERS.LOW; // Use um modelo como o Qwen-0.5B ou TinyLlama
+  }
+
+  // Lógica original de RAM [cite: 5844]
+  if (ram >= 8 && !isMobile) {
+    recommended = MODEL_TIERS.HIGH;
+  } else if (ram >= 4) {
+    recommended = MODEL_TIERS.MID;
+  }
+
+  return recommended;
+}
