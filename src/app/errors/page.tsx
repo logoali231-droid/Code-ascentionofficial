@@ -2,16 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { getAll, get } from "@/lib/db";
-
 import { explainError } from "@/lib/explanationAI";
-
 import { generateReinforcement } from "@/lib/reinforce";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 
 export default function ErrorsPage() {
   const [errors, setErrors] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
-
   const [explanation, setExplanation] = useState("");
   const [exercise, setExercise] = useState<any>(null);
 
@@ -26,9 +23,9 @@ export default function ErrorsPage() {
 
   async function openError(err: any) {
     setSelected(err);
+    setExplanation(""); // Limpa a explicação anterior
 
     const user = await get("user", "main");
-    // attempt to read course by keyed record, fall back to array storage
     let course = await get("courses", user.activeCourse);
     if (!course) {
       const all = (await get("courses", "all")) || (await getAll("courses")) || [];
@@ -36,7 +33,8 @@ export default function ErrorsPage() {
       course = arr.find((c: any) => c.id === user.activeCourse);
     }
 
-    const exp = await explainError({
+    // 1. Obtém o stream da IA
+    const expStream: any = await explainError({
       question: err.question,
       correct: err.correct,
       userAnswer: err.userAnswer,
@@ -44,12 +42,23 @@ export default function ErrorsPage() {
       user,
       course,
     });
-    setExplanation(exp);
+
+    // 2. Consome o stream para atualizar o texto gradualmente
+    let fullText = "";
+    if (expStream && typeof expStream[Symbol.asyncIterator] === 'function') {
+      for await (const chunk of expStream) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        fullText += content;
+        setExplanation(fullText); // Atualiza a UI a cada pedaço de texto
+      }
+    } else {
+      // Fallback caso a função retorne uma string simples
+      setExplanation(String(expStream));
+    }
 
     const ex = await generateReinforcement(err, course);
     setExercise(ex);
   }
-
   return (
     <div className="p-4 pb-24">
       <h1 className="text-xl mb-3">Mistakes</h1>
