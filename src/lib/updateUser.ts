@@ -1,6 +1,6 @@
 "use client";
 
-import { get, save } from "./db";
+import { get, save, db } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { UserStats, InventoryItem } from "@/types";
@@ -23,9 +23,10 @@ async function enqueueTransaction<T>(task: () => Promise<T>): Promise<T> {
  */
 
 export async function updateUser(updates: any) {
+  // O erro ocorria aqui porque 'db' não estava visível
   return await db.transaction('rw', db.user, async () => {
-    const current = await db.user.get('main') || {};
-    // Não chame updateUser aqui dentro! Use db.user diretamente.
+    const current = await db.user.get('main') || { id: 'main', xp: 0, coins: 0 };
+    // IMPORTANTE: Mesclamos os dados sem chamar a própria função updateUser
     const merged = { ...current, ...updates, id: 'main' };
     await db.user.put(merged);
     return merged;
