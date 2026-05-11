@@ -253,50 +253,27 @@ export default function CoursePage() {
          THEORY EXPLANATION AI
       ==================================== */
 
-      const enhancedTheory =
-        await generateExplanationAI({
-          lesson: streamed,
+      const explanationStream = await generateExplanationAI({
+        lesson: streamed,
+        history: currentCourse.lessons || [],
+        user,
+        course: currentCourse,
+      });
 
-          history:
-            currentCourse.lessons ||
-            [],
-
-          user,
-
-          course:
-            currentCourse,
-        });
-
-      setStreamedExplanation(
-        enhancedTheory ||
-        streamed.explanation
-      );
-
-      setIsGeneratingExplanation(
-        false
-      );
-
-      setIsGeneratingExercises(
-        false
-      );
-
-      setStreamProgress(100);
-
-    } catch (err) {
-      console.error(
-        "[STREAM]",
-        err
-      );
-
-      setIsGeneratingExplanation(
-        false
-      );
-
-      setIsGeneratingExercises(
-        false
-      );
-    }
-  }
+      // Se for um stream (AsyncIterable), consumimos pedaço por pedaço
+      if (explanationStream && typeof explanationStream === "object" && Symbol.asyncIterator in explanationStream) {
+        let fullText = "";
+        for await (const chunk of explanationStream as any) {
+          const content = chunk.choices?.[0]?.delta?.content || "";
+          fullText += content;
+          setStreamedExplanation(fullText); // Atualiza a UI conforme as palavras chegam
+        }
+      } else {
+        // Caso a função retorne uma string simples (fallback)
+        setStreamedExplanation(
+          (explanationStream as unknown as string) || streamed.explanation
+        );
+      }
 
   /* =====================================================
      NEXT
