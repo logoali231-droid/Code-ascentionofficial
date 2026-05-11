@@ -16,13 +16,22 @@ export default function SettingsPage() {
 
 async function handleReset() {
   if (!confirm("Reset all data?")) return;
-  
-  await db.user.put({ id: 'main', xp: 0, coins: 0 }); // Reset limpo do usuário
-  await db.courses.clear(); // Use .clear() em vez de save("courses", [])
-  await db.errors.clear();
-  await db.memory.put({ id: 'main', data: [] });
-  
-  window.location.reload(); // Garante que o estado da UI limpe
+
+  try {
+    // Reset do usuário para o estado inicial
+    await db.user.put({ id: 'main', xp: 0, coins: 0 }); 
+    
+    // Limpeza completa das tabelas
+    await db.courses.clear(); 
+    await db.errors.clear();
+    
+    // Reset da memória neural
+    await db.memory.put({ id: 'main', data: [] });
+
+    window.location.reload(); 
+  } catch (error) {
+    console.error("Falha ao resetar banco de dados:", error);
+  }
 }
 
   return (
