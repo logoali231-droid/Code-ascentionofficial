@@ -32,45 +32,62 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
     console.log(`[GPU Discovery] Iniciando com modelo: ${selectedModelId}`);
   }
 
+  // Se já existe um engine para esse modelo, retorna ele
   if (engine && currentModel === selectedModelId) {
     return engine;
   }
 
+  // Evita múltiplas inicializações simultâneas
   if (loadingPromise) {
     return loadingPromise;
   }
 
-  try {
-    // Reset de segurança
-    loadingPromise = null; 
-
-    const config = {
-      kvCacheConfig: {
-        context_window_size: 2048, // Reduzido para o M23
-      },
-      requiredCapabilities: {
-        maxStorageBufferBindingSize: 419430400, // 400MB estável
+  loadingPromise = (async () => {
+    try {
+      // Se houver um engine antigo ou de outro modelo, limpa primeiro (Crucial para o M23)
+      if (engine) {
+        await unloadEngine();
       }
-    } as any;
 
-    console.log("[SYSTEM] Iniciando CreateMLCEngine...");
-    
-    // CORREÇÃO AQUI: Acessando via namespace webllm
-    engine = await webllm.CreateMLCEngine(selectedModelId as string, { 
-      initProgressCallback: onProgress,
-      appConfig: config 
-    });
+      console.log("[SYSTEM] Iniciando CreateMLCEngine...");
 
-    currentModel = selectedModelId as string;
-    return engine;
-  } catch (error: any) {
-    const errorMsg = error?.message || JSON.stringify(error) || "Erro desconhecido de Hardware/WebGPU";
-    console.error("[ERROR] Engine Init Failed:", errorMsg);
-    
-    engine = null;
-    loadingPromise = null;
-    throw error;
-  }
+      // CONFIGURAÇÃO CORRIGIDA: No WebLLM moderno, kvCacheConfig fica no EngineConfig direto
+      const engineConfig: webllm.ChatOptions = {
+        temperature: 0.7,
+        repetition_penalty: 1.1,
+      };
+
+      // Nota: No CreateMLCEngine, o segundo parâmetro é o MLCEngineConfig
+      // O erro .find() geralmente vem de um appConfig mal estruturado internamente.
+      const mlcConfig: webllm.MLCEngineConfig = {
+        initProgressCallback: onProgress,
+        // Configurações de GPU para dispositivos limitados
+        appConfig: {
+          kvCacheConfig: {
+            context_window_size: isMobile ? 1536 : 2048, // Reduzido para evitar crash no M23
+          },
+        },
+        // Forçar limites de buffer para WebGPU no mobile
+        requiredCapabilities: {
+          maxStorageBufferBindingSize: 419430400, 
+        } as any
+      };
+
+      engine = await webllm.CreateMLCEngine(selectedModelId as string, mlcConfig);
+
+      currentModel = selectedModelId as string;
+      return engine;
+    } catch (error: any) {
+      const errorMsg = error?.message || JSON.stringify(error) || "Erro de WebGPU";
+      console.error("[ERROR] Engine Init Failed:", errorMsg);
+      
+      engine = null;
+      loadingPromise = null; // Libera para tentar de novo
+      throw error;
+    }
+  })();
+
+  return loadingPromise;
 }
 
 /* ========================================================= 
@@ -79,14 +96,16 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
 export async function unloadEngine() {
   try {
     if (engine) {
+      console.log("[SYSTEM] Unloading Engine...");
       await engine.unload();
     }
   } catch (err) {
     console.warn("[WebLLM Unload Error]", err);
+  } finally {
+    engine = null;
+    loadingPromise = null;
+    currentModel = null;
   }
-  engine = null;
-  loadingPromise = null;
-  currentModel = null;
 }
 
 /* =========================================================
@@ -96,6 +115,7 @@ export async function generate(
   prompt: string,
   temperature: number = 0.7
 ) {
+  // Trava de concorrência
   while (generationLock) { await sleep(50); }
   generationLock = true;
   const myGenerationId = ++generationId;
@@ -106,7 +126,7 @@ export async function generate(
     if (!currentEngine) { throw new Error("AI_OFFLINE"); }
 
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 45000)
+      setTimeout(() => reject(new Error("TIMEOUT")), 60000) // 60s para mobile
     );
 
     const request = currentEngine.chat.completions.create({
@@ -127,21 +147,23 @@ export async function generate(
   } catch (err: any) {
     console.error("[WebLLM Generate Error]", err);
     playSound("error", 0.4);
+    
     const msg = String(err);
 
+    // Se for erro de memória, tenta resetar o motor para a próxima tentativa
     if (msg.includes("OutOfMemory") || msg.includes("disposed") || 
-        msg.includes("Device") || msg.includes("STALE_GENERATION")) {
+        msg.includes("Device") || msg.includes("context") || msg.includes("find")) {
       if (!recovering) {
         recovering = true;
         await unloadEngine();
-        await sleep(1000);
+        await sleep(1500);
         recovering = false;
       }
     }
-    return JSON.stringify({ error: "System Glitch" });
+    return JSON.stringify({ error: "System Glitch", details: msg });
   } finally {
     generationLock = false;
-    await sleep(isMobile ? 180 : 80);
+    await sleep(isMobile ? 300 : 100); // Delay maior no mobile para resfriar a GPU
   }
 }
 
