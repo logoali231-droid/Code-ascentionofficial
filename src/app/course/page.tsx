@@ -269,13 +269,22 @@ export default function CoursePage() {
           setStreamedExplanation(fullText); // Atualiza a UI conforme as palavras chegam
         }
       } else {
+      } else {
         // Caso a função retorne uma string simples (fallback)
         setStreamedExplanation(
           (explanationStream as unknown as string) || streamed.explanation
         );
       }
+
+      // --- ADICIONE ESTAS LINHAS PARA FECHAR O BLOCO ---
+      setIsGeneratingExplanation(false);
+      setIsGeneratingExercises(false);
+    } catch (error) {
+      console.error("Erro no stream:", error);
+      setIsGeneratingExplanation(false);
+      setIsGeneratingExercises(false);
     }
-  }
+  } 
 
   /* =====================================================
      NEXT
