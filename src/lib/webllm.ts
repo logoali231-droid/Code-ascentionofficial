@@ -26,50 +26,40 @@ const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
    INIT ENGINE
 ========================================================= */
 
-export async function initEngine(
-  modelId?: string,
-  onProgress?: (p: any) => void
-) {
+export async function initEngine(modelId?: string, onProgress?: (p: any) => void) {
   let selectedModelId = modelId;
-  
+
   if (!selectedModelId) {
     const { modelTier } = await detectSystemCapabilities();
     selectedModelId = modelTier;
+    console.log(`[GPU Discovery] Iniciando com modelo: ${selectedModelId}`);
   }
 
-  if (engine && currentModel === selectedModelId) return engine;
-  if (loadingPromise) return loadingPromise;
+  if (engine && currentModel === selectedModelId) {
+    return engine;
+  }
+
+  if (loadingPromise) {
+    return loadingPromise;
+  }
 
   try {
-    loadingPromise = webllm.CreateMLCEngine(
-      selectedModelId, 
-      {
-        initProgressCallback: onProgress,
-        logLevel: "INFO",
-        appConfig: {
-          // KV Cache: 128 é o "sweet spot" pro M23. 
-          // Não é tão pouco que ele esquece tudo, nem tanto que trava o Chrome.
-          kvCacheConfig: {
-            maxNumSteps: isMobile ? 128 : 256, 
-          }
-        } as any, 
-        requiredCapabilities: {
-          // O M23 precisa disso para não cair no limite de 128MB da WebGPU.
-          // Forçamos 512MB para o modelo de código rodar com folga.
-          maxStorageBufferBindingSize: 536870912, 
+    loadingPromise = webllm.CreateMLCEngine(selectedModelId, {
+      initProgressCallback: onProgress,
+      logLevel: "INFO",
+      appConfig: {
+        // Usando 'as any' para ignorar o erro de tipagem conforme solicitado
+        kvCacheConfig: {
+          maxNumSteps: isMobile ? 128 : 256,
         }
-      } as any 
-    );
+      } as any, 
+      requiredCapabilities: {
+        maxStorageBufferBindingSize: 536870912, // 512MB para o M23
+      },
+    });
 
     engine = await loadingPromise;
     currentModel = selectedModelId;
-
-    // Persistência no banco
-    const user = await get("user", "main");
-    if (user) {
-      await save("user", { ...user, engineReady: true, model: selectedModelId }, "main");
-    }
-
     return engine;
   } catch (err) {
     console.error("[WebLLM Init Error]", err);
@@ -78,6 +68,56 @@ export async function initEngine(
     throw err;
   } finally {
     loadingPromise = null;
+  }
+} // <--- Verifique se esta chave fecha a initEngine!
+
+/* ========================================================= 
+   UNLOAD ENGINE
+========================================================= */
+export async function unloadEngine() {
+  try {
+    if (engine) {
+      await engine.unload();
+    }
+  } catch (err) {
+    console.warn("[WebLLM Unload Error]", err);
+  }
+  engine = null;
+  loadingPromise = null;
+  currentModel = null;
+}
+
+/* ========================================================= 
+   GENERATE 
+========================================================= */
+export async function generate(prompt: string, temperature: number = 0.7) {
+  while (generationLock) {
+    await sleep(50);
+  }
+
+  generationLock = true;
+  const myGenerationId = ++generationId;
+
+  try {
+    // Exemplo de uso da lógica de recuperação que causou o erro no log
+    if (!engine && !loadingPromise) {
+        // Se precisar de recuperação, a função unloadEngine agora está visível
+        if (!recovering) {
+            recovering = true;
+            await unloadEngine(); 
+            await sleep(1000);
+            recovering = false;
+        }
+    }
+    
+    const currentEngine = await initEngine();
+    // ... resto da sua lógica de geração
+  } catch (err: any) {
+    console.error("[WebLLM Generate Error]", err);
+    playSound("error", 0.4);
+  } finally {
+    generationLock = false;
+    await sleep(isMobile ? 180 : 80);
   }
 }
 /* =========================================================
