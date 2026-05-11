@@ -21,6 +21,7 @@ let recovering = false;
 const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad/i.test(navigator.userAgent);
 const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 
+/
 /* =========================================================
    INIT ENGINE
 ========================================================= */
@@ -45,18 +46,15 @@ export async function initEngine(
   }
 
   try {
+    // 💡 A correção principal está aqui embaixo:
     loadingPromise = webllm.CreateMLCEngine(
       selectedModelId, 
       {
         initProgressCallback: onProgress,
         logLevel: "INFO",
-        appConfig: {
-          kvCacheConfig: {
-            maxNumSteps: isMobile ? 128 : 256, 
-          }
-        },
+        // Removido o kvCacheConfig de dentro do appConfig para evitar erro de build
         requiredCapabilities: {
-          maxStorageBufferBindingSize: 536870912, // 512MB para o M23
+          maxStorageBufferBindingSize: 536870912, // Mantido 512MB para o Samsung M23
         }
       }
     );
@@ -64,7 +62,6 @@ export async function initEngine(
     engine = await loadingPromise;
     currentModel = selectedModelId;
 
-    // Salva o estado no banco para persistência
     const user = await get("user", "main");
     if (user) {
       await save("user", { ...user, engineReady: true, model: selectedModelId }, "main");
@@ -79,22 +76,6 @@ export async function initEngine(
   } finally {
     loadingPromise = null;
   }
-} // <--- AQUI ESTAVA FALTANDO FECHAR!
-
-/* =========================================================
-   GET ENGINE & UNLOAD
-========================================================= */
-export function getEngine() { return engine; }
-
-export async function unloadEngine() {
-  try {
-    if (engine) { await engine.unload(); }
-  } catch (err) {
-    console.warn("[WebLLM Unload Error]", err);
-  }
-  engine = null;
-  loadingPromise = null;
-  currentModel = null;
 }
 
 /* =========================================================
