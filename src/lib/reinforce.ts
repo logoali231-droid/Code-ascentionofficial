@@ -14,6 +14,7 @@ import {
   buildPromptFragments,
   compressContext,
 } from "./promptFragments";
+import { enqueueGeneration } from "./generationQueue";
 
 /* =========================================
    GENERATE REINFORCEMENT
@@ -297,7 +298,10 @@ OUTPUT FORMAT
 `;
 
   const res =
-    await generate(prompt);
+
+  await enqueueGeneration(() =>
+    generate(prompt)
+  );
 
   const parsed =
     safeParse(res);

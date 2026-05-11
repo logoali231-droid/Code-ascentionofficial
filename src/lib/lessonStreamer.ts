@@ -15,6 +15,7 @@ import {
 import { buildMemoryContext } from "./vectorMemory";
 
 import { getUserProfile } from "./userMemory";
+import { enqueueGeneration } from "./generationQueue";
 
 /* =========================================================
    LESSON STREAMER
@@ -128,7 +129,9 @@ RETURN JSON:
 `;
 
   const raw =
-    await generate(prompt);
+  await enqueueGeneration(() =>
+    generate(prompt)
+  );
 
   const parsed =
     safeParse(raw);

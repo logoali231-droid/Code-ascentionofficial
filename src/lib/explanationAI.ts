@@ -10,7 +10,9 @@ import {
 import {
   buildPromptFragments,
   compressContext,
-} from "./promptFragments";
+} from "./promptFragments"
+
+import { enqueueGeneration } from "./generationQueue";
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
@@ -171,7 +173,12 @@ advanced:
 - edge cases
 `;
 
-  return await generate(prompt);
+const response =
+  await enqueueGeneration(() =>
+    generate(prompt)
+  );
+
+return response;
 }
 
 /* =========================================
@@ -289,5 +296,10 @@ RULES
 - Reinforce fundamentals
 `;
 
-  return await generate(prompt);
+  const raw =
+  await enqueueGeneration(() =>
+    generate(prompt)
+  );
+
+return raw;
 }

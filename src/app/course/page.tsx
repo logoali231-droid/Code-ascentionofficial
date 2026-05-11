@@ -1,5 +1,4 @@
 "use client";
-"use client";
 
 import { useEffect, useState } from "react";
 
@@ -176,8 +175,8 @@ export default function CoursePage() {
 
     setTitle(
       found.topic ||
-        found.title ||
-        "Course"
+      found.title ||
+      "Course"
     );
 
     /* ============================================
@@ -195,245 +194,248 @@ export default function CoursePage() {
      STREAM LESSON
   ===================================================== */
 
- async function startStreamingLesson(
-  currentCourse: any
-) {
-  try {
-    setStreamedExplanation("");
+  async function startStreamingLesson(
+    currentCourse: any
+  ) {
+    try {
+      setStreamedExplanation("");
 
-    setStreamedExercises([]);
+      setStreamedExercises([]);
 
-    setIsGeneratingExplanation(
-      true
-    );
+      setIsGeneratingExplanation(
+        true
+      );
 
-    setIsGeneratingExercises(
-      true
-    );
+      setIsGeneratingExercises(
+        true
+      );
 
-    setStreamProgress(0);
+      setStreamProgress(0);
 
-    /* ====================================
-       STREAM LESSON
-    ==================================== */
+      /* ====================================
+         STREAM LESSON
+      ==================================== */
 
-    const streamed =
-      await streamLesson({
-        course: currentCourse,
+      const streamed =
+        await streamLesson({
+          course: currentCourse,
 
-        concept:
-          currentCourse.topic ||
-          currentCourse.title,
+          concept:
+            currentCourse.topic ||
+            currentCourse.title,
 
-        difficulty:
-          currentCourse.difficulty ||
-          1,
+          difficulty:
+            currentCourse.difficulty ||
+            1,
 
-        exerciseCount: 3,
+          exerciseCount: 3,
 
-        onExercise(
-          exercise,
-          index
-        ) {
-          setStreamedExercises(
-            (prev) => [
-              ...prev,
-              exercise,
-            ]
-          );
+          onExercise(
+            exercise,
+            index
+          ) {
+            setStreamedExercises(
+              (prev) => [
+                ...prev,
+                exercise,
+              ]
+            );
 
-          setStreamProgress(
-            40 +
+            setStreamProgress(
+              40 +
               (index + 1) *
-                20
-          );
-        },
-      });
+              20
+            );
+          },
+        });
 
-    /* ====================================
-       THEORY EXPLANATION AI
-    ==================================== */
+      /* ====================================
+         THEORY EXPLANATION AI
+      ==================================== */
 
-    const enhancedTheory =
-      await generateExplanationAI({
-        lesson: streamed,
+      const enhancedTheory =
+        await generateExplanationAI({
+          lesson: streamed,
 
-        history:
-          currentCourse.lessons ||
-          [],
+          history:
+            currentCourse.lessons ||
+            [],
 
-        user,
+          user,
 
-        course:
-          currentCourse,
-      });
+          course:
+            currentCourse,
+        });
 
-    setStreamedExplanation(
-      enhancedTheory ||
+      setStreamedExplanation(
+        enhancedTheory ||
         streamed.explanation
-    );
+      );
 
-    setIsGeneratingExplanation(
-      false
-    );
+      setIsGeneratingExplanation(
+        false
+      );
 
-    setIsGeneratingExercises(
-      false
-    );
+      setIsGeneratingExercises(
+        false
+      );
 
-    setStreamProgress(100);
+      setStreamProgress(100);
 
-  } catch (err) {
-    console.error(
-      "[STREAM]",
-      err
-    );
+    } catch (err) {
+      console.error(
+        "[STREAM]",
+        err
+      );
 
-    setIsGeneratingExplanation(
-      false
-    );
+      setIsGeneratingExplanation(
+        false
+      );
 
-    setIsGeneratingExercises(
-      false
-    );
+      setIsGeneratingExercises(
+        false
+      );
+    }
   }
-}
 
   /* =====================================================
      NEXT
   ===================================================== */
 
- async function handleNext(
-  correct: boolean
-) {
-  if (!course) return;
+  async function handleNext(
+    correct: boolean
+  ) {
+    if (!course) return;
 
-  const exercise =
-    streamedExercises[
+    const exercise =
+      streamedExercises[
       currentExercise
-    ];
+      ];
 
-  /* ====================================
-     MEMORY
-  ==================================== */
+    /* ====================================
+       MEMORY
+    ==================================== */
 
-  await updateMemory({
-    topic:
-      course.topic ||
-      course.title,
+    await updateMemory({
+      topic:
+        course.topic ||
+        course.title,
 
-    correct,
+      correct,
 
-    type: "exercise",
+      type: "exercise",
 
-    input:
-      exercise?.question ||
-      "",
-  });
-
-  /* ====================================
-     XP
-  ==================================== */
-
-  if (correct) {
-    const xpGain = 10;
-
-    const newXp =
-      (user?.xp || 0) +
-      xpGain;
-
-    await updateUser({
-      xp: newXp,
-
-      coins:
-        (user?.coins || 0) + 2,
-
-      level:
-        Math.floor(
-          newXp / 100
-        ) + 1,
+      input:
+        exercise?.question ||
+        "",
     });
 
-    /* ================================
-       CLEAR ERROR LOGS
-    ================================= */
+    /* ====================================
+       XP
+    ==================================== */
 
-    const errors =
-      await getErrorLogs(
-        course.id
-      );
+    if (correct) {
+      const xpGain = 10;
 
-    const matching =
-      errors.find(
-        (e: any) =>
-          e.question ===
-          exercise.question
-      );
+      const newXp =
+        (user?.xp || 0) +
+        xpGain;
 
-    if (matching?.id) {
-      await clearErrorLog(
-        matching.id
+      await updateUser({
+        xp: newXp,
+
+        coins:
+          (user?.coins || 0) + 2,
+
+        level:
+          Math.floor(
+            newXp / 100
+          ) + 1,
+      });
+
+      /* ================================
+         CLEAR ERROR LOGS
+      ================================= */
+
+      const errors =
+        await getErrorLogs(
+          course.id
+        );
+
+      const matching =
+        errors.find(
+          (e: any) =>
+            e.question ===
+            exercise.question
+        );
+
+      if (
+        matching &&
+        matching.id !== undefined
+      ) {
+        await clearErrorLog(
+          matching.id
+        );
+      }
+
+    } else {
+      /* ================================
+         REINFORCEMENT
+      ================================= */
+
+      const reinforcement =
+        await generateReinforcement(
+          {
+            ...exercise,
+            difficulty: 0.6,
+          },
+          course
+        );
+
+      setStreamedExercises(
+        (prev) => {
+          const clone = [
+            ...prev,
+          ];
+
+          clone.splice(
+            currentExercise + 1,
+            0,
+            reinforcement
+          );
+
+          return clone;
+        }
       );
     }
 
-  } else {
-    /* ================================
-       REINFORCEMENT
-    ================================= */
+    /* ====================================
+       NEXT EXERCISE
+    ==================================== */
 
-    const reinforcement =
-      await generateReinforcement(
-        {
-          ...exercise,
-          difficulty: 0.6,
-        },
+    const next =
+      currentExercise + 1;
+
+    if (
+      next >=
+      streamedExercises.length
+    ) {
+      await startStreamingLesson(
         course
       );
 
-    setStreamedExercises(
-      (prev) => {
-        const clone = [
-          ...prev,
-        ];
+      setCurrentExercise(0);
 
-        clone.splice(
-          currentExercise + 1,
-          0,
-          reinforcement
-        );
+      return;
+    }
 
-        return clone;
-      }
-    );
+    setCurrentExercise(next);
+
+    const freshUser =
+      await getUser();
+
+    setUser(freshUser);
   }
-
-  /* ====================================
-     NEXT EXERCISE
-  ==================================== */
-
-  const next =
-    currentExercise + 1;
-
-  if (
-    next >=
-    streamedExercises.length
-  ) {
-    await startStreamingLesson(
-      course
-    );
-
-    setCurrentExercise(0);
-
-    return;
-  }
-
-  setCurrentExercise(next);
-
-  const freshUser =
-    await getUser();
-
-  setUser(freshUser);
-}
 
   /* =====================================================
      LOADING
@@ -457,7 +459,7 @@ export default function CoursePage() {
 
   const currentStreamExercise =
     streamedExercises[
-      currentExercise
+    currentExercise
     ];
 
   /* =====================================================
@@ -530,11 +532,10 @@ export default function CoursePage() {
             onClick={() =>
               setTab(t as any)
             }
-            className={`flex-1 p-2 rounded-xl capitalize transition-all ${
-              tab === t
-                ? "bg-cyan-600"
-                : "bg-slate-800"
-            }`}
+            className={`flex-1 p-2 rounded-xl capitalize transition-all ${tab === t
+              ? "bg-cyan-600"
+              : "bg-slate-800"
+              }`}
           >
             {t}
           </button>
@@ -576,7 +577,7 @@ export default function CoursePage() {
           </h2>
 
           {isGeneratingExplanation &&
-          !streamedExplanation ? (
+            !streamedExplanation ? (
             <p className="animate-pulse text-sm opacity-70">
               Synthesizing explanation...
             </p>
@@ -630,18 +631,23 @@ function ErrorsTab({
 
       setErrors(last);
 
-      const results =
-        await Promise.all(
-          last.map((err: any) =>
-            explainError({
+      const results: string[] = [];
+
+      for (const err of last) {
+        try {
+          const explanation =
+            await explainError({
               ...err,
               course,
-            }).catch(
-              () =>
-                "Failed to explain."
-            )
-          )
-        );
+            });
+
+          results.push(explanation);
+        } catch {
+          results.push(
+            "Failed to explain."
+          );
+        }
+      }
 
       const map:
         Record<number, string> =
@@ -649,7 +655,7 @@ function ErrorsTab({
 
       results.forEach(
         (res, i) => {
-          map[i] = res;
+          map[i] = res ?? "";
         }
       );
 
@@ -678,15 +684,15 @@ function ErrorsTab({
             {aiExplanations[
               i
             ] && (
-              <p className="text-cyan-300 text-xs mt-3 whitespace-pre-wrap">
-                🧠{" "}
-                {
-                  aiExplanations[
+                <p className="text-cyan-300 text-xs mt-3 whitespace-pre-wrap">
+                  🧠{" "}
+                  {
+                    aiExplanations[
                     i
-                  ]
-                }
-              </p>
-            )}
+                    ]
+                  }
+                </p>
+              )}
           </div>
         )
       )}
