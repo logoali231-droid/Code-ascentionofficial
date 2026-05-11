@@ -1,3 +1,4 @@
+
 // src/lib/lessonStreamer.ts
 
 "use client";
@@ -7,16 +8,24 @@ import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 
 import {
-  buildCognitiveFragment,
-  buildDifficultyFragment,
   buildPromptFragments,
-  buildStyleFragment,
 } from "./promptFragments";
 
 import { buildMemoryContext } from "./vectorMemory";
 
 import { getUserProfile } from "./userMemory";
+
 import { enqueueGeneration } from "./generationQueue";
+
+import {
+  buildDynamicConstraint,
+  registerConstraint,
+  buildConstraintPrompt,
+} from "./conceptConstraints";
+
+import {
+  validateLesson,
+} from "./lessonValidator";
 
 /* =========================================================
    LESSON STREAMER
@@ -53,6 +62,54 @@ export interface StreamedLesson {
 }
 
 /* =========================================================
+   FALLBACK LESSON
+========================================================= */
+
+function buildFallbackLesson(
+  concept: string
+) {
+  return {
+    title: concept,
+
+    explanation:
+      "Review the core logic carefully.",
+
+    content:
+      "Practice the concept progressively.",
+  };
+}
+
+/* =========================================================
+   FALLBACK EXERCISE
+========================================================= */
+
+function buildFallbackExercise(
+  concept: string
+) {
+  return {
+    id: crypto.randomUUID(),
+
+    type: "mcq",
+
+    question:
+      `What best describes ${concept}?`,
+
+    options: [
+      "A programming concept",
+      "A browser",
+      "A database",
+      "A compiler",
+    ],
+
+    answer:
+      "A programming concept",
+
+    explanation:
+      "This concept belongs to programming fundamentals.",
+  };
+}
+
+/* =========================================================
    GENERATE EXPLANATION FIRST
 ========================================================= */
 
@@ -83,7 +140,9 @@ ${course.topic}
 ${concept}
 `,
       tags: [course.topic],
+
       concepts: [concept],
+
       limit: 3,
     });
 
@@ -100,9 +159,14 @@ LEVEL:
 ${course.level}
 
 LEARNING STYLE:
-${course?.stylePrompt || "Explain clearly and progressively"}
+${course?.stylePrompt ||
+"Explain clearly and progressively"}
 
 ${promptFragments}
+
+${buildConstraintPrompt(
+  concept
+)}
 
 RELEVANT MEMORY:
 ${memory || "None"}
@@ -114,6 +178,9 @@ RULES:
 - Mobile-friendly
 - Avoid giant text walls
 - Preserve progression continuity
+- Be detailed but concise
+- Maintain conceptual correctness
+- Adapt naturally to learner level
 
 RETURN JSON:
 
@@ -124,25 +191,56 @@ RETURN JSON:
 }
 `;
 
-  const raw =
-    await enqueueGeneration(() =>
-      generate(prompt)
+  try {
+    const raw =
+      await enqueueGeneration(
+        () =>
+          generate(prompt)
+      );
+
+    const parsed =
+      safeParse(raw);
+
+    if (!parsed) {
+      return buildFallbackLesson(
+        concept
+      );
+    }
+
+    if (
+      !validateLesson(parsed)
+    ) {
+      return buildFallbackLesson(
+        concept
+      );
+    }
+
+    /* -----------------------------------------
+       REGISTER CONCEPT STABILITY
+    ----------------------------------------- */
+
+    const constraint =
+      buildDynamicConstraint(
+        course.topic,
+        concept,
+        parsed.explanation || ""
+      );
+
+    registerConstraint(
+      constraint
     );
 
-  const parsed =
-    safeParse(raw);
+    return parsed;
+  } catch (error) {
+    console.warn(
+      "Lesson generation failed",
+      error
+    );
 
-  if (!parsed) {
-    return {
-      title: concept,
-      explanation:
-        "Review the core logic carefully.",
-      content:
-        "Practice the concept progressively.",
-    };
+    return buildFallbackLesson(
+      concept
+    );
   }
-
-  return parsed;
 }
 
 /* =========================================================
@@ -159,20 +257,17 @@ export async function generateExercise({
   const profile =
     await getUserProfile();
 
-  const cognitive =
-    buildCognitiveFragment(
-      profile?.cognitive
-    );
+  const promptFragments =
+    buildPromptFragments({
+      cognitive:
+        profile?.cognitive,
 
-  const style =
-    buildStyleFragment(
-      course?.stylePrompt
-    );
+      difficulty,
 
-  const difficultyRules =
-    buildDifficultyFragment(
-      difficulty
-    );
+      mastery: 50,
+
+      reinforcement: false,
+    });
 
   const prompt = `
 You are generating ONE exercise for a programming RPG lesson.
@@ -192,11 +287,15 @@ ${lesson.explanation}
 EXERCISE NUMBER:
 ${index + 1}
 
-${style}
+LEARNING STYLE:
+${course?.stylePrompt ||
+"Explain clearly"}
 
-${cognitive}
+${promptFragments}
 
-${difficultyRules}
+${buildConstraintPrompt(
+  concept
+)}
 
 RULES:
 - Generate ONLY ONE exercise
@@ -206,6 +305,7 @@ RULES:
 - Keep concise
 - Mobile-friendly
 - No giant explanations
+- Preserve conceptual consistency
 
 RETURN JSON:
 
@@ -219,43 +319,39 @@ RETURN JSON:
 }
 `;
 
-  const raw =
-    await generate(prompt);
+  try {
+    const raw =
+      await enqueueGeneration(
+        () =>
+          generate(prompt)
+      );
 
-  const parsed =
-    safeParse(raw);
+    const parsed =
+      safeParse(raw);
 
-  if (!parsed) {
+    if (!parsed) {
+      return buildFallbackExercise(
+        concept
+      );
+    }
+
     return {
-      id: crypto.randomUUID(),
+      ...parsed,
 
-      type: "mcq",
-
-      question:
-        `What best describes ${concept}?`,
-
-      options: [
-        "A programming concept",
-        "A browser",
-        "A database",
-        "A compiler",
-      ],
-
-      answer:
-        "A programming concept",
-
-      explanation:
-        "This concept belongs to programming fundamentals.",
+      id:
+        parsed.id ||
+        crypto.randomUUID(),
     };
+  } catch (error) {
+    console.warn(
+      "Exercise generation failed",
+      error
+    );
+
+    return buildFallbackExercise(
+      concept
+    );
   }
-
-  return {
-    ...parsed,
-
-    id:
-      parsed.id ||
-      crypto.randomUUID(),
-  };
 }
 
 /* =========================================================
@@ -315,7 +411,9 @@ export async function streamLesson({
         difficulty,
       });
 
-    exercises.push(exercise);
+    exercises.push(
+      exercise
+    );
 
     /* -------------------------------------
        LIVE CALLBACK
@@ -323,7 +421,10 @@ export async function streamLesson({
     ------------------------------------- */
 
     if (onExercise) {
-      onExercise(exercise, i);
+      onExercise(
+        exercise,
+        i
+      );
     }
 
     /* -------------------------------------
@@ -336,6 +437,7 @@ export async function streamLesson({
 
   return {
     ...lesson,
+
     exercises,
   } as StreamedLesson;
 }
@@ -345,7 +447,11 @@ export async function streamLesson({
 ========================================================= */
 
 function sleep(ms: number) {
-  return new Promise((resolve) =>
-    setTimeout(resolve, ms)
+  return new Promise(
+    (resolve) =>
+      setTimeout(
+        resolve,
+        ms
+      )
   );
 }
