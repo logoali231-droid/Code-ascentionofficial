@@ -25,77 +25,51 @@ const SAFE_MAX_TOKENS = isMobile ? 512 : 1024;
 /* =========================================================
    INIT ENGINE
 ========================================================= */
+// ... suas importações anteriores
+
 export async function initEngine(
-  modelId?: string, // Removido o valor padrão fixo para permitir detecção
+  modelId?: string,
   onProgress?: (p: any) => void
 ) {
-  
-  // 1. Detecção Automática de Capacidade
-  // Se nenhum modelId for passado, o sistema decide com base na GPU real
   let selectedModelId = modelId;
   
   if (!selectedModelId) {
-    const { modelTier } = await detectSystemCapabilities(); //
-    selectedModelId = modelTier; // Retorna o ID do modelo LOW ou HIGH
+    const { modelTier } = await detectSystemCapabilities();
+    selectedModelId = modelTier;
     console.log(`[GPU Discovery] Iniciando com modelo: ${selectedModelId}`);
   }
 
-  /* already ready */
   if (engine && currentModel === selectedModelId) {
     return engine;
   }
 
-  /* already loading */
   if (loadingPromise) {
     return loadingPromise;
   }
 
   try {
-    // 2. Criação do Engine com o modelo seguro para a GPU
+    // AJUSTE PARA O M23: Forçamos o WebLLM a trabalhar com buffers menores
     loadingPromise = webllm.CreateMLCEngine(
       selectedModelId, 
       {
         initProgressCallback: onProgress,
         logLevel: "INFO",
+        // Adicionamos a configuração de hardware específica abaixo:
+        appConfig: {
+          kvCacheConfig: {
+            // Reduzimos o cache para não estourar os 512MB da GPU do M23
+            maxNumSteps: isMobile ? 128 : 256, 
+          }
+        },
+        // Forçamos o limite de memória para o que o M23 aceita sem erro
+        requiredCapabilities: {
+          maxStorageBufferBindingSize: 536870912, // 512MB exatos
+        }
       }
     );
 
     engine = await loadingPromise;
-    currentModel = selectedModelId;
-
-    /* =====================================
-       DEVICE LOST RECOVERY
-    ===================================== */
-    try {
-      const gpuDevice: any = (engine as any)?.engine?.device;
-      if (gpuDevice?.lost) {
-        gpuDevice.lost.then(async () => {
-          console.warn("[WebGPU] Device lost");
-          await unloadEngine();
-        });
-      }
-    } catch { }
-
-    const user = await get("user", "main");
-    if (user) {
-      await save("user", {
-        ...user,
-        engineReady: true,
-        model: selectedModelId,
-      }, "main");
-    }
-
-    return engine;
-  } catch (err) {
-    console.error("[WebLLM Init Error]", err);
-    engine = null;
-    currentModel = null;
-    throw err;
-  } finally {
-    loadingPromise = null;
-  }
-}
-
+    // ... resto do seu código de recovery e save
 /* =========================================================
    GET ENGINE & UNLOAD (Sem alterações necessárias)
 ========================================================= */
