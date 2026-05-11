@@ -56,7 +56,7 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
       requiredCapabilities: {
         maxStorageBufferBindingSize: 536870912, // 512MB para o M23
       },
-    });
+    } as any );
 
     engine = await loadingPromise;
     currentModel = selectedModelId;
