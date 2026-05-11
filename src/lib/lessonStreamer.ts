@@ -330,38 +330,32 @@ RETURN JSON:
 `;
 
   try {
-    const raw =
-      await enqueueGeneration(
-        () =>
-          generate(prompt)
-      );
+    // 1. Pega o retorno bruto (pode ser Stream)
+    const rawRes = await enqueueGeneration(() => generate(prompt));
 
-    const parsed =
-      safeParse(raw);
-
-    if (!parsed) {
-      return buildFallbackExercise(
-        concept
-      );
+    // 2. Coletor Neural: Converte Stream em String
+    let raw = "";
+    if (rawRes) {
+      if (typeof rawRes === 'string') {
+        raw = rawRes;
+      } else {
+        for await (const chunk of rawRes) {
+          const content = typeof chunk === 'string' 
+            ? chunk 
+            : (chunk as any).choices?.[0]?.delta?.content || "";
+          raw += content;
+        }
+      }
     }
 
-    return {
-      ...parsed,
+    // 3. Agora sim, passa a string limpa para o safeParse
+    const parsed = safeParse(raw);
 
-      id:
-        parsed.id ||
-        crypto.randomUUID(),
-    };
-  } catch (error) {
-    console.warn(
-      "Exercise generation failed",
-      error
-    );
-
-    return buildFallbackExercise(
-      concept
-    );
-  }
+    if (!parsed) {
+      return buildFallbackExercise(concept);
+    }
+    
+  
 }
 
 /* =========================================================
