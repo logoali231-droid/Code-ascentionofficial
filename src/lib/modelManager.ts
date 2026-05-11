@@ -6,13 +6,7 @@ import * as webllm from "@mlc-ai/web-llm";
 // 1. SUPPORTED MODELS & QUANTIZATION (TIERS)
 // =========================================================
 export const MODEL_TIERS = {
-  HIGH: {
-    id: "Llama-3-8B-Instruct-q4f16_1-MLC",
-    name: "Llama 3 8B (Q4)",
-    minRam: 8,
-    sizeMb: 4500,
-    type: "high"
-  },
+ 
   MID: {
     id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", // Ideal para o M23 (6GB RAM)
     name: "Phi-3 Mini (Q4)",
@@ -26,6 +20,13 @@ export const MODEL_TIERS = {
     minRam: 2,
     sizeMb: 650,
     type: "low"
+  },
+   HIGH: {
+    id: "Llama-3-8B-Instruct-q4f16_1-MLC",
+    name: "Llama 3 8B (Q4)",
+    minRam: 8,
+    sizeMb: 4500,
+    type: "high"
   }
 };
 
