@@ -269,7 +269,6 @@ export default function CoursePage() {
           setStreamedExplanation(fullText); // Atualiza a UI conforme as palavras chegam
         }
       } else {
-      } else {
         // Caso a função retorne uma string simples (fallback)
         setStreamedExplanation(
           (explanationStream as unknown as string) || streamed.explanation
