@@ -74,13 +74,29 @@ export default function NewCoursePage() {
       setProgress(40);
       setStatus("FORGING_CURRICULUM_DATA...");
 
-      const aiResponse = await generate(fullPrompt);
-      if (!aiResponse) throw new Error("EMPTY_AI_RESPONSE");
       
-      setProgress(80);
-      setStatus("STABILIZING_ENCRYPTION...");
+// 1. Chame o gerador (verifique se seu lib/webllm tem uma opção para não ser stream)
+const aiResponse = await generate(fullPrompt);
 
-      const courseData = JSON.parse(aiResponse);
+if (!aiResponse) throw new Error("EMPTY_AI_RESPONSE");
+
+// 2. CORREÇÃO: Garantir que aiResponse seja tratado como string
+// Se o WebLLM estiver configurado para streaming, precisamos dar um join ou 
+// garantir que a função 'generate' aguarde o resultado final.
+let cleanContent: string;
+
+if (typeof aiResponse !== 'string') {
+    // Se vier como objeto/stream, tentamos extrair o texto (ajuste conforme sua lib)
+    cleanContent = String(aiResponse); 
+} else {
+    cleanContent = aiResponse;
+}
+
+setProgress(80);
+setStatus("STABILIZING_ENCRYPTION...");
+
+// 3. Agora o parse funcionará com segurança
+const courseData = JSON.parse(cleanContent);
       const courseId = `course_${Date.now()}`;
 
       const newCourse = {
