@@ -23,38 +23,51 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
     if (engine && currentModel === selectedModelId) return engine;
     if (loadingPromise) return loadingPromise;
 
+
+
     loadingPromise = (async () => {
-        try {
-            if (engine) {
-                await engine.unload();
-                engine = null;
-            }
-
-            // Configuração obrigatória para não dar erro {} no M23
-            const appConfig: webllm.AppConfig = {
-                model_list: AVAILABLE_MODELS,
-            };
-
-            const engineConfig: webllm.Config = {
-                appConfig: appConfig,
-                low_resource_config: {
-                    // 0.15 é o limite de segurança para os 6GB de RAM do M23
-                    max_storage_buffer_size_ratio: 0.15, 
-                },
-                initProgressCallback: onProgress,
-            };
-
-            // A chamada correta usa modelId e o objeto de config separado
-            engine = await webllm.CreateMLCEngine(selectedModelId as string, engineConfig);
-
-            currentModel = selectedModelId as string;
-            return engine;
-        } catch (error: any) {
-            loadingPromise = null;
-            console.error("[ERROR] Engine Init Failed:", error);
-            throw error;
+    try {
+        if (engine) {
+            await engine.unload();
+            engine = null;
         }
-    })();
+
+        const ram = (navigator as any).deviceMemory || 4;
+        const isHighEnd = ram > 6;
+
+        // Usamos 'any' aqui para evitar que o TS reclame de propriedades 
+        // que ele possa não reconhecer dependendo da versão da lib
+        const engineConfig: any = {
+            appConfig: {
+                model_list: AVAILABLE_MODELS,
+            },
+            // ESSENCIAL PARA O M23: Impede o estouro da GPU
+            low_resource_config: {
+                max_storage_buffer_size_ratio: 0.15 
+            },
+            kv_cache_config: {
+                context_window_size: isHighEnd ? 4096 : 1024,
+            },
+            initProgressCallback: (report: any) => {
+                console.log(`[Loading] ${report.text}`);
+            }
+        };
+
+        // Chamada limpa com 2 argumentos
+        engine = await webllm.CreateMLCEngine(
+            selectedModelId as string,
+            engineConfig
+        );
+
+        currentModel = selectedModelId as string;
+        return engine;
+
+    } catch (error: any) {
+        loadingPromise = null;
+        console.error("[ERROR] Engine Init Failed:", error);
+        throw error;
+    }
+})();
 
     return loadingPromise;
 }
@@ -75,13 +88,13 @@ export async function unloadEngine() {
 
 export async function generate(prompt: string, temperature: number = 0.7) {
     if (generationLock) return;
-    
+
     generationLock = true;
     generationId++;
 
     try {
         const currentEngine = await initEngine();
-        
+
         const chunks = await currentEngine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
             temperature: temperature,
