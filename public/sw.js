@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "code-ascention-v1.2"; // Versão atualizada
+const CACHE_NAME = "code-ascention-v1.3"; // Versão atualizada
 
 // Lista de ativos essenciais
 const ASSETS_TO_CACHE = [
@@ -21,8 +21,8 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       console.log("[SW] Iniciando cache de ativos...");
       return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => 
-          cache.add(url).catch(err => 
+        ASSETS_TO_CACHE.map(url =>
+          cache.add(url).catch(err =>
             console.warn(`[SW] Aviso: Item ignorado (não encontrado): ${url}`)
           )
         )
@@ -73,7 +73,7 @@ self.addEventListener("fetch", (event) => {
         })
         .catch((err) => {
           console.error("[SW] Falha na rede:", err);
-          
+
           // 3. FALLBACK CRÍTICO: Se a rede falhar totalmente
           if (event.request.mode === 'navigate') {
             return caches.match('/');
@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
           return new Response("Rede indisponível", {
             status: 503,
             statusText: "Service Unavailable",
-            headers: new Header({ 'Content-Type': 'text/plain' })
+            headers: new Headers({ 'Content-Type': 'text/plain' })
           });
         });
     })

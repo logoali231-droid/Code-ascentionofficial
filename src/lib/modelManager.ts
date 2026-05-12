@@ -1,3 +1,6 @@
+"use client";
+
+import * as webllm from "@mlc-ai/web-llm";
 import { ModelRecord } from "@mlc-ai/web-llm";
 
 export interface Model extends ModelRecord {
@@ -5,66 +8,119 @@ export interface Model extends ModelRecord {
   sizeMb: number;
 }
 
-// Interface exportada para resolver o erro "Cannot find name 'SystemSpecs'"
 export interface SystemSpecs {
-  modelTier: string;
+  modelTier: "LOW" | "MID" | "HIGH";
   gpuLimit: number;
   recommended: Model;
 }
 
 export const AVAILABLE_MODELS: Model[] = [
-  { 
-    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC-1k", 
-    model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-    // O link que o DeepSeek recomendou:
-    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-3.5-mini-instruct-q4f16_1-ctx1k_cs1k-webgpu.wasm",
-    name: "Phi 3.5 Mini (Low Resource)",
-    sizeMb: 2200 
+  {
+    model_id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+
+    model:
+      "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+
+    model_lib:
+      webllm.modelLibURLPrefix +
+      webllm.modelVersion +
+      "/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+
+    name: "Qwen 2.5 0.5B",
+
+    sizeMb: 550,
   },
 
-  { 
-    model_id: "Qwen2-0.5B-Instruct-q4f16_1-MLC", 
-    model: "https://huggingface.co/mlc-ai/Qwen2-0.5B-Instruct-q4f16_1-MLC",
-    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2-0.5B-Instruct/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
-    name: "Qwen 0.5B (Low Power)",
-    sizeMb: 350 
+  {
+    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+
+    model:
+      "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
+
+    model_lib:
+      webllm.modelLibURLPrefix +
+      webllm.modelVersion +
+      "/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+
+    name: "Phi 3.5 Mini",
+
+    sizeMb: 2200,
   },
-  { 
-    model_id: "Phi-4-mini-instruct-q4f16_1-MLC", 
-    model: "https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC",
-    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi-4-mini-instruct/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
-    name: "Phi 4 Mini (Extreme Power)",
-    sizeMb: 2450 
+
+  {
+    model_id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+
+    model:
+      "https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC",
+
+    model_lib:
+      webllm.modelLibURLPrefix +
+      webllm.modelVersion +
+      "/Llama-3.2-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+
+    name: "Llama 3.2 3B",
+
+    sizeMb: 2600,
   },
 ];
 
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
-  const nav = navigator as any; 
-  
+  const nav = navigator as any;
+
+  const memory = nav.deviceMemory || 4;
+
   let gpuLimit = 512;
-  let modelTier = "LOW";
+  let modelTier: "LOW" | "MID" | "HIGH" = "LOW";
 
   try {
     if (nav.gpu) {
       const adapter = await nav.gpu.requestAdapter();
+
       if (adapter) {
-        gpuLimit = 2048; 
-        modelTier = "HIGH";
+        gpuLimit = 2048;
+
+        if (memory >= 8) {
+          modelTier = "HIGH";
+        } else if (memory >= 4) {
+          modelTier = "MID";
+        } else {
+          modelTier = "LOW";
+        }
       }
     }
   } catch (err) {
-    console.error("Erro ao detectar WebGPU:", err);
+    console.error(
+      "[WebGPU Detection Error]",
+      err
+    );
   }
 
-  // LÓGICA DE RECOMENDAÇÃO:
-  // Se for HIGH (WebGPU ativa), recomenda o Phi 3.5 (AVAILABLE_MODELS[0])
-  // Se for LOW, recomenda o Qwen 0.5B (AVAILABLE_MODELS[1])
-  // O Phi 4 fica na lista, mas NUNCA é recomendado automaticamente para evitar travar o M23.
-  const recommended = modelTier === "HIGH" ? AVAILABLE_MODELS[0] : AVAILABLE_MODELS[1]; 
+  let recommended: Model;
+
+  switch (modelTier) {
+    case "HIGH":
+      recommended = AVAILABLE_MODELS[1];
+      break;
+
+    case "MID":
+      recommended = AVAILABLE_MODELS[0];
+      break;
+
+    default:
+      recommended = AVAILABLE_MODELS[0];
+      break;
+  }
+
+  console.log("[System Detection]", {
+    memory,
+    gpuLimit,
+    modelTier,
+    recommended: recommended.name,
+  });
 
   return {
     modelTier,
     gpuLimit,
-    recommended
+    recommended,
   };
 }
