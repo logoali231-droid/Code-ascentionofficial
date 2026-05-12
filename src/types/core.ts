@@ -40,8 +40,8 @@ export interface InventoryItem {
   quantity: number;
   equipped?: boolean;
   acquiredAt: number;
-  isFake?: boolean;       
-}
+  isFake?: boolean;
+  requiredLevel: number
 
 export interface UserStats {
   id: string;
