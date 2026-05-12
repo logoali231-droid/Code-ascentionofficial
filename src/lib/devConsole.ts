@@ -7,13 +7,12 @@ declare global {
   }
 }
 
-const MAX_LOGS = 200;
+const MAX_LOGS = 300; // Aumentado para rastreio longo
 const STORAGE_KEY = "code_ascention_debug_logs";
 
 /* =========================================================
-   STRINGIFY (Melhorado para evitar loops)
+   STRINGIFY (Proteção contra Loops e Objetos Complexos)
 ========================================================= */
-
 function stringify(value: any): string {
   try {
     if (typeof value === "string") return value;
@@ -26,8 +25,12 @@ function stringify(value: any): string {
     if (typeof value === "object" && value !== null) {
       const parsed: any = {};
       Object.getOwnPropertyNames(value).forEach((key) => {
-        const val = value[key];
-        parsed[key] = (typeof val === 'object' && val !== null) ? '[Object]' : val;
+        try {
+          const val = (value as any)[key];
+          parsed[key] = (typeof val === 'object' && val !== null) ? '[Object/Deep]' : val;
+        } catch (e) {
+          parsed[key] = "[Unreadable]";
+        }
       });
       return JSON.stringify(parsed, null, 2);
     }
@@ -38,16 +41,16 @@ function stringify(value: any): string {
 }
 
 /* =========================================================
-   PERSISTENCE
+   PERSISTENCE (Síncrona e Robusta)
 ========================================================= */
-
 function saveLogsToStorage(logs: string[]) {
   try {
+    // Usamos JSON.stringify direto para garantir que o estado atual seja gravado
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
   } catch (e) {
-    // Se o localStorage lotar, removemos os mais antigos
-    if (logs.length > 10) {
-      saveLogsToStorage(logs.slice(10));
+    if (logs.length > 20) {
+      // Se falhar (ex: quota cheia), removemos metade e tentamos de novo
+      saveLogsToStorage(logs.slice(Math.floor(logs.length / 2)));
     }
   }
 }
@@ -64,8 +67,8 @@ function loadLogsFromStorage(): string[] {
 /* =========================================================
    UPDATE OVERLAY
 ========================================================= */
-
 function updateOverlay() {
+  if (typeof window === "undefined") return;
   const overlay = document.getElementById("__DEV_OVERLAY_CONTENT__");
   if (!overlay) return;
 
@@ -76,9 +79,8 @@ function updateOverlay() {
 }
 
 /* =========================================================
-   ADD LOG
+   ADD LOG (Imediato)
 ========================================================= */
-
 function addLog(type: string, ...args: any[]) {
   if (typeof window === "undefined") return;
 
@@ -86,9 +88,9 @@ function addLog(type: string, ...args: any[]) {
     window.__DEV_LOGS__ = loadLogsFromStorage();
   }
 
-  const line = `[${new Date().toLocaleTimeString()}] [${type}] ${args
-    .map((x) => stringify(x))
-    .join(" ")}`;
+  const timestamp = new Date().toLocaleTimeString();
+  const content = args.map((x) => stringify(x)).join(" ");
+  const line = `[${timestamp}] [${type}] ${content}`;
 
   window.__DEV_LOGS__.push(line);
 
@@ -96,68 +98,62 @@ function addLog(type: string, ...args: any[]) {
     window.__DEV_LOGS__.shift();
   }
 
+  // Persistência imediata: se o app crashar no segundo seguinte, o log já está no disco
   saveLogsToStorage(window.__DEV_LOGS__);
   updateOverlay();
 }
 
 /* =========================================================
-   UI
+   UI GENERATION
 ========================================================= */
-
 function createUI() {
-  document.getElementById("__DEV_CONTAINER__")?.remove();
+  if (document.getElementById("__DEV_CONTAINER__")) return;
 
   const container = document.createElement("div");
   container.id = "__DEV_CONTAINER__";
 
-  /* BUTTON */
   const button = document.createElement("button");
   button.id = "__DEV_BUTTON__";
   button.innerHTML = "🐞";
   Object.assign(button.style, {
     position: "fixed", bottom: "16px", right: "16px",
     width: "58px", height: "58px", borderRadius: "999px",
-    border: "none", background: "#000", color: "#00ff88",
-    fontSize: "26px", zIndex: "9999999",
-    boxShadow: "0 0 20px rgba(0,255,136,.5)",
-    cursor: "pointer"
+    border: "none", background: "#111", color: "#00ff88",
+    fontSize: "24px", zIndex: "9999999",
+    boxShadow: "0 4px 15px rgba(0,0,0,0.5)", cursor: "pointer"
   });
 
-  /* OVERLAY */
   const overlay = document.createElement("div");
   overlay.id = "__DEV_OVERLAY__";
   Object.assign(overlay.style, {
     position: "fixed", left: "0", right: "0", bottom: "0",
-    height: "60vh", background: "rgba(0,0,0,.98)",
-    color: "#00ff88", zIndex: "9999998",
-    display: "none", flexDirection: "column",
-    borderTop: "2px solid #00ff88", fontFamily: "monospace"
+    height: "70vh", background: "#050505", color: "#00ff88",
+    zIndex: "9999998", display: "none", flexDirection: "column",
+    borderTop: "2px solid #333", fontFamily: "'Courier New', monospace"
   });
 
-  /* TOOLBAR */
   const toolbar = document.createElement("div");
   Object.assign(toolbar.style, {
-    display: "flex", justifyContent: "space-between",
-    padding: "8px", background: "#111", borderBottom: "1px solid #333"
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    padding: "10px", background: "#111", borderBottom: "1px solid #222"
   });
 
-  const title = document.createElement("span");
-  title.innerText = "TERMINAL_CONSOLE_V2";
+  const title = document.createElement("b");
+  title.innerText = "CODE_ASCENSION_LOGS";
   
   const actions = document.createElement("div");
-  
   const clearBtn = document.createElement("button");
-  clearBtn.innerHTML = "CLEAR";
+  clearBtn.innerText = "CLEAR";
   Object.assign(clearBtn.style, {
     background: "transparent", color: "#ff9900", border: "1px solid #ff9900",
-    marginRight: "8px", borderRadius: "4px", padding: "4px 8px", cursor: "pointer"
+    marginRight: "10px", padding: "5px 10px", borderRadius: "4px"
   });
 
   const closeBtn = document.createElement("button");
-  closeBtn.innerHTML = "✕";
+  closeBtn.innerText = "✕";
   Object.assign(closeBtn.style, {
-    background: "#ff0033", color: "white", border: "none",
-    borderRadius: "4px", padding: "4px 12px", cursor: "pointer"
+    background: "#cc0000", color: "#fff", border: "none",
+    padding: "5px 12px", borderRadius: "4px"
   });
 
   actions.appendChild(clearBtn);
@@ -165,12 +161,11 @@ function createUI() {
   toolbar.appendChild(title);
   toolbar.appendChild(actions);
 
-  /* CONTENT */
   const content = document.createElement("pre");
   content.id = "__DEV_OVERLAY_CONTENT__";
   Object.assign(content.style, {
-    flex: "1", overflow: "auto", padding: "12px",
-    fontSize: "10px", whiteSpace: "pre-wrap", margin: "0"
+    flex: "1", overflowY: "auto", padding: "15px",
+    fontSize: "11px", whiteSpace: "pre-wrap", margin: "0", lineHeight: "1.4"
   });
 
   overlay.appendChild(toolbar);
@@ -179,14 +174,13 @@ function createUI() {
   container.appendChild(button);
   document.body.appendChild(container);
 
-  /* EVENTS */
   button.onclick = () => {
-    overlay.style.display = overlay.style.display === "none" ? "flex" : "none";
-    if (overlay.style.display === "flex") updateOverlay();
+    const isHidden = overlay.style.display === "none";
+    overlay.style.display = isHidden ? "flex" : "none";
+    if (isHidden) updateOverlay();
   };
 
   closeBtn.onclick = () => overlay.style.display = "none";
-  
   clearBtn.onclick = () => {
     window.__DEV_LOGS__ = [];
     localStorage.removeItem(STORAGE_KEY);
@@ -197,47 +191,59 @@ function createUI() {
 /* =========================================================
    INIT
 ========================================================= */
-
 export function initDevConsole() {
   if (typeof window === "undefined" || window.__DEV_CONSOLE_READY__) return;
   window.__DEV_CONSOLE_READY__ = true;
 
   const start = async () => {
-    // Recupera logs antes de criar a UI
     const previousLogs = loadLogsFromStorage();
     window.__DEV_LOGS__ = previousLogs;
 
     createUI();
 
     if (previousLogs.length > 0) {
-      addLog("CRASH_RECOVERY", "Logs from previous session restored.");
+      addLog("RECOVERY", "--- SESSÃO ANTERIOR RECUPERADA ---");
     }
 
-    addLog("SYSTEM", "Dev console persistence active 💾");
+    addLog("SYSTEM", "Rastreador de Memória Iniciado 🔍");
 
-    /* SYSTEM INFO */
-    addLog("SYSTEM_INFO", {
-      userAgent: navigator.userAgent,
-      memory: (navigator as any).deviceMemory,
-      cores: navigator.hardwareConcurrency,
-      webgpu: "gpu" in navigator
-    });
+    /* MONITOR DE MEMÓRIA AGRESSIVO (Essencial para Aw Snap) */
+    const monitorMemory = () => {
+      const perf = (performance as any).memory;
+      if (perf) {
+        const used = Math.round(perf.usedJSHeapSize / 1024 / 1024);
+        const limit = Math.round(perf.jsHeapSizeLimit / 1024 / 1024);
+        const usagePercent = Math.round((used / limit) * 100);
+        
+        // Logamos a cada 2 segundos o uso atual. 
+        // O último log antes do crash mostrará quão perto do limite você estava.
+        addLog("MEM_TRACE", `${used}MB / ${limit}MB (${usagePercent}%)`);
+        
+        if (usagePercent > 85) {
+          addLog("CRITICAL_WARNING", "Memória acima de 85%! Crash iminente.");
+        }
+      }
+    };
+    
+    setInterval(monitorMemory, 2000);
 
-    /* WEBGPU DETECTOR */
+    /* WEBGPU TRACKING */
     try {
       if ("gpu" in navigator) {
         const adapter = await (navigator as any).gpu.requestAdapter();
         if (adapter) {
           const device = await adapter.requestDevice();
-          device.lost.then((info: any) => addLog("GPU_DEVICE_LOST", info));
-          addLog("WEBGPU", "Device Ready");
+          device.lost.then((info: any) => {
+            addLog("GPU_LOST", `A GPU DESLIGOU: ${info.message} (Reason: ${info.reason})`);
+          });
+          addLog("WEBGPU", "Hardware acelerado detectado.");
         }
       }
     } catch (err) {
-      addLog("WEBGPU_ERROR", err);
+      addLog("WEBGPU_FAIL", err);
     }
 
-    /* CONSOLE HOOKS */
+    /* HOOKS */
     const hook = (type: string, original: any) => (...args: any[]) => {
       addLog(type, ...args);
       original(...args);
@@ -245,29 +251,14 @@ export function initDevConsole() {
 
     console.error = hook("ERROR", console.error);
     console.warn = hook("WARN", console.warn);
-    console.log = hook("LOG", console.log);
 
-    /* GLOBAL ERROR HANDLERS */
     window.addEventListener("error", (e) => {
-      addLog("GLOBAL_ERROR", {
-        message: e.message,
-        stack: e.error?.stack
-      });
+      addLog("GLOBAL_CRASH", { message: e.message, stack: e.error?.stack });
     });
 
     window.addEventListener("unhandledrejection", (e) => {
-      addLog("PROMISE_REJECTION", e.reason);
+      addLog("PROMISE_FAIL", e.reason);
     });
-
-    // Monitor de Memória (Crucial para o M23)
-    if ("performance" in window && (performance as any).memory) {
-      setInterval(() => {
-        const mem = (performance as any).memory;
-        if (mem.usedJSHeapSize > mem.jsHeapSizeLimit * 0.8) {
-          addLog("MEMORY_WARNING", "JS Heap is above 80%!");
-        }
-      }, 5000);
-    }
   };
 
   if (document.body) start();
