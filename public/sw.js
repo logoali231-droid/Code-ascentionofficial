@@ -15,19 +15,20 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
-
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log("[SW] Caching assets");
-
-      return Promise.allSettled(
-        ASSETS_TO_CACHE.map((url) =>
-          cache.add(url).catch(() => {
-            console.warn(
-              `[SW] Failed cache: ${url}`
-            );
-          })
-        )
+      // Usamos map com fetch individual para ter controle total
+      return Promise.all(
+        ASSETS_TO_CACHE.map(async (url) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Offline hotfix: ${response.status}`);
+            return await cache.put(url, response);
+          } catch (err) {
+            console.warn(`[SW] Pulando asset inexistente: ${url}`);
+            return Promise.resolve(); // Ignora o erro e continua
+          }
+        })
       );
     })
   );
