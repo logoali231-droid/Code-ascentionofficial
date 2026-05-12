@@ -1,43 +1,14 @@
 "use client";
 
-import * as webllm from "@mlc-ai/web-llm";
+import { CreateWebWorkerMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
-import {
-  AVAILABLE_MODELS,
-  detectSystemCapabilities,
-} from "./modelManager";
-import * as webllm from "@mlc-ai/web-llm";
+import { detectSystemCapabilities } from "./modelManager";
 
 let worker: Worker | null = null;
-let engine: webllm.MLCEngine | null = null;
-let loadingPromise: Promise<webllm.MLCEngine> | null = null;
+let engine: MLCEngine | null = null;
+let loadingPromise: Promise<MLCEngine> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
-
-export async function getOrInitRobustEngine(modelId: string, onProgress: any) {
-  if (engine) return engine;
-
-  // Criação do Worker com monitoramento de morte súbita
-  worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" });
-
-  worker.onerror = (e) => {
-    console.error("[Code Ascension] Worker de IA morreu! Reiniciando orquestrador...");
-    engine = null; // Força reinicialização no próximo chamado
-  };
-
-  engine = await webllm.CreateWebWorkerMLCEngine(worker, modelId, {
-    initProgressCallback: onProgress,
-    appConfig: { useIndexedDBCache: true },
-    chatOpts: {
-      // Configurações de eficiência para 2026 no M23
-      context_window_size: 2048, // Crítico para evitar estouro de RAM 
-      sliding_window_size: 1024, // Mantém a performance em conversas longas
-      attention_sink_size: 4     // Estabiliza o cache KV
-    }
-  });
-
-  return engine;
-}
 
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   let selectedModelId = modelId;
@@ -47,6 +18,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
     selectedModelId = specs.recommended.model_id;
   }
 
+  // Se já está carregado e é o mesmo modelo, retorna direto
   if (engine && currentModel === selectedModelId) return engine;
 
   // 1. LIMPEZA TOTAL antes de novo carregamento (Evita acúmulo na GPU do M23)
@@ -54,19 +26,30 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
     await engine.unload();
     engine = null;
   }
-  engine = await webllm.CreateWebWorkerMLCEngine(
-    new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" }),
+
+  // 2. CRIAÇÃO DO WORKER ISOLADO
+  worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" });
+
+  worker.onerror = (e) => {
+    console.error("[Code Ascension] Worker de IA morreu (Possível Aw Snap)! Reiniciando orquestrador...");
+    engine = null; // Força reinicialização no próximo chamado
+  };
+
+  // 3. APLICAÇÃO DAS TRAVAS DE MEMÓRIA (Seu código entra aqui)
+  engine = await CreateWebWorkerMLCEngine(
+    worker,
     selectedModelId,
     {
-      initProgressCallback: onProgress,
-      // CONFIGURAÇÃO CRÍTICA PARA MOBILE:
+      initProgressCallback: onProgress || ((progress) => console.log(progress.text)),
       appConfig: {
-        // Força o uso do IndexedDB para não estourar o cache do Service Worker
-        useIndexedDBCache: true, 
+        // Força o uso do IndexedDB para evitar falhas de cache do Service Worker
+        useIndexedDBCache: true,
       },
-      // Gerenciamento agressivo de memória
-      chatOpts: {
-        repetition_penalty: 1.1,
+      // engineConfig substitui a antiga forma de passar limites e protege o M23
+      engineConfig: {
+        low_resource_mode: true, // Força uso menor de VRAM
+        context_window_size: 2048, // Trava o contexto (MUITO importante para não dar OOM)
+        sliding_window_size: 1024
       }
     }
   );
@@ -74,7 +57,6 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
   currentModel = selectedModelId;
   return engine;
 }
-
 
 /* =========================================================
    UNLOAD & GENERATE (Mantidos para integridade)
@@ -86,6 +68,10 @@ export async function unloadEngine() {
   } catch (err) {
     console.warn("[WebLLM Unload Error]", err);
   } finally {
+    if (worker) {
+      worker.terminate(); // Mata o worker por completo ao descarregar
+      worker = null;
+    }
     engine = null;
     loadingPromise = null;
     currentModel = null;
