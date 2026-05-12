@@ -20,18 +20,22 @@ export default function MachineLockPage() {
   const [progress, setProgress] = useState({ progress: 0, text: "INITIALIZING..." });
   const [user, setUser] = useState<any>(null);
 
-  // CORREÇÃO AQUI: useEffect assíncrono para detectar capacidades
+  // CORREÇÃO: Acessando .model_id em vez de .id para alinhar com a interface ModelRecord
   useEffect(() => {
     async function initHardware() {
       try {
-        const specs = await detectSystemCapabilities(); // Aguarda a promessa
+        const specs = await detectSystemCapabilities(); 
         setHardwareInfo(specs);
-        // Agora o specs existe e você pode acessar .recommended
-        setSelectedModel(specs.recommended.id); 
+        // Ajustado de .id para .model_id
+        if (specs.recommended) {
+          setSelectedModel(specs.recommended.model_id); 
+        }
       } catch (err) {
         console.error("Falha ao detectar hardware:", err);
-        // Fallback manual caso a detecção falhe
-        setSelectedModel(AVAILABLE_MODELS[0].id);
+        // Fallback usando .model_id
+        if (AVAILABLE_MODELS.length > 0) {
+          setSelectedModel(AVAILABLE_MODELS[0].model_id);
+        }
       }
     }
     initHardware();
@@ -61,7 +65,7 @@ export default function MachineLockPage() {
     } catch (err) {
       setIsInitializing(false);
       playSound("error", 0.5);
-      alert("Memory Pressure Detected. Try a smaller model (TinyLlama).");
+      alert("Falha na inicialização: Verifique a memória do dispositivo.");
       console.error("Engine Init Failed:", err);
     }
   };
@@ -74,7 +78,6 @@ export default function MachineLockPage() {
             {isInitializing ? <Unlock className="text-cyan-400" size={48} /> : <Lock className="text-slate-600" size={48} />}
           </div>
           <h1 className="text-2xl font-black uppercase italic">Machine_Auth</h1>
-          {/* Opcional: Mostrar info de hardware detectado */}
           {hardwareInfo && (
             <p className="text-[10px] text-slate-500 mt-2">
               GPU_LIMIT: {hardwareInfo.gpuLimit}MB | TIER: {hardwareInfo.modelTier}
@@ -92,15 +95,15 @@ export default function MachineLockPage() {
               <div className="space-y-2">
                 {AVAILABLE_MODELS.map((m) => (
                   <button
-                    key={m.id}
-                    onClick={() => setSelectedModel(m.id)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${selectedModel === m.id ? "border-cyan-500 bg-cyan-950/10" : "border-slate-800"}`}
+                    key={m.model_id}
+                    onClick={() => setSelectedModel(m.model_id)}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${selectedModel === m.model_id ? "border-cyan-500 bg-cyan-950/10" : "border-slate-800"}`}
                   >
                     <div className="text-left">
                       <p className="text-sm font-bold">{m.name}</p>
                       <p className="text-[10px] text-slate-500">{m.sizeMb} MB</p>
                     </div>
-                    {selectedModel === m.id && <Zap size={14} className="text-cyan-400" />}
+                    {selectedModel === m.model_id && <Zap size={14} className="text-cyan-400" />}
                   </button>
                 ))}
               </div>
