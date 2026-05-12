@@ -110,25 +110,21 @@ export async function initEngine(
           "[WebLLM] Creating engine"
         );
 
-        engine =
-          new webllm.MLCEngine({
-            appConfig: {
-              model_list:
-                AVAILABLE_MODELS,
-            },
+        // No seu arquivo src/lib/webllm.ts, dentro da função initEngine:
 
-            initProgressCallback:
-              (report) => {
-                console.log(
-                  "[MLC_PROGRESS]",
-                  report
-                );
-
-                onProgress?.(
-                  report
-                );
-              },
-          });
+engine = new webllm.MLCEngine({
+  appConfig: {
+    model_list: AVAILABLE_MODELS,
+  },
+  // ADICIONE ISSO AQUI:
+  cacheOptions: {
+    useIndexedDBCache: true, // Força o uso de IndexedDB em vez da Cache API
+  },
+  initProgressCallback: (report) => {
+    console.log("[MLC_PROGRESS]", report);
+    onProgress?.(report);
+  },
+});
 
         /*
           LOAD
