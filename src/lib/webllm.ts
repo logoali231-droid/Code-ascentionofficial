@@ -113,7 +113,7 @@ export async function generate(prompt: string, temperature: number = 0.7) {
     } finally {
         generationLock = false;
     }
-}"use client";
+};
 
 import * as webllm from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
