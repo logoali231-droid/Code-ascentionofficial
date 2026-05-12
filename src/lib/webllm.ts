@@ -35,15 +35,15 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
                 engine = null;
             }
 
+            // Configuração básica para garantir compatibilidade de tipos no build
             const config: webllm.AppConfig = {
                 model_list: AVAILABLE_MODELS,
             };
 
-            const chatOpts: webllm.ChatOptions = {
+            // Reduzir o contexto é a única forma garantida de não estourar a RAM do M23
+            // sem depender de propriedades de cache que variam entre versões da lib
+            const chatOpts: any = {
                 context_window_size: isMobile ? 1024 : 2048,
-                kv_cache_config: {
-                    capacity_num_blocks: isMobile ? 16 : 32,
-                }
             };
 
             engine = await webllm.CreateMLCEngine(selectedModelId as string, {
