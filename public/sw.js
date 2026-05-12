@@ -51,6 +51,59 @@ self.addEventListener("activate", (event) => {
 });
 
 // Interceptação de Requisições
+
+
+const CACHE_NAME = "code-ascention-v1.5.1";
+
+const ASSETS_TO_CACHE = [
+  "/",
+  "/manifest.json",
+  "/favicon.ico",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/coins.png",
+  "/icons/xp_potion_hd.png",
+  "/icons/xp_potion.png",
+];
+
+// Instalação: Salva os arquivos essenciais da interface
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        ASSETS_TO_CACHE.map(async (url) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Offline hotfix: ${response.status}`);
+            return await cache.put(url, response);
+          } catch (err) {
+            console.warn(`[SW] Pulando asset inexistente: ${url}`);
+            return Promise.resolve();
+          }
+        })
+      );
+    })
+  );
+});
+
+// Ativação: Limpa caches antigos para evitar conflitos de versão
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log("[SW] Removing old cache:", cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Interceptação de Requisições
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
