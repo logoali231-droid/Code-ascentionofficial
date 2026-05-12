@@ -297,14 +297,38 @@ OUTPUT FORMAT
 }
 `;
 
-  const res =
-
-  await enqueueGeneration(() =>
+  // ... linha 303
+  // 1. Inicia a geração através da fila
+  const rawRes = await enqueueGeneration(() =>
     generate(prompt)
   );
 
-  const parsed =
-    safeParse(res);
+  // 2. Coletor Neural: Converte Stream/Undefined para String
+  let res = "";
+  if (rawRes) {
+    if (typeof rawRes === 'string') {
+      res = rawRes;
+    } else {
+      // Consome o stream do WebLLM para o Samsung M23 não travar
+      for await (const chunk of rawRes) {
+        const content = typeof chunk === 'string' 
+          ? chunk 
+          : (chunk as any).choices?.[0]?.delta?.content || "";
+        res += content;
+      }
+    }
+  }
+
+  // 3. Agora o 'res' é garantidamente uma string para o safeParse
+  const parsed = safeParse(res);
+
+  if (parsed) {
+    return parsed;
+  }
+
+  /* =========================================
+     FALLBACK (Permanece igual...)
+  ========================================= */
 
   if (parsed) {
     return parsed;
