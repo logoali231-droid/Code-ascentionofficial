@@ -14,12 +14,14 @@ export interface SystemSpecs {
 
 export const AVAILABLE_MODELS: Model[] = [
   { 
-    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC", 
+    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC-1k", 
     model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi-3.5-mini-instruct/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
-    name: "Phi 3.5 Mini (Logic & Code)",
+    // O link que o DeepSeek recomendou:
+    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-3.5-mini-instruct-q4f16_1-ctx1k_cs1k-webgpu.wasm",
+    name: "Phi 3.5 Mini (Low Resource)",
     sizeMb: 2200 
   },
+
   { 
     model_id: "Qwen2-0.5B-Instruct-q4f16_1-MLC", 
     model: "https://huggingface.co/mlc-ai/Qwen2-0.5B-Instruct-q4f16_1-MLC",
