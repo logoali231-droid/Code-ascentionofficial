@@ -25,6 +25,8 @@ export interface AdaptiveMetrics {
 
 }
 
+// src/types/core.ts
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -32,11 +34,13 @@ export interface InventoryItem {
   price: number;
   rarity: ItemRarity;
   type: ItemType;
+  icon?: string;          
   effect?: string;
   effectValue?: number;
   quantity: number;
   equipped?: boolean;
   acquiredAt: number;
+  isFake?: boolean;       
 }
 
 export interface UserStats {
