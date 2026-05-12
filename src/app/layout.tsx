@@ -1,10 +1,54 @@
 import "@/app/styles/globals.css";
+
+import type { Metadata } from "next";
+
 import ClientBody from "@/components/ClientBody";
 import DevConsoleBoot from "@/components/DevConsoleBoot";
 
-export const metadata = {
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
+export const metadata: Metadata = {
   title: "Code Ascension",
-  description: "Code Ascension official app",
+  description:
+    "Offline AI-powered cyberpunk learning roguelike.",
+
+  manifest: "/manifest.json",
+
+  icons: {
+    icon: [
+      {
+        url: "/favicon.ico",
+      },
+      {
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+
+    apple: [
+      {
+        url: "/icons/icon-192.png",
+      },
+    ],
+  },
+
+  themeColor: "#000000",
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Code Ascension",
+  },
 };
 
 export default function RootLayout({
@@ -13,11 +57,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt">
-      <body>
-        <ClientBody>{children}</ClientBody>
+    <html lang="pt-BR">
+      <body className="bg-slate-950 text-white">
+        <ClientBody>
+          {children}
+        </ClientBody>
+
         <DevConsoleBoot />
-        
       </body>
     </html>
   );

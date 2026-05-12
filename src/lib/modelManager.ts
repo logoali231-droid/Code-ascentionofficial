@@ -107,7 +107,7 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
   switch (modelTier) {
     case "HIGH":
-      recommended = AVAILABLE_MODELS[1];
+      recommended = AVAILABLE_MODELS[2];
       break;
 
     case "MID":
