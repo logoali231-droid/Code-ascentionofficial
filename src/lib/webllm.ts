@@ -71,7 +71,16 @@ export async function unloadEngine() {
   try {
     if (engine) await engine.unload();
   } catch (err) {
-    console.warn("[WebLLM Unload Error]", err);
+      console.error("[Worker IA] Erro Crítico no Handler:", err);
+      
+      // Verifica se o erro tem uma mensagem antes de aceder
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      
+      self.postMessage({ 
+        type: "worker_error", 
+        error: errorMessage 
+      });
+    }
   } finally {
     if (worker) {
       worker.terminate();
