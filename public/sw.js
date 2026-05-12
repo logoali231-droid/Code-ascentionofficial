@@ -1,6 +1,5 @@
-/// <reference lib="webworker" />
 
-// Mudado para 1.5.1 conforme solicitado
+
 const CACHE_NAME = "code-ascention-v1.5.1";
 
 const ASSETS_TO_CACHE = [
@@ -14,6 +13,7 @@ const ASSETS_TO_CACHE = [
   "/icons/xp_potion.png",
 ];
 
+// Instalação: Salva os arquivos essenciais da interface
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -34,6 +34,7 @@ self.addEventListener("install", (event) => {
   );
 });
 
+// Ativação: Limpa caches antigos para evitar conflitos de versão
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -49,40 +50,48 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Interceptação de Requisições
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // 1. Só intercepta requisições HTTP/HTTPS
+  // 1. IGNORAR TUDO QUE NÃO SEJA GET
+  // O WebLLM usa POST para telemetria e o IndexedDB não precisa de interceptação
+  if (req.method !== 'GET') return;
+
+  // 2. SÓ INTERCEPTA HTTP/HTTPS
   if (!req.url.startsWith("http")) return;
 
-  // 2. FILTRO AGRESSIVO (DENTRO DO FETCH)
-  // Isso impede que o SW tente tocar em qualquer arquivo da IA
-  if (
-    req.url.includes("huggingface.co") ||
-    req.url.includes("mlc-ai") ||
-    req.url.includes("raw.githubusercontent.com") ||
+  const isExternal = !req.url.includes(self.location.origin);
+  const isAIAsset = 
+    req.url.includes("huggingface.co") || 
+    req.url.includes("mlc-ai") || 
     req.url.includes("cdn-lfs") ||
-    req.url.endsWith(".wasm") ||
+    req.url.includes("raw.githubusercontent.com") ||
+    req.url.endsWith(".wasm") || 
     req.url.endsWith(".bin") ||
-    (req.url.endsWith(".json") && req.url.includes("config"))
-  ) {
-    return; // Sai do SW e deixa o navegador baixar normalmente
+    (req.url.endsWith(".json") && req.url.includes("config"));
+
+  if (isExternal || isAIAsset) {
+    return; // O navegador cuida disso sozinho (WebLLM vai usar IndexedDB)
   }
 
-  // 3. Lógica de Cache para o restante do site
+  // 4. LÓGICA DE CACHE PARA O RESTANTE DO SITE (PWA)
   event.respondWith(
     caches.match(req).then((cached) => {
+      // Se já temos no cache (ex: ícones, fontes), retorna daqui
       if (cached) return cached;
 
+      // Se não, tenta buscar na rede
       return fetch(req)
         .then((response) => {
-          // Se for erro 404 em navegação, volta para a home
+          // Se for erro 404 em navegação, volta para a home para não dar tela branca
           if (!response || response.status === 404) {
             if (req.mode === "navigate") return caches.match("/");
           }
           return response;
         })
         .catch((err) => {
+          // Em caso de erro total (offline), tenta carregar a página principal
           if (req.mode === "navigate") return caches.match("/");
           return new Response("Offline", { status: 503 });
         });
