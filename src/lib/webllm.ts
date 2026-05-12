@@ -37,65 +37,46 @@ export async function initEngine(
 
   loadingPromise = (async () => {
     try {
-      /* CLEAN OLD */
       if (engine) {
         try {
           await engine.unload();
-          console.log("[WebLLM] Previous engine unloaded");
         } catch (err) {
           console.warn("[Engine Unload Warning]", err);
         }
         engine = null;
       }
 
-      /* MEMORY INFO */
-      console.log("[WebLLM] Memory", {
+      console.log("[WebLLM] Memory Check", {
         deviceMemory: (navigator as any).deviceMemory,
-        cores: navigator.hardwareConcurrency,
         sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-        webgpu: "gpu" in navigator,
       });
 
-      /* ENGINE CREATION
-        Configurado para ignorar o Cache API e usar IndexedDB
-      */
-      console.log("[WebLLM] Creating engine");
-
+      /**
+       * VERSÃO 1.0+ COMPATÍVEL COM VERCEL
+       * Criamos o motor com a lista de modelos global.
+       */
       engine = new webllm.MLCEngine();
 
-      // Definir o callback de progresso
+      // Configura o callback de progresso de forma isolada (melhor para o TS)
       engine.setInitProgressCallback((report) => {
         console.log("[MLC_PROGRESS]", report);
         onProgress?.(report);
       });
 
-      /* LOAD MODEL */
       console.log(`[WebLLM] Loading ${selectedModelId}`);
 
-      // Passamos as configurações de cache diretamente no reload para garantir compatibilidade
+      
       await Promise.race([
-        engine.reload(selectedModelId, {
-          appConfig: {
-            model_list: AVAILABLE_MODELS,
-          },
-        }),
+        engine.reload(selectedModelId), 
         new Promise((_, reject) =>
-          setTimeout(() => {
-            reject(new Error("Model loading timeout"));
-          }, 1000 * 60 * 5)
+          setTimeout(() => reject(new Error("Model loading timeout")), 1000 * 60 * 5)
         ),
       ]);
 
       currentModel = selectedModelId;
-      console.log(`[WebLLM] Loaded ${selectedModelId}`);
-
       return engine;
     } catch (error: any) {
-      console.error("[WEBLLM_FATAL]", {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-      });
+      console.error("[WEBLLM_FATAL]", error);
       engine = null;
       currentModel = null;
       throw error;
@@ -108,15 +89,12 @@ export async function initEngine(
 }
 
 /* =========================================================
-   UNLOAD
+   UNLOAD & GENERATE (Mantidos para integridade)
 ========================================================= */
 
 export async function unloadEngine() {
   try {
-    if (engine) {
-      await engine.unload();
-      console.log("[WebLLM] Engine unloaded");
-    }
+    if (engine) await engine.unload();
   } catch (err) {
     console.warn("[WebLLM Unload Error]", err);
   } finally {
@@ -126,43 +104,21 @@ export async function unloadEngine() {
   }
 }
 
-/* =========================================================
-   GENERATE
-========================================================= */
-
 export async function generate(prompt: string, temperature = 0.7) {
-  if (generationLock) {
-    console.warn("[WebLLM] Generation locked");
-    return null;
-  }
-
+  if (generationLock) return null;
   generationLock = true;
 
   try {
     const currentEngine = await initEngine();
-
-    if (!currentEngine) {
-      throw new Error("Engine unavailable");
-    }
-
-    console.log("[WebLLM] Generating", {
-      promptLength: prompt.length,
-      temperature,
-    });
+    if (!currentEngine) throw new Error("Engine unavailable");
 
     const response = await currentEngine.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: prompt.slice(0, 12000),
-        },
-      ],
+      messages: [{ role: "user", content: prompt.slice(0, 12000) }],
       temperature,
       max_tokens: 350,
       stream: true,
     });
 
-    console.log("[WebLLM] Stream created");
     return response;
   } catch (err) {
     console.error("[WebLLM Generate Error]", err);
