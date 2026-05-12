@@ -2,7 +2,7 @@
 
 export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
-export type ItemType = "chip" | "relic" | "booster" | "cosmetic";
+export type ItemType = "chip" | "relic" | "booster" | "cosmetic" | "custom";
 
 // Nova interface para os logs de performance
 export interface MemoryLog {
