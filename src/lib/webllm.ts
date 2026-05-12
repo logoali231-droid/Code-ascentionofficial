@@ -16,8 +16,8 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
     let selectedModelId = modelId;
 
     if (!selectedModelId) {
-        const { recommended } = await detectSystemCapabilities();
-        selectedModelId = recommended.model_id;
+        const specs = await detectSystemCapabilities();
+        selectedModelId = specs.recommended.model_id;
     }
 
     if (engine && currentModel === selectedModelId) {
@@ -35,22 +35,20 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
                 engine = null;
             }
 
-            // Configuração básica para garantir compatibilidade de tipos no build
-            const config: webllm.AppConfig = {
-                model_list: AVAILABLE_MODELS,
-            };
-
-            // Reduzir o contexto é a única forma garantida de não estourar a RAM do M23
-            // sem depender de propriedades de cache que variam entre versões da lib
-            const chatOpts: any = {
-                context_window_size: isMobile ? 1024 : 2048,
-            };
-
-            engine = await webllm.CreateMLCEngine(selectedModelId as string, {
-                appConfig: config,
-                chatConfig: chatOpts,
+            // Unificando as configurações em um objeto 'any' para o TS não reclamar das propriedades
+            // mas o WebLLM receber o que precisa.
+            const engineConfig: any = {
+                appConfig: {
+                    model_list: AVAILABLE_MODELS,
+                },
+                chatOpts: {
+                    context_window_size: isMobile ? 1024 : 2048,
+                },
                 initProgressCallback: onProgress,
-            });
+            };
+
+            // Chamada direta com o objeto de configuração unificado
+            engine = await webllm.CreateMLCEngine(selectedModelId as string, engineConfig);
 
             currentModel = selectedModelId as string;
             return engine;
