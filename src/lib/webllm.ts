@@ -11,15 +11,7 @@ let engine: webllm.MLCEngine | null = null;
 let loadingPromise: Promise<webllm.MLCEngine> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
-
-/* =========================================================
-   INIT ENGINE
-========================================================= */
-
-export async function initEngine(
-  modelId?: string,
-  onProgress?: (report: any) => void
-) {
+export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   let selectedModelId = modelId;
 
   if (!selectedModelId) {
@@ -27,66 +19,34 @@ export async function initEngine(
     selectedModelId = specs.recommended.model_id;
   }
 
-  if (engine && currentModel === selectedModelId) {
-    return engine;
-  }
+  if (engine && currentModel === selectedModelId) return engine;
 
-  if (loadingPromise) {
-    return loadingPromise;
+  // 1. LIMPEZA TOTAL antes de novo carregamento (Evita acúmulo na GPU do M23)
+  if (engine) {
+    await engine.unload();
+    engine = null;
   }
-
-  loadingPromise = (async () => {
-    try {
-      if (engine) {
-        try {
-          await engine.unload();
-        } catch (err) {
-          console.warn("[Engine Unload Warning]", err);
-        }
-        engine = null;
+  engine = await webllm.CreateWebWorkerMLCEngine(
+    new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" }),
+    selectedModelId,
+    {
+      initProgressCallback: onProgress,
+      // CONFIGURAÇÃO CRÍTICA PARA MOBILE:
+      appConfig: {
+        // Força o uso do IndexedDB para não estourar o cache do Service Worker
+        useIndexedDBCache: true, 
+      },
+      // Gerenciamento agressivo de memória
+      chatOpts: {
+        repetition_penalty: 1.1,
       }
-
-      console.log("[WebLLM] Memory Check", {
-        deviceMemory: (navigator as any).deviceMemory,
-        sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-      });
-
-      /**
-       * VERSÃO 1.0+ COMPATÍVEL COM VERCEL
-       * Criamos o motor com a lista de modelos global.
-       */
-      engine = new webllm.MLCEngine();
-
-      // Configura o callback de progresso de forma isolada (melhor para o TS)
-      engine.setInitProgressCallback((report) => {
-        console.log("[MLC_PROGRESS]", report);
-        onProgress?.(report);
-      });
-
-      console.log(`[WebLLM] Loading ${selectedModelId}`);
-
-      
-      await Promise.race([
-        engine.reload(selectedModelId), 
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Model loading timeout")), 1000 * 60 * 5)
-        ),
-      ]);
-
-      currentModel = selectedModelId;
-      return engine;
-    } catch (error: any) {
-      console.error("[WEBLLM_FATAL]", error);
-      engine = null;
-      currentModel = null;
-      throw error;
-    } finally {
-      loadingPromise = null;
     }
-  })();
+  );
 
-  return loadingPromise;
+  currentModel = selectedModelId;
+  return engine;
 }
+
 
 /* =========================================================
    UNLOAD & GENERATE (Mantidos para integridade)
