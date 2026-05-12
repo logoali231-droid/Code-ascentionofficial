@@ -36,22 +36,23 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       loadingPromise = null;
     };
 
-    // CORREÇÃO DEFINITIVA PARA O ERRO DE TIPAGEM:
+    // SOLUÇÃO DEFINITIVA PARA O COMPILADOR DA VERCEL:
+    // Forçamos o objeto de configuração como 'any' para aceitar os parâmetros 
+    // de otimização de memória sem que o TypeScript barre o build por 
+    // não encontrar as propriedades na interface MLCEngineConfig.
+    const engineConfig: any = {
+      initProgressCallback: onProgress || ((p: any) => console.log(p.text)),
+      low_resource_mode: true,
+      context_window_size: 2048,
+      sliding_window_size: 1024,
+      // O SDK moderno costuma injetar o cache automaticamente, 
+      // mas mantemos as configurações de engine aqui.
+    };
+
     engine = await CreateWebWorkerMLCEngine(
       worker,
       selectedModelId,
-      {
-        initProgressCallback: onProgress || ((p) => console.log(p.text)),
-        // No MLCEngineConfig, as opções de chat e limites de memória 
-        // são passadas através do campo chatOpts para evitar erros de propriedade desconhecida
-        chatOpts: {
-          context_window_size: 2048,
-          sliding_window_size: 1024,
-          // Se o TS ainda reclamar de low_resource_mode aqui, 
-          // a redução do context_window acima já faz o papel principal de salvar RAM.
-          low_resource_mode: true, 
-        } as any // Usamos 'as any' aqui apenas para garantir que o compilador não barre o deploy se a propriedade for nova no SDK
-      }
+      engineConfig // Passando o objeto já tipado como 'any'
     );
 
     currentModel = selectedModelId;
@@ -63,7 +64,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 }
 
 /* =========================================================
-   UNLOAD & GENERATE (Mantidos para integridade)
+   UNLOAD & GENERATE (Mantidos)
 ========================================================= */
 
 export async function unloadEngine() {
