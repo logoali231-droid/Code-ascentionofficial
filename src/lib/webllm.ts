@@ -1,22 +1,16 @@
 "use client";
 
-// 1. Alteramos a importação para incluir MLCEngineInterface
 import { CreateWebWorkerMLCEngine, MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
 import { detectSystemCapabilities } from "./modelManager";
 
 let worker: Worker | null = null;
-
-// 2. Mudamos o tipo de MLCEngine para MLCEngineInterface
-// Isso resolve o erro de "missing properties" na Vercel
 let engine: MLCEngineInterface | null = null; 
-
 let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
 
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
-  // Se já estiver carregando, espera a promessa atual
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
@@ -42,12 +36,16 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       loadingPromise = null;
     };
 
+    // CORREÇÃO AQUI: 
+    // Removemos o appConfig problemático. 
+    // O WebLLM já gerencia o IndexedDB por padrão para os modelos carregados.
     engine = await CreateWebWorkerMLCEngine(
       worker,
       selectedModelId,
       {
         initProgressCallback: onProgress || ((p) => console.log(p.text)),
-        appConfig: { useIndexedDBCache: true },
+        // Se precisar de AppConfig, ele geralmente espera 'model_list'
+        // Para resolver o erro de build, passamos apenas as configurações da engine
         engineConfig: {
           low_resource_mode: true,
           context_window_size: 2048,
@@ -57,13 +55,12 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
     );
 
     currentModel = selectedModelId;
-    loadingPromise = null; // Libera para futuras chamadas
+    loadingPromise = null;
     return engine;
   })();
 
   return loadingPromise;
 }
-
 
 /* =========================================================
    UNLOAD & GENERATE (Mantidos para integridade)
