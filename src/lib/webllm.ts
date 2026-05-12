@@ -20,13 +20,8 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
         selectedModelId = specs.recommended.model_id;
     }
 
-    if (engine && currentModel === selectedModelId) {
-        return engine;
-    }
-
-    if (loadingPromise) {
-        return loadingPromise;
-    }
+    if (engine && currentModel === selectedModelId) return engine;
+    if (loadingPromise) return loadingPromise;
 
     loadingPromise = (async () => {
         try {
@@ -35,29 +30,29 @@ export async function initEngine(modelId?: string, onProgress?: (p: any) => void
                 engine = null;
             }
 
-            // Unificando as configurações em um objeto 'any' para o TS não reclamar das propriedades
-            // mas o WebLLM receber o que precisa.
-            const engineConfig: any = {
-                appConfig: {
-                    model_list: AVAILABLE_MODELS,
-                },
-                chatOpts: {
-                    context_window_size: isMobile ? 1024 : 2048,
+            // Configuração obrigatória para não dar erro {} no M23
+            const appConfig: webllm.AppConfig = {
+                model_list: AVAILABLE_MODELS,
+            };
+
+            const engineConfig: webllm.Config = {
+                appConfig: appConfig,
+                low_resource_config: {
+                    // 0.15 é o limite de segurança para os 6GB de RAM do M23
+                    max_storage_buffer_size_ratio: 0.15, 
                 },
                 initProgressCallback: onProgress,
             };
 
-            // Chamada direta com o objeto de configuração unificado
+            // A chamada correta usa modelId e o objeto de config separado
             engine = await webllm.CreateMLCEngine(selectedModelId as string, engineConfig);
 
             currentModel = selectedModelId as string;
             return engine;
-
         } catch (error: any) {
             loadingPromise = null;
-            const errorMsg = error?.message || "Erro de Hardware/WebGPU";
-            console.error("[ERROR] Engine Init Failed:", errorMsg);
-            throw new Error(errorMsg);
+            console.error("[ERROR] Engine Init Failed:", error);
+            throw error;
         }
     })();
 
