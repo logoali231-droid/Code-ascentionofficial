@@ -48,6 +48,22 @@ export const AVAILABLE_MODELS: Model[] = [
   },
 
   {
+    model_id: "Phi-4-mini-instruct-q4f16_1-MLC",
+
+    model:
+      "https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC",
+
+    model_lib:
+      webllm.modelLibURLPrefix +
+      webllm.modelVersion +
+      "/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+
+    name: "Phi 4 Mini",
+
+    sizeMb: 2450,
+  },
+
+  {
     model_id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
 
     model:
@@ -70,6 +86,7 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
   const memory = nav.deviceMemory || 4;
 
   let gpuLimit = 512;
+
   let modelTier: "LOW" | "MID" | "HIGH" = "LOW";
 
   try {
@@ -79,12 +96,29 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       if (adapter) {
         gpuLimit = 2048;
 
-        if (memory >= 8) {
-          modelTier = "HIGH";
-        } else if (memory >= 4) {
-          modelTier = "MID";
-        } else {
-          modelTier = "LOW";
+        const isMobile =
+          /Android|iPhone|iPad/i.test(
+            navigator.userAgent
+          );
+
+        // MOBILE
+        if (isMobile) {
+          if (memory >= 8) {
+            modelTier = "MID";
+          } else {
+            modelTier = "LOW";
+          }
+        }
+
+        // DESKTOP
+        else {
+          if (memory >= 16) {
+            modelTier = "HIGH";
+          } else if (memory >= 8) {
+            modelTier = "MID";
+          } else {
+            modelTier = "LOW";
+          }
         }
       }
     }
@@ -99,11 +133,12 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
   switch (modelTier) {
     case "HIGH":
-      recommended = AVAILABLE_MODELS[1];
+      // Phi 4 apenas em máquinas fortes
+      recommended = AVAILABLE_MODELS[2];
       break;
 
     case "MID":
-      recommended = AVAILABLE_MODELS[0];
+      recommended = AVAILABLE_MODELS[1];
       break;
 
     default:
