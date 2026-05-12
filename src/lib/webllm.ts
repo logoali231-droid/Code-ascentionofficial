@@ -10,7 +10,6 @@ let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
 
-
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   if (loadingPromise) return loadingPromise;
 
@@ -37,21 +36,18 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       loadingPromise = null;
     };
 
-    // CORREÇÃO AQUI: 
-    // Removemos o appConfig problemático. 
-    // O WebLLM já gerencia o IndexedDB por padrão para os modelos carregados.
+    // CORREÇÃO FINAL:
+    // As configurações da Engine (MLCEngineConfig) são passadas DIRETAMENTE 
+    // no objeto do terceiro parâmetro.
     engine = await CreateWebWorkerMLCEngine(
       worker,
       selectedModelId,
       {
         initProgressCallback: onProgress || ((p) => console.log(p.text)),
-        // Se precisar de AppConfig, ele geralmente espera 'model_list'
-        // Para resolver o erro de build, passamos apenas as configurações da engine
-        engineConfig: {
-          low_resource_mode: true,
-          context_window_size: 2048,
-          sliding_window_size: 1024
-        }
+        // Removido o nesting 'engineConfig: { ... }'
+        low_resource_mode: true,
+        context_window_size: 2048,
+        sliding_window_size: 1024,
       }
     );
 
@@ -63,9 +59,8 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
   return loadingPromise;
 }
 
-
 /* =========================================================
-   UNLOAD & GENERATE (Mantidos para integridade)
+   UNLOAD & GENERATE (Mantidos)
 ========================================================= */
 
 export async function unloadEngine() {
@@ -75,7 +70,7 @@ export async function unloadEngine() {
     console.warn("[WebLLM Unload Error]", err);
   } finally {
     if (worker) {
-      worker.terminate(); // Mata o worker por completo ao descarregar
+      worker.terminate();
       worker = null;
     }
     engine = null;
