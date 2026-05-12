@@ -6,11 +6,39 @@ import {
   AVAILABLE_MODELS,
   detectSystemCapabilities,
 } from "./modelManager";
+import * as webllm from "@mlc-ai/web-llm";
 
+let worker: Worker | null = null;
 let engine: webllm.MLCEngine | null = null;
 let loadingPromise: Promise<webllm.MLCEngine> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
+
+export async function getOrInitRobustEngine(modelId: string, onProgress: any) {
+  if (engine) return engine;
+
+  // Criação do Worker com monitoramento de morte súbita
+  worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" });
+
+  worker.onerror = (e) => {
+    console.error("[Code Ascension] Worker de IA morreu! Reiniciando orquestrador...");
+    engine = null; // Força reinicialização no próximo chamado
+  };
+
+  engine = await webllm.CreateWebWorkerMLCEngine(worker, modelId, {
+    initProgressCallback: onProgress,
+    appConfig: { useIndexedDBCache: true },
+    chatOpts: {
+      // Configurações de eficiência para 2026 no M23
+      context_window_size: 2048, // Crítico para evitar estouro de RAM 
+      sliding_window_size: 1024, // Mantém a performance em conversas longas
+      attention_sink_size: 4     // Estabiliza o cache KV
+    }
+  });
+
+  return engine;
+}
+
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   let selectedModelId = modelId;
 
