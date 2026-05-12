@@ -10,6 +10,7 @@ let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
 
+
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   if (loadingPromise) return loadingPromise;
 
@@ -61,6 +62,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 
   return loadingPromise;
 }
+
 
 /* =========================================================
    UNLOAD & GENERATE (Mantidos para integridade)
