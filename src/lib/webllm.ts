@@ -69,19 +69,17 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 
 export async function unloadEngine() {
   try {
-    if (engine) await engine.unload();
-  } catch (err) {
-      console.error("[Worker IA] Erro Crítico no Handler:", err);
-      
-      // Verifica se o erro tem uma mensagem antes de aceder
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      
-      self.postMessage({ 
-        type: "worker_error", 
-        error: errorMessage 
-      });
+    if (engine) {
+      await engine.unload();
     }
+  } catch (err) {
+    console.error("[WebLLM] Erro ao descarregar engine:", err);
+    
+    // Tratamento seguro do erro para TypeScript
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Detalhes:", errorMessage);
   } finally {
+    // Limpeza absoluta de memória para o M23
     if (worker) {
       worker.terminate();
       worker = null;
@@ -89,9 +87,10 @@ export async function unloadEngine() {
     engine = null;
     loadingPromise = null;
     currentModel = null;
+    generationLock = false;
+    console.log("[WebLLM] Engine e Worker destruídos com sucesso.");
   }
-}
-
+  }
 export async function generate(prompt: string, temperature = 0.7) {
   if (generationLock) return null;
   generationLock = true;
