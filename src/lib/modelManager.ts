@@ -1,9 +1,15 @@
-// Adicione o import do tipo oficial para garantir compatibilidade
 import { ModelRecord } from "@mlc-ai/web-llm";
 
 export interface Model extends ModelRecord {
   name: string;
   sizeMb: number;
+}
+
+// Interface exportada para resolver o erro "Cannot find name 'SystemSpecs'"
+export interface SystemSpecs {
+  modelTier: string;
+  gpuLimit: number;
+  recommended: Model;
 }
 
 export const AVAILABLE_MODELS: Model[] = [
@@ -21,14 +27,13 @@ export const AVAILABLE_MODELS: Model[] = [
     name: "Qwen 0.5B (Low Power)",
     sizeMb: 350 
   },
-{ 
-  model_id: "Phi-4-mini-instruct-q4f16_1-MLC", 
-  model: "https://huggingface.co",
-  model_lib: "https://githubusercontent.com",
-  name: "Phi 4 Mini (High Intelligence)",
-  sizeMb: 2450 
-},
-
+  { 
+    model_id: "Phi-4-mini-instruct-q4f16_1-MLC", 
+    model: "https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC",
+    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Phi-4-mini-instruct/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+    name: "Phi 4 Mini (Extreme Power)",
+    sizeMb: 2450 
+  },
 ];
 
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
@@ -46,14 +51,18 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       }
     }
   } catch (err) {
-    console.error("Erro WebGPU:", err);
+    console.error("Erro ao detectar WebGPU:", err);
   }
 
-const recommended = AVAILABLE_MODELS[0]; 
+  // LÓGICA DE RECOMENDAÇÃO:
+  // Se for HIGH (WebGPU ativa), recomenda o Phi 3.5 (AVAILABLE_MODELS[0])
+  // Se for LOW, recomenda o Qwen 0.5B (AVAILABLE_MODELS[1])
+  // O Phi 4 fica na lista, mas NUNCA é recomendado automaticamente para evitar travar o M23.
+  const recommended = modelTier === "HIGH" ? AVAILABLE_MODELS[0] : AVAILABLE_MODELS[1]; 
 
-return {
-  modelTier: recommended.model_id, // Usar o model_id em vez de "HIGH/LOW" facilita o initEngine
-  gpuLimit,
-  recommended
-};
+  return {
+    modelTier,
+    gpuLimit,
+    recommended
+  };
 }
