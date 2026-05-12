@@ -256,6 +256,9 @@ const parsed = safeParse(raw);
 /* =========================================================
    GENERATE SINGLE EXERCISE
 ========================================================= */
+/* =========================================================
+   GENERATE SINGLE EXERCISE
+========================================================= */
 
 export async function generateExercise({
   lesson,
@@ -264,20 +267,14 @@ export async function generateExercise({
   index = 0,
   difficulty = 1,
 }: any) {
-  const profile =
-    await getUserProfile();
+  const profile = await getUserProfile();
 
-  const promptFragments =
-    buildPromptFragments({
-      cognitive:
-        profile?.cognitive,
-
-      difficulty,
-
-      mastery: 50,
-
-      reinforcement: false,
-    });
+  const promptFragments = buildPromptFragments({
+    cognitive: profile?.cognitive,
+    difficulty,
+    mastery: 50,
+    reinforcement: false,
+  });
 
   const prompt = `
 You are generating ONE exercise for a programming RPG lesson.
@@ -298,14 +295,11 @@ EXERCISE NUMBER:
 ${index + 1}
 
 LEARNING STYLE:
-${course?.stylePrompt ||
-"Explain clearly"}
+${course?.stylePrompt || "Explain clearly"}
 
 ${promptFragments}
 
-${buildConstraintPrompt(
-  concept
-)}
+${buildConstraintPrompt(concept)}
 
 RULES:
 - Generate ONLY ONE exercise
@@ -354,9 +348,19 @@ RETURN JSON:
     if (!parsed) {
       return buildFallbackExercise(concept);
     }
-    
-  
-}
+
+    // Retorna o objeto processado
+    return {
+      ...parsed,
+      id: parsed.id || crypto.randomUUID(),
+    };
+  } catch (error) {
+    console.warn("Exercise generation failed", error);
+    return buildFallbackExercise(concept);
+  }
+} // <--- CHAVE DE FECHAMENTO DA FUNÇÃO
+
+ 
 
 /* =========================================================
    FULL STREAMED LESSON
