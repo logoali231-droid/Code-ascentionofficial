@@ -3,26 +3,81 @@
 declare global {
   interface Window {
     __DEV_LOGS__?: string[];
+
     __DEV_CONSOLE_READY__?: boolean;
   }
 }
 
-const MAX_LOGS = 150;
+const MAX_LOGS = 200;
 
-function stringify(value: any) {
+/* =========================================================
+   STRINGIFY
+========================================================= */
+
+function stringify(value: any): string {
   try {
-    if (typeof value === "string")
+    if (typeof value === "string") {
       return value;
+    }
 
-    return JSON.stringify(
-      value,
-      null,
-      2
-    );
-  } catch {
+    if (value instanceof Error) {
+      return `
+[ERROR]
+Name: ${value.name}
+
+Message:
+${value.message}
+
+Stack:
+${value.stack}
+`;
+    }
+
+    if (
+      typeof DOMException !==
+        "undefined" &&
+      value instanceof DOMException
+    ) {
+      return `
+[DOM_EXCEPTION]
+${value.name}
+
+${value.message}
+`;
+    }
+
+    if (
+      typeof value === "object" &&
+      value !== null
+    ) {
+      const parsed: any = {};
+
+      Object.getOwnPropertyNames(
+        value
+      ).forEach((key) => {
+        parsed[key] =
+          value[key];
+      });
+
+      return JSON.stringify(
+        parsed,
+        null,
+        2
+      );
+    }
+
     return String(value);
+  } catch (err) {
+    return `
+[STRINGIFY_FAILED]
+${String(err)}
+`;
   }
 }
+
+/* =========================================================
+   UPDATE OVERLAY
+========================================================= */
 
 function updateOverlay() {
   const overlay =
@@ -33,13 +88,15 @@ function updateOverlay() {
   if (!overlay) return;
 
   overlay.textContent =
-    (
-      window.__DEV_LOGS__ || []
-    )
+    (window.__DEV_LOGS__ || [])
       .slice()
       .reverse()
       .join("\n\n");
 }
+
+/* =========================================================
+   ADD LOG
+========================================================= */
 
 function addLog(
   type: string,
@@ -47,8 +104,9 @@ function addLog(
 ) {
   if (
     typeof window === "undefined"
-  )
+  ) {
     return;
+  }
 
   if (!window.__DEV_LOGS__) {
     window.__DEV_LOGS__ = [];
@@ -72,11 +130,11 @@ function addLog(
   updateOverlay();
 }
 
-function createUI() {
-  /*
-    remove duplicates
-  */
+/* =========================================================
+   UI
+========================================================= */
 
+function createUI() {
   document
     .getElementById(
       "__DEV_BUTTON__"
@@ -109,16 +167,16 @@ function createUI() {
       position: "fixed",
       bottom: "16px",
       right: "16px",
-      width: "56px",
-      height: "56px",
+      width: "58px",
+      height: "58px",
       borderRadius: "999px",
       border: "none",
       background: "#000",
       color: "#00ff88",
-      fontSize: "24px",
+      fontSize: "26px",
       zIndex: "9999999",
       boxShadow:
-        "0 0 15px rgba(0,255,136,.5)",
+        "0 0 20px rgba(0,255,136,.5)",
     }
   );
 
@@ -141,9 +199,9 @@ function createUI() {
       left: "0",
       right: "0",
       bottom: "0",
-      height: "50vh",
+      height: "55vh",
       background:
-        "rgba(0,0,0,.96)",
+        "rgba(0,0,0,.97)",
       color: "#00ff88",
       zIndex: "9999998",
       padding: "14px",
@@ -161,7 +219,7 @@ function createUI() {
   );
 
   /*
-    CLOSE BUTTON
+    CLOSE
   */
 
   const close =
@@ -194,19 +252,19 @@ function createUI() {
   */
 
   button.onclick = () => {
-  const isOpen =
-    overlay.style.display ===
-    "block";
+    const isOpen =
+      overlay.style.display ===
+      "block";
 
-  overlay.style.display =
-    isOpen
-      ? "none"
-      : "block";
+    overlay.style.display =
+      isOpen
+        ? "none"
+        : "block";
 
-  if (!isOpen) {
-    updateOverlay();
-  }
-};
+    if (!isOpen) {
+      updateOverlay();
+    }
+  };
 
   close.onclick = () => {
     overlay.style.display =
@@ -226,15 +284,16 @@ function createUI() {
   );
 }
 
+/* =========================================================
+   INIT
+========================================================= */
+
 export function initDevConsole() {
   if (
     typeof window === "undefined"
-  )
+  ) {
     return;
-
-  /*
-    prevent duplicate init
-  */
+  }
 
   if (
     window.__DEV_CONSOLE_READY__
@@ -245,20 +304,110 @@ export function initDevConsole() {
   window.__DEV_CONSOLE_READY__ =
     true;
 
-  /*
-    WAIT BODY
-  */
-
-  const start = () => {
+  const start = async () => {
     createUI();
 
     addLog(
       "SYSTEM",
-      "Dev console initialized"
+      "Dev console initialized🐞"
     );
 
     /*
-      console hooks
+      SYSTEM INFO
+    */
+
+    addLog(
+      "SYSTEM_INFO",
+      {
+        userAgent:
+          navigator.userAgent,
+
+        memory:
+          (navigator as any)
+            .deviceMemory,
+
+        cores:
+          navigator
+            .hardwareConcurrency,
+
+        language:
+          navigator.language,
+
+        online:
+          navigator.onLine,
+
+        webgpu:
+          "gpu" in navigator,
+
+        sharedArrayBuffer:
+          typeof SharedArrayBuffer !==
+          "undefined",
+      }
+    );
+
+    /*
+      WEBGPU
+    */
+
+    try {
+      if ("gpu" in navigator) {
+        addLog(
+          "WEBGPU",
+          "Supported"
+        );
+
+        const adapter =
+          await (
+            navigator as any
+          ).gpu.requestAdapter();
+
+        if (!adapter) {
+          addLog(
+            "WEBGPU",
+            "No adapter"
+          );
+        } else {
+          addLog(
+            "WEBGPU_ADAPTER",
+            {
+              features: [
+                ...adapter.features,
+              ],
+            }
+          );
+
+          const device =
+            await adapter.requestDevice();
+
+          device.lost.then(
+            (info: any) => {
+              addLog(
+                "GPU_DEVICE_LOST",
+                info
+              );
+            }
+          );
+
+          addLog(
+            "WEBGPU",
+            "Device acquired"
+          );
+        }
+      } else {
+        addLog(
+          "WEBGPU",
+          "Not supported"
+        );
+      }
+    } catch (err) {
+      addLog(
+        "WEBGPU_ERROR",
+        err
+      );
+    }
+
+    /*
+      CONSOLE HOOKS
     */
 
     const oldError =
@@ -275,7 +424,21 @@ export function initDevConsole() {
     ) => {
       addLog(
         "ERROR",
-        ...args
+        ...args.map((a) => {
+          if (
+            a instanceof Error
+          ) {
+            return {
+              name: a.name,
+              message:
+                a.message,
+              stack:
+                a.stack,
+            };
+          }
+
+          return a;
+        })
       );
 
       oldError(...args);
@@ -304,7 +467,7 @@ export function initDevConsole() {
     };
 
     /*
-      JS ERRORS
+      GLOBAL ERRORS
     */
 
     window.addEventListener(
@@ -312,8 +475,22 @@ export function initDevConsole() {
       (e: any) => {
         addLog(
           "GLOBAL_ERROR",
-          e.message ||
-            e.error
+          {
+            message:
+              e.message,
+
+            filename:
+              e.filename,
+
+            line:
+              e.lineno,
+
+            column:
+              e.colno,
+
+            stack:
+              e.error?.stack,
+          }
         );
       }
     );
@@ -324,9 +501,9 @@ export function initDevConsole() {
 
     window.addEventListener(
       "unhandledrejection",
-      (e) => {
+      (e: any) => {
         addLog(
-          "PROMISE",
+          "PROMISE_REJECTION",
           e.reason
         );
       }
@@ -349,8 +526,14 @@ export function initDevConsole() {
 
           if (!res.ok) {
             addLog(
-              "FETCH",
-              `${res.status} ${args[0]}`
+              "FETCH_ERROR",
+              {
+                status:
+                  res.status,
+
+                url:
+                  args[0],
+              }
             );
           }
 
@@ -379,4 +562,4 @@ export function initDevConsole() {
       start
     );
   }
-}
+      }
