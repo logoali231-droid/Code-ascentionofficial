@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "code-ascention-v1.1"; // Versão atualizada
+const CACHE_NAME = "code-ascention-v1.2"; // Versão atualizada
 
 // Lista de ativos essenciais
 const ASSETS_TO_CACHE = [
@@ -48,24 +48,45 @@ self.addEventListener("activate", (event) => {
 });
 
 // Fetch: Tenta Cache primeiro, se não tiver, busca na rede
+// Fetch: Estratégia de Cache First com Fallback Seguro
 self.addEventListener("fetch", (event) => {
-  // Ignora requisições de extensões ou esquemas que não sejam http/https
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) {
-        return response; // Retorna do cache
+    caches.match(event.request).then((cachedResponse) => {
+      // 1. Se estiver no cache, retorna imediatamente
+      if (cachedResponse) {
+        return cachedResponse;
       }
-      return fetch(event.request).then(res => {
-        // Se for uma imagem ou fonte, podemos salvar no cache dinamicamente aqui (opcional)
-        return res;
-      }).catch(() => {
-        // Se a rede falhar e for navegação, pode retornar a página inicial (offline)
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-      });
+
+      // 2. Se não estiver, tenta buscar na rede
+      return fetch(event.request)
+        .then((networkResponse) => {
+          // Verifica se a resposta é válida antes de retornar
+          if (!networkResponse || networkResponse.status === 404) {
+            // Se for a navegação para uma página (como /machineLock) e deu 404
+            if (event.request.mode === 'navigate') {
+              return caches.match('/');
+            }
+          }
+          return networkResponse;
+        })
+        .catch((err) => {
+          console.error("[SW] Falha na rede:", err);
+          
+          // 3. FALLBACK CRÍTICO: Se a rede falhar totalmente
+          if (event.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+
+          // Retorna uma resposta de erro básica em vez de 'undefined'
+          // Isso evita o erro "Failed to convert value to 'Response'"
+          return new Response("Rede indisponível", {
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: new Header({ 'Content-Type': 'text/plain' })
+          });
+        });
     })
   );
 });
