@@ -3,100 +3,54 @@
 import { generate } from "@/lib/webllm";
 import { safeParse } from "@/lib/safeParse";
 
-/**
- * Avalia a intenção do texto do usuário para determinar o poder do item.
- * @param {string} text - O texto do prompt do usuário.
- * @returns {number} O poder calculado.
- */
-function evaluateIntent(text: string) {
-  const t = text.toLowerCase();
+// --- FUNÇÕES EXPORTADAS PARA O WORKER ---
 
-  let power = 1;
-
-  if (t.includes("x2")) power += 2;
-  if (t.includes("x3")) power += 3;
-  if (t.includes("x5")) power += 5;
-
-  if (t.includes("infinite")) power += 6;
-  if (t.includes("god")) power += 6;
-  if (t.includes("hack")) power += 4;
-
-  return power;
+export function calculateDiscount(price: number, faction: string = "neutral"): number {
+  const discounts: Record<string, number> = { "cyber_syndicate": 0.15, "neural_nexus": 0.10 };
+  return Math.floor(price * (1 - (discounts[faction] || 0)));
 }
 
-/**
- * Calcula o preço do item baseado no seu poder.
- * @param {number} power - O poder do item.
- * @returns {number} O preço calculado.
- */
-function computePrice(power: number) {
-  return Math.floor(80 * Math.pow(power, 2));
+export function processInventory(currentItems: any[], newItem: any) {
+  if (newItem.type === "chip" && currentItems.some(i => i.id === newItem.id)) return currentItems;
+  return [...currentItems, { ...newItem, acquiredAt: Date.now() }];
 }
 
-/**
- * Decide se o item deve ser falso baseado no poder.
- * @param {number} power - O poder do item.
- * @returns {boolean} Verdadeiro se deve ser falso.
- */
-function shouldFake(power: number) {
-  return power >= 7;
-}
+// --- LÓGICA DE GERAÇÃO DE ITENS IA ---
 
-/**
- * Gera um item de IA baseado no prompt do usuário.
- * @param {string} userPrompt - O prompt fornecido pelo usuário.
- * @returns {Promise<object>} O item gerado com propriedades como nome, descrição, etc.
- */
-/**
- * Gera um item de IA baseado no prompt do usuário.
- */
+const evaluateIntent = (t: string) => {
+  let p = 1;
+  const checks: Record<string, number> = { "x2": 2, "x3": 3, "x5": 5, "infinite": 6, "god": 6, "hack": 4 };
+  Object.keys(checks).forEach(k => { if (t.toLowerCase().includes(k)) p += checks[k]; });
+  return p;
+};
+
 export async function generateAIItem(userPrompt: string) {
   const power = evaluateIntent(userPrompt);
+  const aiPrompt = `User wants: ${userPrompt}\nCreate item JSON:\n{ "name": "", "description": "", "icon": "emoji", "effect": "boost" }\nKeep balanced.`;
 
-  const aiPrompt = `
-User wants: ${userPrompt}
-Create item JSON:
-{
- "name": "",
- "description": "",
- "icon": "emoji that visually matches",
- "effect": "cosmetic or small boost"
-}
-Keep balanced. Never OP.
-`;
-
-  // 1. Chama a geração
   const response = await generate(aiPrompt);
-  
-  // 2. Transforma o stream/undefined em uma string limpa
   let rawText = "";
 
   if (response) {
-    if (typeof response === 'string') {
-      rawText = response;
-    } else {
-      // Se for o stream (AsyncIterable), percorre até o fim
-      for await (const chunk of response) {
-        const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
-        rawText += content;
-      }
+    if (typeof response === 'string') rawText = response;
+    else for await (const chunk of response) {
+      rawText += typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
     }
   }
 
-  // 3. Agora o 'rawText' é garantidamente uma string (mesmo que vazia)
   const parsed = safeParse(rawText);
-
-  const fake = shouldFake(power);
+  const fake = power >= 7;
 
   return {
-    id: "ai_" + Date.now(),
+    id: `ai_${Date.now()}`,
     name: parsed?.name || "Glitched Relic",
     description: parsed?.description || "Something unstable...",
     icon: parsed?.icon || "🧪",
     effect: fake ? "cosmetic" : parsed?.effect || "cosmetic",
-    price: computePrice(power),
+    price: Math.floor(80 * Math.pow(power, 2)),
+    rarity: power > 8 ? "Legendary" : power > 5 ? "Epic" : "Rare",
+    type: "custom",
     requiredLevel: Math.min(power, 6),
-    requiredStreak: Math.min(power, 5),
     fake,
   };
 }
