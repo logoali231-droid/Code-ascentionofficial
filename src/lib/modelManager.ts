@@ -1,6 +1,5 @@
 "use client";
 
-import * as webllm from "@mlc-ai/web-llm";
 import { ModelRecord } from "@mlc-ai/web-llm";
 
 export interface Model extends ModelRecord {
@@ -22,9 +21,7 @@ export const AVAILABLE_MODELS: Model[] = [
       "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
 
     model_lib:
-      webllm.modelLibURLPrefix +
-      webllm.modelVersion +
-      "/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+      "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
 
     name: "Qwen 2.5 0.5B",
 
@@ -38,9 +35,7 @@ export const AVAILABLE_MODELS: Model[] = [
       "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
 
     model_lib:
-      webllm.modelLibURLPrefix +
-      webllm.modelVersion +
-      "/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+      "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
 
     name: "Phi 3.5 Mini",
 
@@ -54,9 +49,7 @@ export const AVAILABLE_MODELS: Model[] = [
       "https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC",
 
     model_lib:
-      webllm.modelLibURLPrefix +
-      webllm.modelVersion +
-      "/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+      "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
 
     name: "Phi 4 Mini",
 
@@ -70,9 +63,7 @@ export const AVAILABLE_MODELS: Model[] = [
       "https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC",
 
     model_lib:
-      webllm.modelLibURLPrefix +
-      webllm.modelVersion +
-      "/Llama-3.2-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+      "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Llama-3.2-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
 
     name: "Llama 3.2 3B",
 
@@ -87,38 +78,21 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
   let gpuLimit = 512;
 
-  let modelTier: "LOW" | "MID" | "HIGH" = "LOW";
+  let modelTier: "LOW" | "MID" | "HIGH" =
+    "LOW";
 
   try {
     if (nav.gpu) {
-      const adapter = await nav.gpu.requestAdapter();
+      const adapter =
+        await nav.gpu.requestAdapter();
 
       if (adapter) {
         gpuLimit = 2048;
 
-        const isMobile =
-          /Android|iPhone|iPad/i.test(
-            navigator.userAgent
-          );
-
-        // MOBILE
-        if (isMobile) {
-          if (memory >= 8) {
-            modelTier = "MID";
-          } else {
-            modelTier = "LOW";
-          }
-        }
-
-        // DESKTOP
-        else {
-          if (memory >= 16) {
-            modelTier = "HIGH";
-          } else if (memory >= 8) {
-            modelTier = "MID";
-          } else {
-            modelTier = "LOW";
-          }
+        if (memory >= 8) {
+          modelTier = "HIGH";
+        } else if (memory >= 4) {
+          modelTier = "MID";
         }
       }
     }
@@ -133,12 +107,11 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
   switch (modelTier) {
     case "HIGH":
-      // Phi 4 apenas em máquinas fortes
-      recommended = AVAILABLE_MODELS[2];
+      recommended = AVAILABLE_MODELS[1];
       break;
 
     case "MID":
-      recommended = AVAILABLE_MODELS[1];
+      recommended = AVAILABLE_MODELS[0];
       break;
 
     default:

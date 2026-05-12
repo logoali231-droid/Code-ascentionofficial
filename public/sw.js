@@ -64,15 +64,19 @@ self.addEventListener("fetch", (event) => {
 
   // NÃO intercepta assets do WebLLM
   if (
-    req.url.includes("huggingface.co") ||
-    req.url.includes(
-      "raw.githubusercontent.com"
-    ) ||
-    req.url.endsWith(".wasm") ||
-    req.url.endsWith(".bin")
-  ) {
-    return;
-  }
+  req.url.includes("huggingface.co") ||
+  req.url.includes(
+    "raw.githubusercontent.com"
+  ) ||
+  req.url.includes(
+    "cdn-lfs.huggingface.co"
+  ) ||
+  req.url.includes("/resolve/") ||
+  req.url.endsWith(".wasm") ||
+  req.url.endsWith(".bin")
+) {
+  return;
+}
 
   event.respondWith(
     caches.match(req).then((cached) => {
