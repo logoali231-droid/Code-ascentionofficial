@@ -1,62 +1,69 @@
 "use client";
 
-import { CreateWebWorkerMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
+// 1. Alteramos a importação para incluir MLCEngineInterface
+import { CreateWebWorkerMLCEngine, MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
 import { detectSystemCapabilities } from "./modelManager";
 
 let worker: Worker | null = null;
-let engine: MLCEngine | null = null;
-let loadingPromise: Promise<MLCEngine> | null = null;
+
+// 2. Mudamos o tipo de MLCEngine para MLCEngineInterface
+// Isso resolve o erro de "missing properties" na Vercel
+let engine: MLCEngineInterface | null = null; 
+
+let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
 
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
-  let selectedModelId = modelId;
+  // Se já estiver carregando, espera a promessa atual
+  if (loadingPromise) return loadingPromise;
 
-  if (!selectedModelId) {
-    const specs = await detectSystemCapabilities();
-    selectedModelId = specs.recommended.model_id;
-  }
+  loadingPromise = (async () => {
+    let selectedModelId = modelId;
 
-  // Se já está carregado e é o mesmo modelo, retorna direto
-  if (engine && currentModel === selectedModelId) return engine;
-
-  // 1. LIMPEZA TOTAL antes de novo carregamento (Evita acúmulo na GPU do M23)
-  if (engine) {
-    await engine.unload();
-    engine = null;
-  }
-
-  // 2. CRIAÇÃO DO WORKER ISOLADO
-  worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" });
-
-  worker.onerror = (e) => {
-    console.error("[Code Ascension] Worker de IA morreu (Possível Aw Snap)! Reiniciando orquestrador...");
-    engine = null; // Força reinicialização no próximo chamado
-  };
-
-  // 3. APLICAÇÃO DAS TRAVAS DE MEMÓRIA (Seu código entra aqui)
-  engine = await CreateWebWorkerMLCEngine(
-    worker,
-    selectedModelId,
-    {
-      initProgressCallback: onProgress || ((progress) => console.log(progress.text)),
-      appConfig: {
-        // Força o uso do IndexedDB para evitar falhas de cache do Service Worker
-        useIndexedDBCache: true,
-      },
-      // engineConfig substitui a antiga forma de passar limites e protege o M23
-      engineConfig: {
-        low_resource_mode: true, // Força uso menor de VRAM
-        context_window_size: 2048, // Trava o contexto (MUITO importante para não dar OOM)
-        sliding_window_size: 1024
-      }
+    if (!selectedModelId) {
+      const specs = await detectSystemCapabilities();
+      selectedModelId = specs.recommended.model_id;
     }
-  );
 
-  currentModel = selectedModelId;
-  return engine;
+    if (engine && currentModel === selectedModelId) return engine;
+
+    if (engine) {
+      await engine.unload();
+      engine = null;
+    }
+
+    worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), { type: "module" });
+
+    worker.onerror = (e) => {
+      console.error("[Code Ascension] Worker de IA morreu!");
+      engine = null;
+      loadingPromise = null;
+    };
+
+    engine = await CreateWebWorkerMLCEngine(
+      worker,
+      selectedModelId,
+      {
+        initProgressCallback: onProgress || ((p) => console.log(p.text)),
+        appConfig: { useIndexedDBCache: true },
+        engineConfig: {
+          low_resource_mode: true,
+          context_window_size: 2048,
+          sliding_window_size: 1024
+        }
+      }
+    );
+
+    currentModel = selectedModelId;
+    loadingPromise = null; // Libera para futuras chamadas
+    return engine;
+  })();
+
+  return loadingPromise;
 }
+
 
 /* =========================================================
    UNLOAD & GENERATE (Mantidos para integridade)
