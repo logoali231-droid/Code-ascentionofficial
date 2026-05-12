@@ -26,6 +26,7 @@ export default function ShopPage() {
   const workerRef = useRef<Worker | null>(null);
 
   const [shopItems, setShopItems] = useState<InventoryItem[]>([
+  
     {
       id: "base_xp_booster",
       name: "Neural Overclock",
@@ -36,7 +37,8 @@ export default function ShopPage() {
       effect: "xp_grant",
       effectValue: 500,
       quantity: 1,
-      acquiredAt: 0
+      acquiredAt: 0,
+      requiredLevel: 1 // <--- ADICIONE ESTA LINHA
     },
     {
       id: "logic_chip_v1",
@@ -48,8 +50,11 @@ export default function ShopPage() {
       effect: "xp_boost",
       effectValue: 1.2,
       quantity: 1,
-      acquiredAt: 0
+      acquiredAt: 0,
+      requiredLevel: 5 // <--- ADICIONE ESTA LINHA
     }
+  ]);
+
   ]);
 
   // Inicializa o Worker para processamento pesado (evita travar o M23)
