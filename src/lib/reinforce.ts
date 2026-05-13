@@ -297,9 +297,9 @@ OUTPUT FORMAT
 }
 `;
 
-  // ... linha 303
-  // 1. Inicia a geração através da fila
-  const rawRes = await enqueueGeneration(() =>
+  const rawRes = await enqueueGeneration(async () => {
+    return generate(prompt);
+  });
     generate(prompt)
   );
 
