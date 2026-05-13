@@ -41,7 +41,8 @@ export interface InventoryItem {
   equipped?: boolean;
   acquiredAt: number;
   isFake?: boolean;
-  requiredLevel: number
+  requiredLevel: number;
+}
 
 export interface UserStats {
   id: string;
