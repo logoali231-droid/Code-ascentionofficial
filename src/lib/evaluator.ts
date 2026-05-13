@@ -1,11 +1,12 @@
 "use client";
-import { compareAnswers } from "./evaluator.logic";
+import { compareAnswers, compareCode } from "./evaluator.logic";
 import { updateMastery } from "./mastery";
 import { updateConceptMastery } from "./knowledgeGraph";
 import { getAdaptiveMetrics } from "./adaptive";
 import { addXP, addCoins } from "./economy";
 import { save } from "./db";
 import { playSound } from "./sounds";
+
 
 /* =========================================================
    TYPES (Mantidos)
@@ -69,7 +70,10 @@ export async function evaluateExercise({
   const expected = exercise?.answer || "";
 
   // 2. USANDO A LÓGICA COMPARTILHADA
-  const correct = compareAnswers(expected, userAnswer);
+const correct =
+  exercise?.type === "code"
+    ? compareCode(expected, userAnswer)
+    : compareAnswers(expected, userAnswer);
 
   const metrics = await getAdaptiveMetrics();
 
