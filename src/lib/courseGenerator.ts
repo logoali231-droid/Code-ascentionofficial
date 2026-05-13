@@ -72,16 +72,20 @@ Return ONLY valid JSON.
 `;
 
   try {
+    // 1. Correct variable name 'prompt' used here
     const rawRes = await enqueueGeneration(async () => {
-  return generate(fullPrompt);
-});
+      return generate(prompt); 
+    });
 
     let fullResponse = "";
-    if (res) {
-      if (typeof res === 'string') {
-        fullResponse = res;
+    
+    // 2. Ensure we check 'rawRes' (the result from the queue)
+    if (rawRes) {
+      if (typeof rawRes === 'string') {
+        fullResponse = rawRes;
       } else {
-        for await (const chunk of res) {
+        // 3. Iterate through the stream (rawRes)
+        for await (const chunk of rawRes) {
           const content = typeof chunk === 'string' 
             ? chunk 
             : (chunk as any).choices?.[0]?.delta?.content || "";
@@ -90,8 +94,10 @@ Return ONLY valid JSON.
       }
     }
 
+    // 4. Parse the final concatenated string
     const parsed = safeParse(fullResponse);
-
+    
+    // ... rest of your validation logic
     // Validação com o seu validateCourseStructure
     if (!parsed || !validateCourse(parsed)) {
       console.error("Course validation failed. Using fallback.");
