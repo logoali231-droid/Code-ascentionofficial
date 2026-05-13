@@ -1,28 +1,16 @@
 "use client";
 
 import { ENGINE_MAP } from "./engines";
+
 import { runLocal } from "./localExecutor";
 import { runRemote } from "./remoteExecutor";
 import { runNeural } from "./neuralExecutor";
 import { runWasm } from "./wasmExecutor";
 
-export type Language =
-  | "python"
-  | "javascript"
-  | "java"
-  | "typescript"
-  | "csharp"
-  | "html"
-  | "cpp"
-  | "go"
-  | "rust"
-  | "php"
-  | "lua";
-
-export interface SandboxResult {
-  output: string[];
-  error?: string;
-}
+import {
+  Language,
+  SandboxResult
+} from "./types";
 
 export async function executeSandboxCode(
   code: string,
@@ -34,16 +22,16 @@ export async function executeSandboxCode(
   switch (engine) {
 
     case "local":
-      return runLocal(code, language);
+      return await runLocal(code, language) as SandboxResult;
 
     case "remote":
-      return runRemote(code, language);
+      return await runRemote(code, language) as SandboxResult;
 
     case "wasm":
-      return runWasm(code, language);
+      return await runWasm(code, language) as SandboxResult;
 
     case "neural":
-      return runNeural(code, language);
+      return await runNeural(code, language) as SandboxResult;
 
     default:
       return {

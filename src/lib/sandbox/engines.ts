@@ -1,12 +1,6 @@
 "use client";
 
-import { Language } from "./sandboxRunner";
-
-export type EngineType =
-  | "local"
-  | "wasm"
-  | "remote"
-  | "neural";
+import { Language, EngineType } from "./types";
 
 export const ENGINE_MAP: Record<Language, EngineType> = {
   javascript: "local",
