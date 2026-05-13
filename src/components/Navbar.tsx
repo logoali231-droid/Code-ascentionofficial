@@ -8,6 +8,7 @@ import {
   Home,
   BookOpen,
   Brain,
+  Box,
   PlusSquare,
   ShoppingCart,
   Database, // Substituindo imagem por ícone de Vault
@@ -21,6 +22,7 @@ import SoundButton from "./SoundButton";
 export default function Navbar() {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  
 
   useEffect(() => {
     load();
@@ -34,6 +36,7 @@ export default function Navbar() {
   }
 
   const level = Math.max(1, Math.floor((user?.xp || 0) / 100));
+  const isSandboxUnlocked = level >= 50;
 
   const navLink = (href: string, Icon: any) => {
     const isActive = pathname === href;
@@ -91,6 +94,7 @@ export default function Navbar() {
         {navLink("/new", PlusSquare)} 
         {navLink("/shop", ShoppingCart)}
         {navLink("/profile", User)}
+        {isSandboxUnlocked && navLink("/sandbox", <Box className="w-5 h-5 text-cyan-400" />)}
         <SoundButton />
       </div>
 
