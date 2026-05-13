@@ -72,7 +72,9 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const res = await enqueueGeneration(() => generate(prompt));
+    const rawRes = await enqueueGeneration(async () => {
+  return generate(fullPrompt);
+});
 
     let fullResponse = "";
     if (res) {
