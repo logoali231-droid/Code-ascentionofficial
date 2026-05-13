@@ -1,13 +1,15 @@
 {
-  "name": "code-ascension-runtime",
+  "name": "runtime-server",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Multi-language isolated runtime server",
   "main": "server.js",
   "scripts": {
+    "dev": "node server.js",
     "start": "node server.js"
   },
   "dependencies": {
-    "uuid": "^11.1.0",
-    "ws": "^8.18.0"
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "uuid": "^10.0.0"
   }
 }

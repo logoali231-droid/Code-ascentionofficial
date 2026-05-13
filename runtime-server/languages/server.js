@@ -1,59 +1,56 @@
-import { WebSocketServer } from "ws";
+const express = require("express");
+const cors = require("cors");
+const { exec } = require("child_process");
+const scalaRunner = require("./languages/scala");
+const vbnetRunner = require("./languages/vbnet");
+const { validateCode } = require("./security");
 
-import { enqueue } from "./queue.js";
-import { runDocker } from "./dockerRunner.js";
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
 
-import { createNodeCommand } from "./languages/node.js";
-import { createPythonCommand } from "./languages/python.js";
-import { createPHPCommand } from "./languages/php.js";
-
-const wss = new WebSocketServer({
-  port: 8080
+app.get("/health", (req, res) => {
+  exec("docker info", (error) => {
+    res.json({
+      server: "online",
+      docker: !error,
+      timestamp: new Date().toISOString()
+    });
+  });
 });
 
-console.log("Runtime online on port 8080");
+app.post("/run", async (req, res) => {
+  const { language, code } = req.body;
 
-wss.on("connection", ws => {
-  ws.on("message", async message => {
-    try {
-      const data = JSON.parse(message.toString());
+  try {
+    if (!language || !code) throw new Error("Missing language or code");
 
-      let command = "";
+    validateCode(code);
 
-      switch (data.language) {
-        case "javascript":
-          command = createNodeCommand(data.code);
-          break;
-
-        case "python":
-          command = createPythonCommand(data.code);
-          break;
-
-        case "php":
-          command = createPHPCommand(data.code);
-          break;
-
-        default:
-          ws.send(JSON.stringify({
-            type: "error",
-            error: "Unsupported language"
-          }));
-
-          return;
-      }
-
-      const result = await enqueue(() => runDocker(command));
-
-      ws.send(JSON.stringify({
-        type: "result",
-        result
-      }));
-
-    } catch (err) {
-      ws.send(JSON.stringify({
-        type: "error",
-        error: err.message
-      }));
+    let output = "";
+    switch (language.toLowerCase()) {
+      case "scala":
+        output = await scalaRunner(code);
+        break;
+      case "vbnet":
+      case "vb":
+        output = await vbnetRunner(code);
+        break;
+      default:
+        throw new Error(`Unsupported language: ${language}`);
     }
-  });
+
+    res.json({ success: true, output });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+const PORT = 4000;
+app.listen(PORT, () => {
+  console.log(`⚡ Code Ascension Runtime rodando na porta ${PORT}`);
 });
