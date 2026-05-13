@@ -36,23 +36,23 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       loadingPromise = null;
     };
 
-    // SOLUÇÃO DEFINITIVA PARA O COMPILADOR DA VERCEL:
+    // SOLUÇÃO DEFINITIVA PARA O COMPILADOR DA VERCEL E CRASH DE CACHE NO M23:
     // Forçamos o objeto de configuração como 'any' para aceitar os parâmetros 
-    // de otimização de memória sem que o TypeScript barre o build por 
-    // não encontrar as propriedades na interface MLCEngineConfig.
+    // de otimização de memória sem que o TypeScript barre o build.
     const engineConfig: any = {
       initProgressCallback: onProgress || ((p: any) => console.log(p.text)),
       low_resource_mode: true,
       context_window_size: 2048,
       sliding_window_size: 1024,
-      // O SDK moderno costuma injetar o cache automaticamente, 
-      // mas mantemos as configurações de engine aqui.
+      // CORREÇÃO PARA O ERRO "get param from cache":
+      // Força o uso do IndexedDB em vez da Cache API, que crasha no Android com arquivos grandes.
+      useIndexedDBCache: true,
     };
 
     engine = await CreateWebWorkerMLCEngine(
       worker,
       selectedModelId,
-      engineConfig // Passando o objeto já tipado como 'any'
+      engineConfig
     );
 
     currentModel = selectedModelId;
@@ -90,7 +90,8 @@ export async function unloadEngine() {
     generationLock = false;
     console.log("[WebLLM] Engine e Worker destruídos com sucesso.");
   }
-  }
+}
+
 export async function generate(prompt: string, temperature = 0.7) {
   if (generationLock) return null;
   generationLock = true;
