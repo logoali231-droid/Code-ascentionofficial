@@ -1,4 +1,4 @@
-const CACHE_NAME = "code-ascention-v1.5.2"; 
+const CACHE_NAME = "code-ascention-v1.5.2";
 
 const ASSETS_TO_CACHE = [
   "/",
@@ -8,25 +8,17 @@ const ASSETS_TO_CACHE = [
   "/icons/icon-512.png",
   "/icons/coins.png",
   "/icons/xp_potion_hd.png",
-  "/icons/xp_potion.png",
+  "/icons/xp_potion.png", // Verificado: Case-sensitive corrigido
 ];
 
-// Instalação otimizada para Mobile (Samsung M23)
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Usamos allSettled para evitar que um erro de rede em um ícone trave o motor
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(async (url) => {
-          try {
-            // Força a busca de uma versão limpa para evitar NetworkError de cache antigo
-            const response = await fetch(url, { cache: "no-cache" });
-            if (!response.ok) throw new Error(`Status: ${response.status}`);
-            return await cache.put(url, response);
-          } catch (err) {
-            console.warn(`[SW] Falha ao registrar asset: ${url}`, err);
-          }
+          const response = await fetch(url, { cache: "no-cache" });
+          if (response.ok) return cache.put(url, response);
         })
       );
     })
@@ -35,51 +27,38 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) => 
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
-  const req = event.request;
+  const { request: req } = event;
+  const url = new URL(req.url);
 
-  if (req.method !== 'GET' || !req.url.startsWith("http")) return;
+  if (req.method !== 'GET' || !url.protocol.startsWith("http")) return;
 
-  const isExternal = !req.url.includes(self.location.origin);
-  
-  // Blindagem reforçada para arquivos pesados da IA
+  // Blindagem Samsung M23: Não intercepta binários pesados (deixa para IndexedDB)
   const isAIAsset = 
-    req.url.includes("huggingface.co") || 
-    req.url.includes("mlc-ai") || 
-    req.url.includes("cdn-lfs") ||
-    req.url.endsWith(".wasm") || 
-    req.url.endsWith(".bin") ||
-    (req.url.endsWith(".json") && req.url.includes("config"));
+    url.hostname.includes("huggingface.co") || 
+    url.hostname.includes("mlc-ai") || 
+    url.pathname.endsWith(".wasm") || 
+    url.pathname.endsWith(".bin") ||
+    (url.pathname.endsWith(".json") && url.pathname.includes("config"));
 
-  if (isExternal || isAIAsset) return;
+  if (url.origin !== self.location.origin || isAIAsset) return;
 
   event.respondWith(
     caches.match(req).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(req)
-        .then((response) => {
-          if (!response || response.status === 404) {
+      return cached || fetch(req)
+        .then((res) => {
+          if (!res || res.status === 404) {
             if (req.mode === "navigate") return caches.match("/");
           }
-          return response;
+          return res;
         })
-        .catch(() => {
-          if (req.mode === "navigate") return caches.match("/");
-          return new Response("Offline", { status: 503 });
-        });
+        .catch(() => req.mode === "navigate" ? caches.match("/") : new Response("Offline", { status: 503 }))
     })
   );
 });

@@ -5,14 +5,11 @@ import { updateMastery } from "./mastery";
 import { updateConceptMastery } from "./knowledgeGraph";
 import { getAdaptiveMetrics } from "./adaptive";
 import { addXP, addCoins } from "./economy";
-import { db, getUser, save } from "./db"; // Importação do getUser e db adicionada
+import { getUser, save } from "./db";
 import { playSound } from "./sounds";
 import { explainError } from "./explanationAI";
 import { computeLessonXp, calculateLevel } from "./level";
 
-/* =========================================================
-   TYPES (Mantidos conforme seu código)
-========================================================= */
 interface EvaluateExerciseParams {
   exercise: any;
   userAnswer: string;
@@ -21,21 +18,6 @@ interface EvaluateExerciseParams {
   conceptId?: string;
 }
 
-interface EvaluationResult {
-  correct: boolean;
-  expected: string;
-  userAnswer: string;
-  xp: number;
-  coins: number;
-  masteryDelta: number;
-  feedback: string;
-  conceptId: string;
-  difficulty: number;
-}
-
-/* =========================================================
-   REWARDS CALCULATOR
-========================================================= */
 function computeRewards({
   difficulty,
   correct,
@@ -50,11 +32,8 @@ function computeRewards({
   streakDays?: number;
 }) {
   if (!correct) return { xp: 5, coins: 1 };
-
   const playerLevel = calculateLevel(currentXp);
-  // Utiliza a nova fórmula do level.ts (Curva de Raiz Quadrada)
   const lessonXp = computeLessonXp(playerLevel, difficulty, streakDays, 1);
-  
   const baseCoins = 5 + (difficulty * 10);
 
   return {
@@ -63,24 +42,21 @@ function computeRewards({
   };
 }
 
-/* =========================================================
-   MAIN EVALUATION FLOW
-========================================================= */
 export async function evaluateExercise({
   exercise,
   userAnswer,
   course,
   lesson,
   conceptId,
-}: EvaluateExerciseParams): Promise<EvaluationResult> {
+}: EvaluateExerciseParams) {
   const expected = exercise?.answer || "";
   let iaFeedback = "";
 
-  // 1. TENTA A VALIDAÇÃO HARDCORE
+  // 1. VALIDAÇÃO LÓGICA
   let correct = await evaluateLogic(userAnswer, expected);
 
-  // 2. FALLBACK DE IA: Se o hardcore falhar
-  if (!correct && userAnswer.length > 2) {
+  // 2. FALLBACK DE IA (Trava reduzida para 1 caractere para aceitar keywords curtas)
+  if (!correct && userAnswer.trim().length > 0) {
     try {
       const aiAnalysis = await explainError({ 
         question: exercise.question, 
@@ -99,40 +75,40 @@ export async function evaluateExercise({
     }
   }
 
-  // 3. COLETA DE DADOS DO USUÁRIO (NOVA PARTE)
-  // Precisamos do XP e Streak reais para o computeRewards
+  // 3. RECUPERAÇÃO DE ESTADO
   const user = await getUser();
   const currentXp = user?.xp || 0;
   const streakDays = user?.streak || 1;
-
-  // 4. MÉTRICAS ADAPTATIVAS
   const metrics = await getAdaptiveMetrics();
   const difficulty = exercise?.difficulty || lesson?.difficulty || 1;
   const resolvedConceptId = conceptId || lesson?.conceptId || "core_fundamentals";
 
-  // 5. CÁLCULO DE RECOMPENSAS (CORRIGIDO)
+  // 4. RECOMPENSAS
   const rewards = computeRewards({
     difficulty,
     correct,
     adaptiveMultiplier: metrics?.xpMultiplier || 1,
-    currentXp, // Passando o XP obrigatório
-    streakDays, // Passando a sequência atual
+    currentXp, 
+    streakDays,
   });
 
-  /* =====================================================
-     ECONOMY & FEEDBACK
-  ===================================================== */
+  // 5. PERSISTÊNCIA E ECONOMIA
   if (correct) {
     await addXP(rewards.xp);
     await addCoins(rewards.coins);
     playSound("success", 0.4);
   } else {
     playSound("error", 0.35);
+    await save("errors", {
+      question: exercise?.question,
+      correct: expected,
+      userAnswer,
+      conceptId: resolvedConceptId,
+      courseId: course?.id || "unknown",
+      timestamp: Date.now(),
+    }, crypto.randomUUID());
   }
 
-  /* =====================================================
-     MASTERY & KNOWLEDGE GRAPH
-  ===================================================== */
   const masteryResult = await updateMastery({
     conceptId: resolvedConceptId,
     success: correct,
@@ -141,21 +117,6 @@ export async function evaluateExercise({
 
   if (course?.id) {
     await updateConceptMastery(course.id, resolvedConceptId, correct);
-  }
-
-  /* =====================================================
-     PERSISTENCE
-  ===================================================== */
-  if (!correct) {
-    await save("errors", {
-      question: exercise?.question,
-      correct: expected,
-      userAnswer,
-      conceptId: resolvedConceptId,
-      courseId: course?.id || "unknown",
-      difficulty,
-      timestamp: Date.now(),
-    }, crypto.randomUUID());
   }
 
   return {
@@ -168,7 +129,7 @@ export async function evaluateExercise({
     conceptId: resolvedConceptId,
     difficulty,
     feedback: correct
-      ? (iaFeedback || "Concept assimilated successfully.")
-      : (iaFeedback || "Neural mismatch detected. Reinforcement recommended."),
+      ? (iaFeedback || "Concept assimilated.")
+      : (iaFeedback || "Neural mismatch detected."),
   };
 }
