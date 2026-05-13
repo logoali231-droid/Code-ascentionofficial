@@ -4,7 +4,7 @@ import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { enqueueGeneration } from "./generationQueue";
-import { validateCourseStructure } from "./lessonValidator"; // Seu validador
+import { validateCourseStructure } from "./courseValidator"; // Seu validador
 
 export async function generateCourse({
   topic,
