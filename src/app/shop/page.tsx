@@ -55,7 +55,7 @@ export default function ShopPage() {
     }
   ]);
 
-  ]);
+  
 
   // Inicializa o Worker para processamento pesado (evita travar o M23)
   useEffect(() => {
