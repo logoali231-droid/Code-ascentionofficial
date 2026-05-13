@@ -96,8 +96,7 @@ export default function ErrorsPage() {
                 } else {
                   alert("Nice. You fixed this mistake 🎯");
                 }
-              }}
-            />
+              } } isStreaming={false} streamProgress={0}            />
           )}
         </div>
       )}
