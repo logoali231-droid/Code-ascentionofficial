@@ -33,6 +33,10 @@ export interface SystemSpecs {
   webgpu: boolean;
 
   sharedArrayBuffer: boolean;
+
+  ramGB: number;
+
+  isMobile: boolean;
 }
 
 /* =========================================================
@@ -198,26 +202,18 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     */
 
     if (!webgpu) {
-      console.warn(
-        "[System Detection] WebGPU unavailable"
-      );
-
-      return {
-        modelTier:
-          "LOW",
-
-        gpuLimit,
-
-        recommended:
-          AVAILABLE_MODELS[0],
-
-        memory,
-
-        webgpu,
-
-        sharedArrayBuffer,
-      };
-    }
+  
+  return {
+    modelTier: "LOW",
+    gpuLimit,
+    recommended: AVAILABLE_MODELS[0],
+    memory,
+    webgpu,
+    sharedArrayBuffer,
+    ramGB: memory, // Adicionado
+    isMobile: /Mobi|Android/i.test(navigator.userAgent), // Adicionado
+  };
+}
 
     /*
       =====================================================
@@ -229,26 +225,18 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       await nav.gpu.requestAdapter();
 
     if (!adapter) {
-      console.warn(
-        "[System Detection] No GPU adapter"
-      );
-
-      return {
-        modelTier:
-          "LOW",
-
-        gpuLimit,
-
-        recommended:
-          AVAILABLE_MODELS[0],
-
-        memory,
-
-        webgpu,
-
-        sharedArrayBuffer,
-      };
-    }
+  // ...
+  return {
+    modelTier: "LOW",
+    gpuLimit,
+    recommended: AVAILABLE_MODELS[0],
+    memory,
+    webgpu,
+    sharedArrayBuffer,
+    ramGB: memory, // Atribuição correta de valor
+    isMobile: /Mobi|Android/i.test(navigator.userAgent), // Atribuição correta
+  };
+}
 
     /*
       =====================================================
@@ -339,17 +327,16 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     }
   );
 
-  return {
-    modelTier,
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
-    gpuLimit,
-
-    recommended,
-
-    memory,
-
-    webgpu,
-
-    sharedArrayBuffer,
-  };
+return {
+  modelTier,
+  gpuLimit,
+  recommended,
+  memory,
+  webgpu,
+  sharedArrayBuffer,
+  ramGB: memory, // Adicionado
+  isMobile, // Adicionado
+};
       }

@@ -9,6 +9,10 @@ let engine: MLCEngineInterface | null = null;
 let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
+// 1. Detecta o hardware antes de criar o motor
+const system = await detectSystemCapabilities();
+console.log(`[WebLLM] Hardware Detectado: RAM ~${system.ramGB}GB, Mobile: ${system.isMobile}`);
+
 
 /**
  * Inicializa o motor da IA garantindo o uso de IndexedDB para evitar o crash de cache no M23.
@@ -19,7 +23,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
   loadingPromise = (async () => {
     try {
       const selectedModelId = modelId || "Phi-3.5-mini-instruct-q4f16_1-MLC";
-      
+
       if (engine && currentModel === selectedModelId) {
         return engine;
       }
@@ -37,17 +41,18 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 
       console.log(`[WebLLM] Inicializando motor: ${selectedModelId} via IndexedDB`);
 
-      // CONFIGURAÇÃO CRÍTICA PARA O M23: useIndexedDBCache: true
-      // Isso impede que ele tente usar a Cache API que faz o Chrome fechar.
+
+
+
+      // 2. Injeta as capacidades no AppConfig
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
-        logLevel: "warn",
-        engineConfig: {
-          // No WebLLM moderno, as configurações de app vão aqui
-          appConfig: {
-            useIndexedDBCache: true,
-          },
-        } as any, // O 'as any' previne quebras se a definição de tipos local estiver desatualizada
+        logLevel: "WARN",
+        appConfig: {
+          useIndexedDBCache: true,
+          // @ts-ignore - Injetando metadados para otimização de runtime no M23
+          systemCapabilities: system,
+        } as any,
       });
 
       currentModel = selectedModelId;
@@ -103,7 +108,8 @@ export async function* generate(prompt: string, temperature = 0.7) {
       stream: true, // Habilita o modo stream
     };
 
-    const asyncChunkGenerator = await currentEngine.chat.completions.create(request);
+    // Forçamos a tipagem para AsyncIterable para habilitar o for await
+    const asyncChunkGenerator = await currentEngine.chat.completions.create(request) as AsyncIterable<any>;
 
     for await (const chunk of asyncChunkGenerator) {
       const content = chunk.choices[0]?.delta?.content || "";

@@ -5,7 +5,6 @@
   "description": "Offline AI-powered roguelike educational PWA",
   "main": "index.js",
   "type": "module",
-
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +13,6 @@
     "type-check": "tsc --noEmit",
     "vercel-build": "next build --no-lint"
   },
-
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.83",
     "dexie": "^4.4.2",
@@ -25,7 +23,6 @@
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.17"
   },
-
   "devDependencies": {
     "@types/node": "^22.15.21",
     "@types/react": "^18.3.23",
@@ -34,18 +31,14 @@
     "postcss": "^8.5.6",
     "typescript": "^5.8.3"
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/logoali231-droid/Code-ascentionofficial.git"
   },
-
   "bugs": {
     "url": "https://github.com/logoali231-droid/Code-ascentionofficial/issues"
   },
-
   "homepage": "https://github.com/logoali231-droid/Code-ascentionofficial#readme",
-
   "keywords": [
     "ai",
     "pwa",
@@ -55,7 +48,6 @@
     "education",
     "roguelike"
   ],
-
   "author": "",
   "license": "ISC"
 }
