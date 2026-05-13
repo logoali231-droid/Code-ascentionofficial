@@ -300,8 +300,8 @@ OUTPUT FORMAT
   const rawRes = await enqueueGeneration(async () => {
     return generate(prompt);
   });
-    generate(prompt)
-  );
+  
+  
 
   // 2. Coletor Neural: Converte Stream/Undefined para String
   let res = "";
