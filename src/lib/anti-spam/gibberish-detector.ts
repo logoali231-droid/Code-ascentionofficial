@@ -1,5 +1,5 @@
 import { GibberishHeuristics } from './gibberish-heuristics';
-import { statisticalValidator } from './statististical-validator';
+import { StatisticalValidator } from './statististical-validator';
 
 /**
  * ORQUESTRADOR FINAL: SISTEMA DE PONTUAÇÃO MULTICAMADA
@@ -8,7 +8,7 @@ import { statisticalValidator } from './statististical-validator';
 
 export class GibberishDetector {
   private heuristics = new GibberishHeuristics();
-  private statistics = new statisticalValidator();
+  private statistics = new StatisticalValidator();
 
   /**
    * Método principal que decide se a entrada deve ser bloqueada.

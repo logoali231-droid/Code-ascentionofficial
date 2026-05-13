@@ -7,6 +7,10 @@ export class StatisticalValidator { // Convenção: Primeira letra maiúscula pa
     'ui', 'ux', 'ai', 'ml', 'ds', 'cs', 'it', 'iot' 
   ]);
 
+
+  public filterTechnicalTerms(words: string[]): string[] {
+    return words.filter(word => !this.TECH_EXCEPTIONS.has(word.toLowerCase()));
+  }
   /**
    * NOVO: Método que o handleNext está procurando.
    * Retorna true se o texto for considerado spam/gibberish.
