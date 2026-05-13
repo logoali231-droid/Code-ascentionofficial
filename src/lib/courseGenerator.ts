@@ -91,7 +91,7 @@ Return ONLY valid JSON.
     const parsed = safeParse(fullResponse);
 
     // Validação com o seu validateCourseStructure
-    if (!parsed || !validateCourseStructure(parsed)) {
+    if (!parsed || !validateCourse(parsed)) {
       console.error("Course validation failed. Using fallback.");
       return {
         title: `${topic} Course`,
