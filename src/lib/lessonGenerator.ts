@@ -202,6 +202,9 @@ Reinforce weak concepts naturally.
 export function buildExplanationPrompt(
   plan: LessonPlan
 ) {
+  // Nota: O uso de "use client" deve ser verificado se este arquivo 
+  // importar hooks do React, conforme diretrizes do projeto.
+  
   return `
 You are an adaptive programming tutor.
 
@@ -242,13 +245,14 @@ RULES:
 - Respect cognitive profile
 - Respect learning style
 - Keep continuity with previous lessons
+- IMPORTANT: Use cyberpunk color scheme (hex codes) for any UI mentions or examples.
 
 RETURN JSON:
 
 {
-  "title": "",
-  "explanation": "",
-  "content": ""
+  "title": "A short, engaging title for this concept",
+  "explanation": "The core conceptual explanation (markdown supported)",
+  "content": "Practical examples or code snippets to illustrate the concept"
 }
 `;
 }

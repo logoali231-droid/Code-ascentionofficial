@@ -1,6 +1,6 @@
 // src/lib/aiPrompt.ts
 import { CognitiveProfile } from "@/types/core";
-
+import { getKnowledgeGraph } from "./knowledgeGraph"; // Assumindo exportação
 /**
  * Retorna as instruções específicas para cada perfil cognitivo.
  * Ajustado para os tipos exatos do core.ts.
@@ -22,48 +22,25 @@ export function getCognitiveInstruction(profile: CognitiveProfile): string {
  * Constrói o prompt final respeitando as regras originais e a adaptação cognitiva.
  * Adicionada lógica para continuidade (isExtension).
  */
-export function buildCoursePrompt(config: any) {
-  const cognitiveStyle = getCognitiveInstruction(config.cognitive || "Standard");
 
-  // Lógica de continuidade para evitar repetição de conteúdo
-  const continuityContext = config.isExtension 
-    ? `CONTINUATION: This is a follow-up. The last topic covered was "${config.lastTopic}". 
-       Generate ${config.count || 3} NEW subsequent lessons that follow this sequence naturally.`
-    : `START: This is the beginning of the course. Generate the first set of lessons.`;
 
-  return `
-Create a programming course in JSON format.
 
-TOPIC: ${config.topic}
-LEVEL: ${config.level}
-DIFFICULTY: ${config.difficulty}
+export async function buildCoursePrompt(topic: string, learningState: string, courseId: string) {
+  // 1. Passamos o courseId necessário para a busca
+  const graph = await getKnowledgeGraph(courseId);
+  
 
-${continuityContext}
+  const priorityTopics = graph?.nodes
+    .filter(node => (node.mastery || 0) < 0.4) 
+    .map(node => node.id)
+    .join(", ");
 
-LEARNING STYLE & COGNITIVE ADAPTATION:
-${cognitiveStyle}
-${config.stylePrompt || "Explain clearly following the tone above."}
+  const reinforcementContext = priorityTopics 
+    ? `\n[SISTEMA_DE_REFORÇO]: O usuário apresenta lacunas de conhecimento nos seguintes conceitos: ${priorityTopics}. Integre revisões destes temas de forma orgânica.`
+    : "";
 
-${config.userBase ? `BASE MATERIAL (USE ONLY THIS):\n${config.userBase}` : ""}
-
-RULES:
-- Follow LEARNING STYLE strictly.
-- If base material exists, do not add external info.
-- Do not hallucinate.
-- Output ONLY valid JSON.
-- Ensure lessons flow logically from the last topic.
-
-FORMAT:
-{
-  "lessons": [
-    {
-      "title": "...",
-      "explanation": "...",
-      "exercises": [
-        { "type": "mcq", "question": "...", "options": ["..."], "answer": "..." }
-      ]
-    }
-  ]
-}
-`;
+  return `Crie um curso sobre ${topic}. 
+          Estado atual do usuário: ${learningState}
+          ${reinforcementContext}
+          Diretriz: Não repita conceitos onde o domínio já é superior a 80%.`;
 }

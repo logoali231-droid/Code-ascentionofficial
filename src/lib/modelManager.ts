@@ -1,6 +1,25 @@
 "use client";
 
 import { ModelRecord } from "@mlc-ai/web-llm";
+import { save, get } from "./db";
+
+export async function runQuickBenchmark(engine: any): Promise<number> {
+  const startTime = performance.now();
+  const testPrompt = "Explique loop em 3 palavras.";
+  
+  // Executa inferência curta de 10 tokens
+  const result = await engine.generate(testPrompt, { max_tokens: 10 });
+  const endTime = performance.now();
+  
+  const durationSeconds = (endTime - startTime) / 1000;
+  const tokensPerSecond = 10 / durationSeconds;
+
+  // Salva no IndexedDB
+  const user = await get("user", "main");
+  await save("user", { ...user, tokensPerSecond });
+
+  return tokensPerSecond;
+}
 
 /* =========================================================
    TYPES

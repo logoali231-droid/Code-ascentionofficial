@@ -40,6 +40,8 @@ export interface AppError {
   [key: string]: any;
 }
 
+
+
 export interface Explanation {
   id?: number;
   text: string;
@@ -88,6 +90,8 @@ const MAX_ERRORS_TOTAL = 50;
 /**
  * LÓGICA DE CLEANUP (AUTO-DELETE)
  */
+
+
 export async function cleanupOldData() {
   const now = Date.now();
   const expirationThreshold = now - MAX_LOG_AGE_MS;
@@ -123,6 +127,27 @@ export async function cleanupOldData() {
     console.error("[Cleanup] Falha crítica na manutenção do DB:", err);
   }
 }
+
+
+export async function addBannedTerm(term: string) {
+  // Busca o registro principal do usuário (onde ficam as settings)
+  const settings = await get<User>("user", "main") || {};
+  
+  // Garante que customBanned seja um array
+  const currentBanned: string[] = settings.customBanned || [];
+  
+  if (!currentBanned.includes(term)) {
+    // Atualiza usando a função save que você já tem no arquivo
+    await save("user", {
+      ...settings,
+      customBanned: [...currentBanned, term]
+    }, "main");
+    
+    console.log(`[Protocol] Termo "${term}" injetado na lista de restrições.`);
+  }
+}
+
+
 
 /**
  * NOVAS FUNÇÕES REQUISITADAS PELO COURSE PAGE

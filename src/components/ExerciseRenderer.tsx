@@ -65,6 +65,10 @@ interface ExerciseProps {
 
   streamTotal?: number;
 
+  isStreaming: boolean;
+
+  streamProgress: number;
+
   onComplete?: (
     success: boolean
   ) => void;
@@ -85,6 +89,8 @@ export default function ExerciseRenderer({
   loading = false,
   streamIndex = 0,
   streamTotal = 0,
+  isStreaming,
+  streamProgress,
   onComplete,
   onNext,
 }: ExerciseProps) {

@@ -11,6 +11,35 @@ import {
   Language,
   SandboxResult
 } from "./types";
+import { SandboxFile } from "@/components/SandboxEditor";
+
+// Adicione no topo do seu sandboxRunner.ts ou onde você gerencia a execução
+export function executeInWorker(
+  mainFile: SandboxFile, 
+  allFiles: SandboxFile[]
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Inicializa o worker
+    const worker = new Worker(
+      new URL("../sandbox.worker.ts", import.meta.url)
+    );
+
+    worker.onmessage = (e) => {
+      if (e.data.type === "BUNDLE_READY") {
+        resolve(e.data.payload.code);
+        worker.terminate();
+      } else if (e.data.type === "ERROR") {
+        reject(e.data.payload);
+        worker.terminate();
+      }
+    };
+
+    worker.postMessage({
+      type: "BUNDLE_FILES",
+      payload: { mainFile, allFiles }
+    });
+  });
+}
 
 export async function executeSandboxCode(
   code: string,

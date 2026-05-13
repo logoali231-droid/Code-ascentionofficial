@@ -8,6 +8,33 @@ export function normalize(text: any) {
     .replace(/\s+/g, " ");
 }
 
+export async function evaluateLogic(received: any, expected: any): Promise<boolean> {
+  try {
+    // 1. Sanitização básica de tipos
+    const valReceived = String(received || "").trim();
+    const valExpected = String(expected || "").trim();
+
+    // 2. Se for vazio, já invalida
+    if (!valReceived && valExpected) return false;
+
+    // 3. Heurística para detectar se é código ou texto simples
+    // Se contiver caracteres típicos de sintaxe, usa compareCode
+    const isCode = /[{}[\];()]/.test(valExpected) || valExpected.length > 50;
+
+    if (isCode) {
+      return compareCode(valExpected, valReceived);
+    }
+
+    // 4. Fallback para comparação de texto normalizado
+    return compareAnswers(valExpected, valReceived);
+    
+  } catch (error) {
+    console.error("[Evaluator Logic] Falha crítica na avaliação:", error);
+    // Em caso de erro interno, retornamos false por segurança
+    return false;
+  }
+}
+
 export function compareAnswers(
   expected: string,
   received: string

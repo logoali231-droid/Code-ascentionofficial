@@ -28,6 +28,7 @@ import {
 import {
   updateMemory,
 } from "@/lib/userMemory";
+import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
 
 
 
@@ -77,6 +78,7 @@ export default function CoursePage() {
     useState<any[]>([]);
 
   const [downloadInfo, setDownloadInfo] = useState({ text: "", model: "" });
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
   /* =====================================================
      STREAMING STATES
@@ -283,162 +285,122 @@ export default function CoursePage() {
       setIsGeneratingExplanation(false);
       setIsGeneratingExercises(false);
     }
-  } 
+  }
 
   /* =====================================================
      NEXT
   ===================================================== */
 
-  async function handleNext(
-    correct: boolean
-  ) {
-    if (!course) return;
+  async function handleNext(correct: boolean, userResponse?: string) {
+  if (!course) return;
 
-    const exercise =
-      streamedExercises[
-      currentExercise
-      ];
+  /* ====================================
+      ANTI-SPAM VALIDATION
+  ==================================== */
+  if (userResponse) {
+    // Importante: certifique-se que o import statisticalValidator existe
+    const isSpam = statisticalValidator.isLowEntropy(userResponse);
+    if (isSpam) {
+      alert("⚠️ NEURAL_ERROR: Resposta inconsistente detectada. Tente elaborar melhor.");
+      return; // Interrompe a execução antes de processar XP ou erros
+    }
+  }
 
-    /* ====================================
-       MEMORY
-    ==================================== */
+  const exercise = streamedExercises[currentExercise];
 
-    await updateMemory({
-      topic:
-        course.topic ||
-        course.title,
+  /* ====================================
+      MEMORY
+  ==================================== */
+  await updateMemory({
+    topic: course.topic || course.title,
+    correct,
+    type: "exercise",
+    input: exercise?.question || "",
+  });
 
-      correct,
+  /* ====================================
+      XP & PROGRESSION
+  ==================================== */
+  if (correct) {
+    // Reset do contador Roguelike se acertar
+    setConsecutiveErrors(0);
 
-      type: "exercise",
+    const xpGain = 10;
+    const newXp = (user?.xp || 0) + xpGain;
 
-      input:
-        exercise?.question ||
-        "",
+    await updateUser({
+      xp: newXp,
+      coins: (user?.coins || 0) + 2,
+      level: Math.floor(newXp / 100) + 1,
     });
 
+    /* ================================
+        CLEAR ERROR LOGS
+    ================================= */
+    const errors = await getErrorLogs(course.id);
+    const matching = errors.find(
+      (e: any) => e.question === exercise.question
+    );
+
+    if (matching && matching.id !== undefined) {
+      await clearErrorLog(matching.id);
+    }
+
+  } else {
     /* ====================================
-       XP
+        ROGUELIKE REDIRECT (3 ERRORS)
     ==================================== */
+    const newErrorCount = consecutiveErrors + 1;
+    setConsecutiveErrors(newErrorCount);
 
-    if (correct) {
-      const xpGain = 10;
+    if (newErrorCount >= 3) {
+      setConsecutiveErrors(0); // Reseta para a próxima tentativa
+      setTab("theory");        // Muda para a aba de teoria
+      alert("🧠 NEURAL GLITCH: Muitas falhas consecutivas. Revise o feed de teoria antes de continuar.");
+      return; // Sai da função sem gerar mais reforço agora
+    }
 
-      const newXp =
-        (user?.xp || 0) +
-        xpGain;
+    /* ================================
+        REINFORCEMENT
+    ================================= */
+    const reinforcement = await generateReinforcement(
+      {
+        ...exercise,
+        difficulty: 0.6,
+      },
+      course
+    );
 
-      await updateUser({
-        xp: newXp,
+    setStreamedExercises((prev) => {
+      const clone = [...prev];
+      const reinforcementCount = clone.filter((e) => e.isReinforcement).length;
 
-        coins:
-          (user?.coins || 0) + 2,
-
-        level:
-          Math.floor(
-            newXp / 100
-          ) + 1,
-      });
-
-      /* ================================
-         CLEAR ERROR LOGS
-      ================================= */
-
-      const errors =
-        await getErrorLogs(
-          course.id
-        );
-
-      const matching =
-        errors.find(
-          (e: any) =>
-            e.question ===
-            exercise.question
-        );
-
-      if (
-        matching &&
-        matching.id !== undefined
-      ) {
-        await clearErrorLog(
-          matching.id
-        );
+      if (reinforcementCount < 5) {
+        clone.splice(currentExercise + 1, 0, {
+          ...reinforcement,
+          isReinforcement: true,
+        });
       }
-
-    } else {
-      /* ================================
-         REINFORCEMENT
-      ================================= */
-
-      const reinforcement =
-        await generateReinforcement(
-          {
-            ...exercise,
-            difficulty: 0.6,
-          },
-          course
-        );
-
-      setStreamedExercises(
-        (prev) => {
-          const clone = [
-            ...prev,
-          ];
-
-          const reinforcementCount =
-            clone.filter(
-              (e) => e.isReinforcement
-            ).length;
-
-          if (reinforcementCount < 5) {
-            clone.splice(
-              currentExercise + 1,
-              0,
-              {
-                ...reinforcement,
-                isReinforcement: true,
-              }
-            );
-          }
-
-          clone.splice(
-            currentExercise + 1,
-            0,
-            reinforcement
-          );
-
-          return clone;
-        }
-      );
-    }
-
-    /* ====================================
-       NEXT EXERCISE
-    ==================================== */
-
-    const next =
-      currentExercise + 1;
-
-    if (
-      next >=
-      streamedExercises.length
-    ) {
-      await startStreamingLesson(
-        course
-      );
-
-      setCurrentExercise(0);
-
-      return;
-    }
-
-    setCurrentExercise(next);
-
-    const freshUser =
-      await getUser();
-
-    setUser(freshUser);
+      return clone;
+    });
   }
+
+  /* ====================================
+      NEXT EXERCISE
+  ==================================== */
+  const next = currentExercise + 1;
+
+  if (next >= streamedExercises.length) {
+    await startStreamingLesson(course);
+    setCurrentExercise(0);
+    return;
+  }
+
+  setCurrentExercise(next);
+
+  const freshUser = await getUser();
+  setUser(freshUser);
+}
 
   /* =====================================================
      LOADING
@@ -637,18 +599,18 @@ function ErrorsTab({
       const results: string[] = [];
 
       // Localize este bloco dentro da função loadErrors:
-for (const err of last) {
-  try {
-    const explanation = await explainError({
-      ...err,
-      course,
-    });
-    results.push(typeof explanation === 'string' ? explanation : "Explanation processing...");
-    
-  } catch {
-    results.push("Failed to explain.");
-  }
-}
+      for (const err of last) {
+        try {
+          const explanation = await explainError({
+            ...err,
+            course,
+          });
+          results.push(typeof explanation === 'string' ? explanation : "Explanation processing...");
+
+        } catch {
+          results.push("Failed to explain.");
+        }
+      }
 
       const map:
         Record<number, string> =
