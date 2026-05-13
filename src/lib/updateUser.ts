@@ -13,7 +13,7 @@ let transactionQueue: Promise<any> = Promise.resolve();
 
 async function enqueueTransaction<T>(task: () => Promise<T>): Promise<T> {
   const result = transactionQueue.then(task);
-  transactionQueue = result.catch(() => {}); 
+  transactionQueue = result.catch(() => { });
   return result;
 }
 
@@ -92,7 +92,8 @@ export async function addXP(amount: number) {
 
     if (newLevel > oldLevel) {
       playSound("levelup", 0.6);
-      updates.coins = (user.coins || 0) + (newLevel * 50);
+      // Bônus progressivo: Ganha 100 moedas por nível alcançado
+      updates.coins = (user.coins || 0) + (newLevel * 100);
     }
 
     await updateUser(updates);

@@ -5,12 +5,13 @@ import { updateMastery } from "./mastery";
 import { updateConceptMastery } from "./knowledgeGraph";
 import { getAdaptiveMetrics } from "./adaptive";
 import { addXP, addCoins } from "./economy";
-import { save } from "./db";
+import { db, getUser, save } from "./db"; // Importação do getUser e db adicionada
 import { playSound } from "./sounds";
 import { explainError } from "./explanationAI";
+import { computeLessonXp, calculateLevel } from "./level";
 
 /* =========================================================
-   TYPES
+   TYPES (Mantidos conforme seu código)
 ========================================================= */
 interface EvaluateExerciseParams {
   exercise: any;
@@ -39,18 +40,25 @@ function computeRewards({
   difficulty,
   correct,
   adaptiveMultiplier,
+  currentXp,
+  streakDays = 1
 }: {
   difficulty: number;
   correct: boolean;
   adaptiveMultiplier: number;
+  currentXp: number;
+  streakDays?: number;
 }) {
-  if (!correct) return { xp: 4, coins: 1 };
+  if (!correct) return { xp: 5, coins: 1 };
 
-  const baseXP = 15 + difficulty * 8;
-  const baseCoins = 5 + difficulty * 3;
+  const playerLevel = calculateLevel(currentXp);
+  // Utiliza a nova fórmula do level.ts (Curva de Raiz Quadrada)
+  const lessonXp = computeLessonXp(playerLevel, difficulty, streakDays, 1);
+  
+  const baseCoins = 5 + (difficulty * 10);
 
   return {
-    xp: Math.floor(baseXP * adaptiveMultiplier),
+    xp: Math.floor(lessonXp * adaptiveMultiplier),
     coins: Math.floor(baseCoins * adaptiveMultiplier),
   };
 }
@@ -68,16 +76,12 @@ export async function evaluateExercise({
   const expected = exercise?.answer || "";
   let iaFeedback = "";
 
-  // 1. TENTA A VALIDAÇÃO HARDCORE (Rápida/Local/Heurística)
-  // Esta função usa tokenização e normalização para ser flexível
   // 1. TENTA A VALIDAÇÃO HARDCORE
-  // Ordem correta: (recebido, esperado)
   let correct = await evaluateLogic(userAnswer, expected);
 
   // 2. FALLBACK DE IA: Se o hardcore falhar
   if (!correct && userAnswer.length > 2) {
     try {
-      // CORREÇÃO: Passando como objeto único para resolver o erro "Expected 1 arguments, but got 3"
       const aiAnalysis = await explainError({ 
         question: exercise.question, 
         expected: expected, 
@@ -95,19 +99,28 @@ export async function evaluateExercise({
     }
   }
 
-  // Métricas Adaptativas e Dificuldade
+  // 3. COLETA DE DADOS DO USUÁRIO (NOVA PARTE)
+  // Precisamos do XP e Streak reais para o computeRewards
+  const user = await getUser();
+  const currentXp = user?.xp || 0;
+  const streakDays = user?.streak || 1;
+
+  // 4. MÉTRICAS ADAPTATIVAS
   const metrics = await getAdaptiveMetrics();
   const difficulty = exercise?.difficulty || lesson?.difficulty || 1;
   const resolvedConceptId = conceptId || lesson?.conceptId || "core_fundamentals";
 
+  // 5. CÁLCULO DE RECOMPENSAS (CORRIGIDO)
   const rewards = computeRewards({
     difficulty,
     correct,
     adaptiveMultiplier: metrics?.xpMultiplier || 1,
+    currentXp, // Passando o XP obrigatório
+    streakDays, // Passando a sequência atual
   });
 
   /* =====================================================
-     ECONOMY & FEEDBACK (Main Thread)
+     ECONOMY & FEEDBACK
   ===================================================== */
   if (correct) {
     await addXP(rewards.xp);
@@ -131,9 +144,8 @@ export async function evaluateExercise({
   }
 
   /* =====================================================
-     PERSISTENCE (Error Memory)
+     PERSISTENCE
   ===================================================== */
-  // Só salvamos no log de erros se a IA também concordar que está errado
   if (!correct) {
     await save("errors", {
       question: exercise?.question,

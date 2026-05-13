@@ -16,14 +16,38 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { calculateLevel } from "@/lib/level";
+import { get } from "@/lib/db";
+
 const DEFAULT_CODE = {
   javascript: `console.log("Hello JavaScript"); `,
   typescript: `console.log("Hello TypeScript"); `,
   python: `print("Hello Python")`,
 };
 
+
+
 export default function SandboxPage() {
   const router = useRouter();
+  const [isLocked, setIsLocked] = useState(true);
+
+  useEffect(() => {
+    async function checkAccess() {
+      const userData = await get("user", "main");
+      const level = calculateLevel(userData?.xp || 0);
+      
+      if (level < 50) {
+        alert("ACCESS DENIED: Neural interface requires Level 50.");
+        router.push("/hub");
+      } else {
+        setIsLocked(false);
+      }
+    }
+    checkAccess();
+  }, []);
+
+  if (isLocked) return <div className="bg-black min-h-screen flex items-center justify-center text-cyan-500 font-mono">ENCRYPTING CONNECTION...</div>;
+
 
   const [language, setLanguage] = useState<
     "javascript" | "typescript" | "python"

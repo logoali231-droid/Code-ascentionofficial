@@ -71,7 +71,8 @@ export async function suggestDifficulty(topic: string, profile: CognitiveProfile
   
   if (!mastery) return 1; // Default para iniciantes
 
-  let baseDiff = Math.ceil(mastery.level / 20); // Converte level 0-100 em diff 1-5
+  // A curva de dificuldade agora é mais granular (níveis 1-100 do tópico)
+  let baseDiff = Math.min(5, Math.max(1, Math.floor(mastery.level / 20) + 1));
 
   // Ajuste Cognitivo na Sugestão
   switch (profile) {

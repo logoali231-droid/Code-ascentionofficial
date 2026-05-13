@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { get, getAll, save } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { Book, Cpu } from "lucide-react";
-import { calculateLevel } from "@/lib/level"; 
-// Ajustado para o caminho padrão de bibliotecas do projeto
-import { PrestigeManager } from "@/lib/ranking/prestige"; 
+import { calculateLevel } from "@/lib/level";
+import { getLevelTitle } from "@/lib/level";
+import { PrestigeManager } from "@/lib/ranking/prestige";
 
 export default function Hub() {
   const [courses, setCourses] = useState<any[]>([]);
@@ -18,7 +18,7 @@ export default function Hub() {
   useEffect(() => {
     async function loadData() {
       const userData = await get("user", "main");
-      
+
       // Proteção: Se a engine não estiver pronta (WebLLM), volta para a trava
       if (!userData?.engineReady) {
         router.push("/machineLock");
@@ -26,8 +26,9 @@ export default function Hub() {
       }
 
       setUser(userData);
-      setUserLevel(calculateLevel(userData.xp || 0));
-      
+      const level = calculateLevel(userData.xp || 0);
+      setUserLevel(level);
+      const title = getLevelTitle(userData)
       const coursesData = await getAll("courses");
       setCourses(coursesData);
     }
@@ -69,16 +70,16 @@ export default function Hub() {
       xp: 0, // O XP volta a zero
       prestigeStats: result.newStats,
       // Shards totais para uso na Prestige Shop
-      memoryShards: (user.memoryShards || 0) + result.shardsGained 
+      memoryShards: (user.memoryShards || 0) + result.shardsGained
     };
 
     // 4. Salva no IndexedDB e recarrega a página para limpar estados globais
     await save("user", updatedUser, "main");
-    
+
     setShowAscensionModal(false);
-    
+
     // Feedback visual opcional antes do reload pode ser adicionado aqui
-    window.location.reload(); 
+    window.location.reload();
   }
 
   return (
@@ -111,25 +112,25 @@ export default function Hub() {
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full animate-in fade-in zoom-in duration-300">
             <h2 className="text-2xl font-bold text-red-500 mb-4 font-mono uppercase tracking-tighter">Aviso de Desintegração</h2>
             <p className="text-slate-300 mb-6 leading-relaxed">
-              A Ascensão irá limpar o seu <span className="text-white font-bold">XP e Nível atual</span>. 
+              A Ascensão irá limpar o seu <span className="text-white font-bold">XP e Nível atual</span>.
               Em troca, sua consciência reterá <span className="text-indigo-400 font-bold">Memory Shards</span> permanentes.
             </p>
-            
+
             <div className="bg-black/50 p-4 rounded-xl mb-6 border border-white/5">
-                <p className="text-xs text-indigo-300/70 font-mono italic">
-                  + Multiplicador de conhecimento permanente desbloqueado.
-                </p>
+              <p className="text-xs text-indigo-300/70 font-mono italic">
+                + Multiplicador de conhecimento permanente desbloqueado.
+              </p>
             </div>
 
             <div className="flex gap-4">
-              <button 
-                onClick={() => setShowAscensionModal(false)} 
+              <button
+                onClick={() => setShowAscensionModal(false)}
                 className="flex-1 py-3 font-bold text-slate-500 hover:text-slate-300 transition-colors"
               >
                 ABORTAR
               </button>
-              <button 
-                onClick={handlePerformAscension} 
+              <button
+                onClick={handlePerformAscension}
                 className="flex-1 py-3 bg-white text-black font-black rounded-xl hover:bg-indigo-400 transition-all"
               >
                 CONFIRMAR
