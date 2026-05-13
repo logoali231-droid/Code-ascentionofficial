@@ -41,10 +41,13 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       // Isso impede que ele tente usar a Cache API que faz o Chrome fechar.
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
-        logLevel: "warn", // Reduz logs para poupar processamento
-        appConfig: {
-          useIndexedDBCache: true, // Força o banco de dados estável do Android
-        },
+        logLevel: "warn",
+        engineConfig: {
+          // No WebLLM moderno, as configurações de app vão aqui
+          appConfig: {
+            useIndexedDBCache: true,
+          },
+        } as any, // O 'as any' previne quebras se a definição de tipos local estiver desatualizada
       });
 
       currentModel = selectedModelId;
