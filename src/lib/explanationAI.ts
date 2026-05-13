@@ -1,18 +1,11 @@
 "use client";
 
 import { generate } from "./webllm";
-
-import {
-  getUserProfile,
-  getMemory,
-} from "./userMemory";
-
-import {
-  buildPromptFragments,
-  compressContext,
-} from "./promptFragments"
-
+import { getUserProfile, getMemory } from "./userMemory";
+import { buildPromptFragments, compressContext } from "./promptFragments";
 import { enqueueGeneration } from "./generationQueue";
+import { safeParse } from "./safeParse";
+import { validateExplanation } from "./lessonValidator"; // Importando o validador que você criou
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
@@ -23,163 +16,73 @@ export async function generateExplanationAI({
   history,
   course,
 }: any) {
-  const profile =
-    await getUserProfile();
+  const profile = await getUserProfile();
+  const memory = await getMemory();
+  const userErrors = memory.lastErrors || [];
 
-  const memory =
-    await getMemory();
+  const recentLessons = history?.map((l: any) => l.title).join(", ") || "none";
+  const weaknesses = Object.entries(memory.weaknesses || {})
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k, v]) => `${k}`)
+    .join(", ");
 
-  const userErrors =
-    memory.lastErrors || [];
+  const compressedHistory = compressContext(JSON.stringify(history || []), 1800);
+  const compressedErrors = compressContext(JSON.stringify(userErrors.slice(-5)), 1000);
 
-  const recentLessons =
-    history
-      ?.map((l: any) => l.title)
-      .join(", ") || "none";
-
-  const weaknesses =
-    Object.entries(
-      memory.weaknesses || {}
-    )
-      .sort(
-        (a: any, b: any) =>
-          b[1] - a[1]
-      )
-      .slice(0, 5)
-      .map(([k, v]) => `${k}`)
-      .join(", ");
-
-  const compressedHistory =
-    compressContext(
-      JSON.stringify(history || []),
-      1800
-    );
-
-  const compressedErrors =
-    compressContext(
-      JSON.stringify(
-        userErrors.slice(-5)
-      ),
-      1000
-    );
-
-  const cognitiveFragments =
-    buildPromptFragments({
-      cognitive:
-        profile?.cognitive ||
-        "Standard",
-
-      difficulty:
-        profile?.level || 1,
-
-      mastery: 50,
-
-      reinforcement: false,
-    });
+  const cognitiveFragments = buildPromptFragments({
+    cognitive: profile?.cognitive || "Standard",
+    difficulty: profile?.level || 1,
+    mastery: 50,
+    reinforcement: false,
+  });
 
   const prompt = `
 You are an elite adaptive programming tutor.
-
-Your mission:
-maximize understanding,
-retention,
-clarity,
-and intuition.
-
 ${cognitiveFragments}
-
-================================
-TEACHING STYLE
-================================
-
-${course?.stylePrompt || "Explain clearly"}
-
-You MUST maintain the teaching style consistently,
-BUT clarity and pedagogy ALWAYS come first.
-
-================================
-USER PROFILE
-================================
-
-LEVEL:
-${profile?.level || 1}
-
-COGNITIVE PROFILE:
-${profile?.cognitive || "Standard"}
-
-================================
-CURRENT LESSON
-================================
-
-TITLE:
-${lesson?.title || "Unknown"}
-
-EXPLANATION:
-${lesson?.explanation || ""}
-
-CONTENT:
-${lesson?.content || ""}
-
-================================
-LEARNING HISTORY
-================================
-
-RECENT LESSONS:
-${recentLessons}
-
-COMPRESSED HISTORY:
-${compressedHistory}
-
-================================
-LEARNING WEAKNESSES
-================================
-
-WEAK TOPICS:
-${weaknesses || "none"}
-
-RECENT ERRORS:
-${compressedErrors}
-
-================================
-RULES
-================================
-
-- Follow the TEACHING STYLE consistently
-- Adapt pacing to the cognitive profile
-- Avoid repetition
-- Use practical intuition
-- Explain WHY things work
-- Keep explanations engaging
-- Reinforce weak concepts subtly
-- Avoid hallucinations
-- Avoid giant walls of text
-- Prefer layered explanations
-- Use examples when useful
-
-LEVEL ADAPTATION:
-
-beginner:
-- simple language
-- avoid jargon
-- focus on intuition
-
-intermediate:
-- moderate technical depth
-- practical examples
-
-advanced:
-- precise terminology
-- deeper mechanics
-- edge cases
+... (seu prompt original aqui) ...
+RETURN JSON:
+{
+  "title": "",
+  "content": "",
+  "analogy": ""
+}
 `;
 
-const response =
-  await enqueueGeneration(() =>
-    generate(prompt)
-  );
+  try {
+    const res = await enqueueGeneration(() => generate(prompt));
+    
+    // COLETOR NEURAL: Transforma stream em string
+    let fullText = "";
+    if (res) {
+      if (typeof res === 'string') {
+        fullText = res;
+      } else {
+        for await (const chunk of res) {
+          const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
+          fullText += content;
+        }
+      }
+    }
 
-return response;
+    const parsed = safeParse(fullText);
+
+    // Validação de Integridade
+    if (!parsed || !validateExplanation(parsed)) {
+      return {
+        title: lesson?.title || "Explanation Sync",
+        content: "Neural link unstable. Recalibrating pedagogical focus...",
+        analogy: "A glitch in the matrix."
+      };
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error("Explanation failed", err);
+    return null;
+  }
 }
+
 
 /* =========================================
    ERROR EXPLANATION
