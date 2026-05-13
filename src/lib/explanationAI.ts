@@ -6,6 +6,7 @@ import { buildPromptFragments, compressContext } from "./promptFragments";
 import { enqueueGeneration } from "./generationQueue";
 import { safeParse } from "./safeParse";
 import { validateExplanation } from "./explanationValidator";
+
 /* =========================================
    MAIN EXPLANATION GENERATOR
 ========================================= */
@@ -22,9 +23,9 @@ export async function generateExplanationAI({
   const recentLessons = history?.map((l: any) => l.title).join(", ") || "none";
 
   const weaknesses = Object.entries(memory.weaknesses || {})
-    .sort((a: any, b: any) => b[1] - a[1])
+    .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))
     .slice(0, 5)
-    .map(([k, v]) => `${k}`)
+    .map(([k]) => `${k}`)
     .join(", ");
 
   const compressedHistory = compressContext(JSON.stringify(history || []), 1800);
@@ -97,7 +98,10 @@ RULES
 `;
 
   try {
-    const res = await enqueueGeneration(() => generate(prompt));
+    // FIX: Wrapped in async to satisfy the Promise return type requirement
+    const res = await enqueueGeneration(async () => {
+      return generate(prompt);
+    });
     
     let fullResponse = "";
     if (res) {
@@ -115,10 +119,8 @@ RULES
 
     const parsed = safeParse(fullResponse);
 
-    // Validação usando seu validator
     if (!parsed || !validateExplanation(parsed)) {
       console.warn("Explanation validation failed or parse error.");
-      // Fallback seguro mantendo o contexto da lição
       return {
         title: lesson?.title || "Explanation",
         content: lesson?.explanation || "Neural link stable, but content refinement failed.",
@@ -148,7 +150,7 @@ export async function explainError({
   const memory = await getMemory();
 
   const relatedWeakness = Object.entries(memory.weaknesses || {})
-    .sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "unknown";
+    .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))[0]?.[0] || "unknown";
 
   const cognitiveFragments = buildPromptFragments({
     cognitive: profile?.cognitive || "Standard",
@@ -157,21 +159,51 @@ export async function explainError({
     reinforcement: true,
   });
 
-  const prompt = `... (Mesma lógica de prompt original para Error) ...`;
+  const prompt = `
+You are an expert debugger and mentor.
+The user made a mistake. Explain WHY the correct answer is right and why the user's logic might have tripped up.
 
-  const res = await enqueueGeneration(() => generate(prompt));
-  
-  let fullResponse = "";
-  if (res) {
-    if (typeof res === 'string') {
-      fullResponse = res;
-    } else {
-      for await (const chunk of res) {
-        const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
-        fullResponse += content;
+${cognitiveFragments}
+
+QUESTION: ${question}
+CORRECT ANSWER: ${correct}
+USER'S ANSWER: ${userAnswer}
+USER'S REASONING: ${userExplanation || "None provided"}
+RELATED WEAKNESS: ${relatedWeakness}
+
+STYLE: ${course?.stylePrompt || "Supportive and clear"}
+
+Return ONLY JSON:
+{
+  "explanation": "Brief breakdown of the mistake",
+  "fix": "How to think about this next time",
+  "analogy": "A simple comparison"
+}
+`;
+
+  try {
+    // FIX: Wrapped in async to satisfy the Promise return type requirement
+    const res = await enqueueGeneration(async () => {
+      return generate(prompt);
+    });
+    
+    let fullResponse = "";
+    if (res) {
+      if (typeof res === 'string') {
+        fullResponse = res;
+      } else {
+        for await (const chunk of res) {
+          const content = typeof chunk === 'string' 
+            ? chunk 
+            : (chunk as any).choices?.[0]?.delta?.content || "";
+          fullResponse += content;
+        }
       }
     }
-  }
 
-  return safeParse(fullResponse);
+    return safeParse(fullResponse);
+  } catch (error) {
+    console.error("Error Explanation Failure:", error);
+    return null;
+  }
 }
