@@ -10,14 +10,14 @@ import { playSound } from "@/lib/sounds";
 
 // --- CORREÇÃO DA IMPORTAÇÃO ---
 // Importamos a constante exportada do seu novo arquivo
-import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector"; 
+import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 
-import { 
-  Terminal, 
-  Cpu, 
-  Zap, 
-  BrainCircuit, 
-  Sparkles, 
+import {
+  Terminal,
+  Cpu,
+  Zap,
+  BrainCircuit,
+  Sparkles,
   AlertTriangle,
   ChevronLeft,
   Loader2
@@ -25,7 +25,7 @@ import {
 
 export default function NewCoursePage() {
   const router = useRouter();
-  
+
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
@@ -61,6 +61,8 @@ export default function NewCoursePage() {
       const difficulty = await suggestDifficulty(topic, user?.cognitive || "Standard");
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
+      const courseId = `course_${Date.now()}`;
+      const learningStateString = `Level: ${Math.max(1, Math.floor((user?.xp || 0) / 100))}, Cognitive: ${user?.cognitive || "Standard"}`;
 
       const promptConfig = {
         topic,
@@ -69,35 +71,36 @@ export default function NewCoursePage() {
         cognitive: user?.cognitive || "Standard",
         stylePrompt: user?.cognitive === "tdah" ? "Dopamine-driven, short bursts" : "Deep technical dive"
       };
-      
-      const fullPrompt = buildCoursePrompt(promptConfig);
+
+      const fullPrompt = await buildCoursePrompt(
+        topic,
+        learningStateString,
+        courseId
+      );
+
       setProgress(40);
       setStatus("FORGING_CURRICULUM_DATA...");
 
-      
-// 1. Chame o gerador (verifique se seu lib/webllm tem uma opção para não ser stream)
-const aiResponse = await generate(fullPrompt);
+      // 1. Chame o gerador (verifique se seu lib/webllm tem uma opção para não ser stream)
+      // 1. Executa o Generator Assíncrono da IA
+      const generator = generate(fullPrompt);
+      let cleanContent = "";
 
-if (!aiResponse) throw new Error("EMPTY_AI_RESPONSE");
+      // 2. Consome o Stream em tempo real
+      for await (const chunk of generator) {
+        cleanContent += chunk;
+        // Efeito Cyberpunk: Atualiza o status mostrando os dados chegando em tempo real!
+        setStatus(`DOWNLOADING_NEURAL_DATA... [${cleanContent.length} bytes]`);
+      }
 
-// 2. CORREÇÃO: Garantir que aiResponse seja tratado como string
-// Se o WebLLM estiver configurado para streaming, precisamos dar um join ou 
-// garantir que a função 'generate' aguarde o resultado final.
-let cleanContent: string;
+      if (!cleanContent) throw new Error("EMPTY_AI_RESPONSE");
 
-if (typeof aiResponse !== 'string') {
-    // Se vier como objeto/stream, tentamos extrair o texto (ajuste conforme sua lib)
-    cleanContent = String(aiResponse); 
-} else {
-    cleanContent = aiResponse;
-}
+      setProgress(80);
+      setStatus("STABILIZING_ENCRYPTION...");
 
-setProgress(80);
-setStatus("STABILIZING_ENCRYPTION...");
+      // 3. Agora o parse funcionará com segurança
+      const courseData = JSON.parse(cleanContent);
 
-// 3. Agora o parse funcionará com segurança
-const courseData = JSON.parse(cleanContent);
-      const courseId = `course_${Date.now()}`;
 
       const newCourse = {
         id: courseId,
@@ -130,14 +133,14 @@ const courseData = JSON.parse(cleanContent);
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
       <div className="max-w-2xl mx-auto mb-8 border-b border-slate-800 pb-6">
-        <button 
+        <button
           onClick={() => router.back()}
           className="flex items-center gap-2 text-slate-500 hover:text-cyan-400 transition-colors mb-6 text-xs uppercase font-bold"
         >
           <ChevronLeft size={14} />
           Return to Hub
         </button>
-        
+
         <div className="flex items-center gap-3 text-cyan-500 mb-2">
           <BrainCircuit size={32} className="animate-pulse" />
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">Neural_Forge</h1>
@@ -156,8 +159,8 @@ const courseData = JSON.parse(cleanContent);
                 type="text"
                 value={topic}
                 onChange={(e) => {
-                    setTopic(e.target.value);
-                    if(status.includes('REJECTED')) setStatus(""); 
+                  setTopic(e.target.value);
+                  if (status.includes('REJECTED')) setStatus("");
                 }}
                 placeholder="INPUT_LEARNING_TOPIC_HERE..."
                 className="w-full bg-transparent p-4 outline-none text-cyan-50 font-bold placeholder:text-slate-700 text-lg"
@@ -175,10 +178,10 @@ const courseData = JSON.parse(cleanContent);
                 </div>
                 <span className="text-2xl font-black text-slate-700">{progress}%</span>
               </div>
-              
+
               <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
-                <div 
-                  className="h-full bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.4)]" 
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -186,17 +189,17 @@ const courseData = JSON.parse(cleanContent);
               <div className="flex items-start gap-3 p-4 bg-slate-950/50 rounded border border-slate-800/50">
                 <Loader2 size={16} className="text-cyan-500 animate-spin mt-0.5" />
                 <p className="text-[9px] text-slate-500 leading-relaxed uppercase">
-                  Notice: The Neural Engine is executing a heavy VRAM operation on your local GPU. 
+                  Notice: The Neural Engine is executing a heavy VRAM operation on your local GPU.
                   Closing this uplink will corrupt the forge sequence.
                 </p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-               {status.includes('REJECTED') && (
+              {status.includes('REJECTED') && (
                 <div className="text-red-500 text-[10px] font-black uppercase flex items-center gap-2 mb-2">
-                    <AlertTriangle size={12} />
-                    {status}
+                  <AlertTriangle size={12} />
+                  {status}
                 </div>
               )}
               <button
@@ -229,7 +232,7 @@ const courseData = JSON.parse(cleanContent);
                 Curriculum density automatically calibrated for your neural profile.
               </p>
             </div>
-            
+
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
               <div className="flex items-center gap-2 text-cyan-400 mb-3">
                 <Cpu size={16} />

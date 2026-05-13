@@ -18,7 +18,8 @@ import CodeEditor from "./CodeEditor";
 
 import {
   compareAnswers,
-  compareCode
+  compareCode,
+  evaluateLogic
 } from "@/lib/evaluator.logic";
 
 /* =========================================================
@@ -163,6 +164,8 @@ export default function ExerciseRenderer({
      VALIDATION
   ===================================================== */
 
+
+
   const handleValidation =
     async (value: string) => {
 
@@ -174,31 +177,12 @@ export default function ExerciseRenderer({
       }
 
       setStatus("checking");
-
       playSound("click", 0.2);
 
       await new Promise((r) =>
         setTimeout(r, 450)
       );
-
-      let isCorrect = false;
-
-      if (exercise.type === "code") {
-
-        isCorrect = compareCode(
-          exercise.answer || "",
-          value,
-          exercise.language
-        );
-
-      } else {
-
-        isCorrect = compareAnswers(
-          exercise.answer || "",
-          value
-        );
-
-      }
+      const isCorrect = await evaluateLogic(value, exercise.answer || "");
 
       await updateLearningState(
         exercise.id || "generated",
@@ -207,37 +191,20 @@ export default function ExerciseRenderer({
       );
 
       if (isCorrect) {
-
         setStatus("success");
-
         setRevealed(true);
-
-        playSound(
-          "success",
-          0.5
-        );
-
+        playSound("success", 0.5);
         await addXP(25);
-
         onComplete?.(true);
-
         if (onNext) {
           await onNext(true);
         }
-
       } else {
-
         setStatus("error");
-
-        playSound(
-          "error",
-          0.4
-        );
-
+        playSound("error", 0.4);
         setTimeout(() => {
           setStatus("idle");
         }, 1000);
-
         onComplete?.(false);
       }
     };
