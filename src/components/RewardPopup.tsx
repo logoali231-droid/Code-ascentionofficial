@@ -1,11 +1,9 @@
 "use client";
-
-export default function RewardPopup({ show, text }: any) {
+export default function RewardPopup({ show, text }: { show: boolean; text: string }) {
   if (!show) return null;
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
-      <div className="bg-yellow-400 text-black px-6 py-3 rounded-xl text-lg animate-bounce">
+    <div className="fixed top-10 left-0 right-0 z-[100] flex items-center justify-center pointer-events-none px-6">
+      <div className="bg-yellow-400 text-black px-6 py-4 rounded-2xl text-lg font-black shadow-[0_0_30px_rgba(250,204,21,0.4)] animate-bounce border-2 border-black uppercase tracking-tighter">
         {text}
       </div>
     </div>

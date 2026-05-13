@@ -1,14 +1,8 @@
-const CACHE_NAME = "code-ascention-v1.5.2";
-
+const CACHE_NAME = "code-ascention-v1.7.1";
 const ASSETS_TO_CACHE = [
-  "/",
-  "/manifest.json",
-  "/favicon.ico",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/coins.png",
-  "/icons/xp_potion_hd.png",
-  "/icons/xp_potion.png", // Verificado: Case-sensitive corrigido
+  "/", "/manifest.json", "/favicon.ico",
+  "/icons/icon-192.png", "/icons/icon-512.png",
+  "/icons/coins.png", "/icons/xp_potion_hd.png", "/icons/xp_potion.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -28,7 +22,17 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => 
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.map(async (key) => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+        // Limpeza agressiva de lixo binário em caches antigos/atuais
+        const cache = await caches.open(key);
+        const requests = await cache.keys();
+        return Promise.all(requests.map(req => {
+          if (req.url.endsWith(".wasm") || req.url.endsWith(".bin")) {
+            return cache.delete(req);
+          }
+        }));
+      }))
     ).then(() => self.clients.claim())
   );
 });
@@ -36,10 +40,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request: req } = event;
   const url = new URL(req.url);
-
   if (req.method !== 'GET' || !url.protocol.startsWith("http")) return;
 
-  // Blindagem Samsung M23: Não intercepta binários pesados (deixa para IndexedDB)
   const isAIAsset = 
     url.hostname.includes("huggingface.co") || 
     url.hostname.includes("mlc-ai") || 
@@ -51,14 +53,12 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(req).then((cached) => {
-      return cached || fetch(req)
-        .then((res) => {
-          if (!res || res.status === 404) {
-            if (req.mode === "navigate") return caches.match("/");
-          }
-          return res;
-        })
-        .catch(() => req.mode === "navigate" ? caches.match("/") : new Response("Offline", { status: 503 }))
+      return cached || fetch(req).then((res) => {
+        if (!res || res.status === 404) {
+          if (req.mode === "navigate") return caches.match("/");
+        }
+        return res;
+      }).catch(() => req.mode === "navigate" ? caches.match("/") : new Response("Offline", { status: 503 }))
     })
   );
 });

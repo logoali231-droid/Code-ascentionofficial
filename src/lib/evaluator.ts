@@ -56,14 +56,21 @@ export async function evaluateExercise({
   let correct = await evaluateLogic(userAnswer, expected);
 
   // 2. FALLBACK DE IA (Trava reduzida para 1 caractere para aceitar keywords curtas)
+
+  // FALLBACK OTIMIZADO: Validação Heurística para respostas curtas (Keywords)
+  if (!correct && userAnswer.trim().length <= 5) {
+    const normalizedInput = userAnswer.trim().toLowerCase();
+    const normalizedExpected = expected.trim().toLowerCase();
+    if (normalizedInput === normalizedExpected) correct = true;
+  }
   if (!correct && userAnswer.trim().length > 0) {
     try {
-      const aiAnalysis = await explainError({ 
-        question: exercise.question, 
-        expected: expected, 
-        received: userAnswer 
+      const aiAnalysis = await explainError({
+        question: exercise.question,
+        expected: expected,
+        received: userAnswer
       });
-      
+
       if (aiAnalysis.isCorrectVariation) {
         correct = true;
         iaFeedback = "Neural link established: Intent validated by AI.";
@@ -88,7 +95,7 @@ export async function evaluateExercise({
     difficulty,
     correct,
     adaptiveMultiplier: metrics?.xpMultiplier || 1,
-    currentXp, 
+    currentXp,
     streakDays,
   });
 
