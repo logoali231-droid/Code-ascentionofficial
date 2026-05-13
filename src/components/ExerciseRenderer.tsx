@@ -20,11 +20,16 @@ interface ExerciseProps {
   onNext?: (success: boolean, userResponse?: string) => Promise<void> | void;
 }
 
-export default function ExerciseRenderer({
-  exercise, rarity = "Common", course, loading = false,
-  streamIndex = 0, streamTotal = 0, onComplete, onNext,
-  isStreaming, streamProgress
-}: ExerciseProps) {
+export default function ExerciseRenderer({ exercise: rawExercise, ...props }: ExerciseProps) {
+  // Objeto 'safe' com fallbacks. O 'as Exercise' garante que o TS aceite a mesclagem.
+  const exercise: Exercise = {
+    id: rawExercise?.id || "gen_" + Date.now(),
+    type: (rawExercise?.type as any) || "code",
+    language: rawExercise?.language || "javascript",
+    question: rawExercise?.question || "Analyze the code pattern:",
+    answer: rawExercise?.answer || "",
+    ...rawExercise
+  } as Exercise; // <--- Agora
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "checking" | "success" | "error">("idle");
   const [revealed, setRevealed] = useState(false);
