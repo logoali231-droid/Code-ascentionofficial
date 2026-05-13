@@ -5,8 +5,7 @@ import { getUserProfile, getMemory } from "./userMemory";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { enqueueGeneration } from "./generationQueue";
 import { safeParse } from "./safeParse";
-import { validateExplanation } from "./lessonValidator"; // Seu validador
-
+import { validateExplanation } from "./explanationValidator";
 /* =========================================
    MAIN EXPLANATION GENERATOR
 ========================================= */
