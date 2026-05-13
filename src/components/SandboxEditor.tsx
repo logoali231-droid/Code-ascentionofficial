@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Play, FileCode, Terminal, Download, Cpu, X, Menu, Folder, Settings, Terminal as TerminalIcon } from "lucide-react";
-import { executeSandboxCode, Language } from "@/lib/sandboxRunner";
 import NeuralTerminal, { LogEntry } from "./NeuralTerminal";
+import { executeSandboxCode, Language } from "@/lib/sandbox/sandboxRunner";
 
 // --- INTERFACES ---
 export interface SandboxFile {
