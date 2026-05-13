@@ -27,29 +27,7 @@ import {
   validateLesson,
 } from "./lessonValidator";
 
-/* =========================================================
-   LESSON STREAMER
-   CODE ASCENT
 
-   PURPOSE:
-   Generate lessons incrementally.
-
-   OLD FLOW:
-   giant prompt ->
-   giant response ->
-   freeze mobile
-
-   NEW FLOW:
-   explanation ->
-   exercise ->
-   next exercise
-
-   BENEFITS:
-   - lower VRAM spikes
-   - faster first render
-   - less WebLLM choking
-   - smoother UX on M23/mobile
-========================================================= */
 
 export interface StreamedLesson {
   title: string;
@@ -193,8 +171,9 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno (que pode ser string, stream ou undefined)
-const rawRes = await enqueueGeneration(() => generate(prompt));
-
+const rawRes = await enqueueGeneration(async () => {
+  return generate(prompt);
+});
 // 2. Coletor Neural: Converte para string
 let raw = "";
 if (rawRes) {
@@ -325,7 +304,9 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno bruto (pode ser Stream)
-    const rawRes = await enqueueGeneration(() => generate(prompt));
+    const rawRes = await enqueueGeneration(async () => {
+  return generate(prompt);
+});
 
     // 2. Coletor Neural: Converte Stream em String
     let raw = "";
