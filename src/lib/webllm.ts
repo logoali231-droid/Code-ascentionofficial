@@ -85,30 +85,32 @@ export async function unloadEngine() {
   }
 }
 
-export async function generate(prompt: string, temperature = 0.7) {
-  if (generationLock) return null;
+export async function* generate(prompt: string, temperature = 0.7) {
+  if (generationLock) return;
   generationLock = true;
 
   try {
     const currentEngine = await initEngine();
     if (!currentEngine) throw new Error("Engine unavailable");
 
-    const messages = [
-      { role: "system", content: "Você é o guia do Code Ascension. Seja conciso." },
-      { role: "user", content: prompt }
-    ];
+    // Configuração para streaming
+    const request = {
+      messages: [{ role: "user" as const, content: prompt }],
+      temperature: temperature,
+      stream: true, // Habilita o modo stream
+    };
 
-    const reply = await currentEngine.chat.completions.create({
-      messages: messages as any,
-      temperature,
-    });
+    const asyncChunkGenerator = await currentEngine.chat.completions.create(request);
 
-    return reply.choices[0].message.content;
+    for await (const chunk of asyncChunkGenerator) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        yield content; // Envia cada pedaço de texto para a UI
+      }
+    }
   } catch (err) {
     console.error("[WebLLM Generate Error]", err);
     playSound("error", 0.4);
-    // Se falhar, tenta limpar tudo para o próximo clique não dar crash
-    await unloadEngine();
     throw err;
   } finally {
     generationLock = false;
