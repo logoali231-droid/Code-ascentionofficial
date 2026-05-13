@@ -76,14 +76,22 @@ export async function buyItem(item: InventoryItem) {
   });
 }
 
-export async function addXP(amount: number) {
+// Adicionado parâmetro 'immediate' para casos de fim de lição
+export async function addXP(amount: number, immediate = false) {
   pendingXP += amount;
   if (xpUpdateTimer) clearTimeout(xpUpdateTimer);
   
+  if (immediate) {
+    return await enqueueTransaction(flushXP);
+  }
+
   xpUpdateTimer = setTimeout(() => {
     enqueueTransaction(flushXP);
-  }, 1500); // Aguarda 1.5s de silêncio para salvar
+  }, 1500);
 }
+
+// Export para garantir consistência antes de mudar de página (Ex: Voltar ao Hub)
+export const forceSyncXP = async () => await enqueueTransaction(flushXP);
 
 // Mantendo exportações originais e compatibilidade com o sistema
 export const forceSync = async () => enqueueTransaction(flushXP);
