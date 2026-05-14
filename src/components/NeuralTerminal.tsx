@@ -115,7 +115,7 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
     return (
         <div className={`fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-white/5 transition-all duration-500 z-50 flex flex-col ${isOpen ? 'h-80 shadow-[0_-20px_50px_rgba(0,0,0,0.8)]' : 'h-9'}`}>
             {/* TERMINAL HEADER */}
-            <div className="flex items-center justify-between px-4 min-h-[36px] bg-[#0a0a0a] border-b border-white/5 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+            <div className="flex items-center justify-between px-4 min-h-9 bg-[#0a0a0a] border-b border-white/5 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                 <div className="flex items-center gap-6 h-full">
                     <div className="flex items-center gap-2 text-[10px] font-black text-cyan-500 uppercase tracking-widest">
                         <TerminalIcon size={14} className={isOpen ? "animate-pulse" : ""} />
@@ -165,7 +165,7 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
                                     className="bg-black/50 border border-white/5 rounded px-8 py-1 text-[10px] outline-none focus:border-cyan-500/50 w-40 transition-all"
                                 />
                             </div>
-                            <div className="h-4 w-[1px] bg-white/10" />
+                            <div className="h-4 w-px bg-white/10" />
                             <Trash2 size={14} className="text-slate-600 hover:text-red-500 cursor-pointer transition-colors" onClick={onClear} />
                             <div 
                                 className={`flex items-center gap-1 cursor-pointer ${isAutoScrollEnabled ? 'text-cyan-500' : 'text-slate-600'}`}
@@ -186,9 +186,9 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
                             </div>
                         )}
                         {filteredLogs.map((log, i) => (
-                            <div key={i} className="group flex gap-4 py-1.5 border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors">
-                                <span className="text-[10px] text-slate-700 min-w-[70px] select-none">{log.timestamp}</span>
-                                <div className={`px-1.5 py-0.5 rounded-[2px] text-[8px] font-black h-fit min-w-[55px] text-center tracking-tighter uppercase
+                            <div key={i} className="group flex gap-4 py-1.5 border-b border-white/2 hover:bg-white/2 transition-colors">
+                                <span className="text-[10px] text-slate-700 min-w-17.5 select-none">{log.timestamp}</span>
+                                <div className={`px-1.5 py-0.5 rounded-xs text-[8px] font-black h-fit min-w-13.75 text-center tracking-tighter uppercase
                                     ${log.type === 'error' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
                                       log.type === 'warn' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
                                       log.type === 'system' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :

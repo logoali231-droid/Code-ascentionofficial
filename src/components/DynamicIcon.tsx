@@ -122,7 +122,7 @@ const DynamicIcon: React.FC<DynamicIconProps> = ({
       {/* Efeito Especial: Partículas para Itens "Glitch" */}
       {rarity === 'glitch' && (
         <div className="absolute inset-0 overflow-hidden opacity-50 pointer-events-none">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-white animate-scanline" />
+          <div className="absolute top-0 left-0 w-full h-px bg-white animate-scanline" />
         </div>
       )}
       

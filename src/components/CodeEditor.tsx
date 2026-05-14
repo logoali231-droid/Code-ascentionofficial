@@ -173,7 +173,7 @@ export default function CodeEditor({
           bg-[#080808]
           border-r
           border-white/5
-          min-w-[50px]
+          min-w-12.5
           font-mono
         "
         >
@@ -201,7 +201,7 @@ export default function CodeEditor({
           spellCheck={false}
           className="
           flex-1
-          min-h-[220px]
+          min-h-55
           bg-[#050505]
           text-cyan-100
           font-mono

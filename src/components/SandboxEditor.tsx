@@ -233,7 +233,7 @@ export default function SandboxEditor() {
                             <div
                                 key={file.id}
                                 onClick={() => setActiveFileId(file.id)}
-                                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-[140px] border-r border-white/5 transition-all ${
+                                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-35 border-r border-white/5 transition-all ${
                                     activeFileId === file.id 
                                     ? 'bg-[#050505] text-cyan-400 border-t-2 border-t-cyan-500 shadow-[inset_0_4px_10px_rgba(6,182,212,0.05)]' 
                                     : 'opacity-50 hover:opacity-100 bg-[#0c0c0c]'

@@ -153,7 +153,7 @@ export default function NewCoursePage() {
       <div className="max-w-2xl mx-auto">
         <form onSubmit={handleForge} className="space-y-8">
           <div className="relative group">
-            <div className={`absolute -inset-1 bg-gradient-to-r ${status.includes('REJECTED') ? 'from-red-500 to-orange-600' : 'from-cyan-500 to-purple-600'} rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}></div>
+            <div className={`absolute -inset-1 bg-linear-to-r ${status.includes('REJECTED') ? 'from-red-500 to-orange-600' : 'from-cyan-500 to-purple-600'} rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}></div>
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
               <input
                 type="text"
@@ -181,7 +181,7 @@ export default function NewCoursePage() {
 
               <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                  className="h-full bg-linear-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -204,9 +204,9 @@ export default function NewCoursePage() {
               )}
               <button
                 type="submit"
-                className="group relative w-full overflow-hidden p-[2px] rounded-xl transition-transform active:scale-[0.98]"
+                className="group relative w-full overflow-hidden p-0.5 rounded-xl transition-transform active:scale-[0.98]"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-purple-500 to-blue-500 animate-gradient-x" />
+                <div className="absolute inset-0 bg-linear-to-r from-cyan-500 via-purple-500 to-blue-500 animate-gradient-x" />
                 <div className="relative bg-slate-950 rounded-[10px] p-5 flex items-center justify-center gap-3 group-hover:bg-transparent transition-colors">
                   <Sparkles size={20} className="text-cyan-400 group-hover:text-slate-950" />
                   <span className="text-slate-100 font-black uppercase tracking-tighter group-hover:text-slate-950">
@@ -218,7 +218,7 @@ export default function NewCoursePage() {
           )}
         </form>
 
-        {/* ... Restante do código do Profile Info permanece igual ... */}
+        
         {!loading && (
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">

@@ -18,19 +18,19 @@ export default function ClientBody({ children }: { children: React.ReactNode }) 
       });
     }
 
-    async function load() {
-      // 1. Se o usuário já estiver na página de login ou machineLock, PARE aqui.
-      // Isso evita o loop de redirecionamento enquanto ele digita.
-      if (pathname === "/" || pathname === "/machineLock") {
-        return;
-      }
+   async function load() {
+      if (pathname === "/" || pathname === "/machineLock") return;
 
       const user = await get("user", "main");
       
-      // 2. Só redireciona se NÃO houver usuário E ele estiver tentando 
-      // acessar uma área restrita (como /hub ou /course)
       if (!user) {
         router.push("/machineLock");
+      } else {
+        // AQUI ESTÁ O USO VITAL: 
+        // Se o usuário existir, pegamos o perfil dele do DB e aplicamos ao app
+        if (user.profile) {
+          setProfile(user.profile); 
+        }
       }
     }
     
