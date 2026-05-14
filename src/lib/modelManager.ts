@@ -3,20 +3,41 @@
 import { ModelRecord } from "@mlc-ai/web-llm";
 import { save, get } from "./db";
 
+/* =========================================================
+   BENCHMARK
+========================================================= */
+
 export async function runQuickBenchmark(engine: any): Promise<number> {
   const startTime = performance.now();
-  const testPrompt = "Explique loop em 3 palavras.";
-  
-  // Executa inferência curta de 10 tokens
-  const result = await engine.generate(testPrompt, { max_tokens: 10 });
-  const endTime = performance.now();
-  
-  const durationSeconds = (endTime - startTime) / 1000;
-  const tokensPerSecond = 10 / durationSeconds;
 
-  // Salva no IndexedDB
-  const user = await get("user", "main");
-  await save("user", { ...user, tokensPerSecond });
+  const testPrompt =
+    "Explique loop em 3 palavras.";
+
+  await engine.chat.completions.create({
+    messages: [
+      {
+        role: "user",
+        content: testPrompt,
+      },
+    ],
+    max_tokens: 10,
+  });
+
+  const endTime = performance.now();
+
+  const durationSeconds =
+    (endTime - startTime) / 1000;
+
+  const tokensPerSecond =
+    10 / durationSeconds;
+
+  const user =
+    await get("user", "main");
+
+  await save("user", {
+    ...user,
+    tokensPerSecond,
+  });
 
   return tokensPerSecond;
 }
@@ -62,104 +83,67 @@ export interface SystemSpecs {
    MODELS
 ========================================================= */
 
-export const AVAILABLE_MODELS: Model[] =
-  [
-    /*
-      =====================================================
-      ULTRA SAFE MOBILE MODEL
-      =====================================================
-    */
+export const AVAILABLE_MODELS: Model[] = [
+  {
+    model_id:
+      "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
 
-    {
-      model_id:
-        "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+    model:
+      "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
 
-      model:
-        "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+    model_lib:
+      "",
 
-      model_lib:
-        "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+    name:
+      "Qwen 2.5 0.5B",
 
-      name: "Qwen 2.5 0.5B",
+    sizeMb:
+      550,
 
-      sizeMb: 550,
+    recommendedFor:
+      "LOW",
+  },
 
-      recommendedFor:
-        "LOW",
-    },
+  {
+    model_id:
+      "Phi-3-mini-4k-instruct-q4f16_1-MLC",
 
-    /*
-      =====================================================
-      MAIN REASONING MODEL
-      =====================================================
-    */
+    model:
+      "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f16_1-MLC",
 
-    {
-      model_id:
-        "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    model_lib:
+      "",
 
-      model:
-        "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
+    name:
+      "Phi 3 Mini",
 
-      model_lib:
-        "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+    sizeMb:
+      1900,
 
-      name: "Phi 3.5 Mini",
+    recommendedFor:
+      "MID",
+  },
 
-      sizeMb: 2200,
+  {
+    model_id:
+      "Phi-3.5-mini-instruct-q4f16_1-MLC",
 
-      recommendedFor:
-        "MID",
-    },
+    model:
+      "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
 
-    /*
-      =====================================================
-      HIGH END
-      =====================================================
-    */
+    model_lib:
+      "",
 
-    {
-      model_id:
-        "Phi-4-mini-instruct-q4f16_1-MLC",
+    name:
+      "Phi 3.5 Mini",
 
-      model:
-        "https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC",
+    sizeMb:
+      2200,
 
-      model_lib:
-        "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Phi-4-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
-
-      name: "Phi 4 Mini",
-
-      sizeMb: 2450,
-
-      recommendedFor:
-        "HIGH",
-    },
-
-    /*
-      =====================================================
-      OPTIONAL LARGE MODEL
-      =====================================================
-    */
-
-    {
-      model_id:
-        "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-
-      model:
-        "https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC",
-
-      model_lib:
-        "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/webgpu/Llama-3.2-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
-
-      name: "Llama 3.2 3B",
-
-      sizeMb: 2600,
-
-      recommendedFor:
-        "HIGH",
-    },
-  ];
+    recommendedFor:
+      "HIGH",
+  },
+];
 
 /* =========================================================
    HELPERS
@@ -184,10 +168,21 @@ function getModelByTier(
 }
 
 /* =========================================================
+   CACHE SYSTEM DETECTION
+========================================================= */
+
+let cachedSpecs:
+  | SystemSpecs
+  | null = null;
+
+/* =========================================================
    SYSTEM DETECTION
 ========================================================= */
 
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
+  if (cachedSpecs)
+    return cachedSpecs;
+
   const nav =
     navigator as any;
 
@@ -195,8 +190,7 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     nav.deviceMemory || 4;
 
   const cores =
-    navigator.hardwareConcurrency ||
-    4;
+    navigator.hardwareConcurrency || 4;
 
   const webgpu =
     "gpu" in navigator;
@@ -204,6 +198,11 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
   const sharedArrayBuffer =
     typeof SharedArrayBuffer !==
     "undefined";
+
+  const isMobile =
+    /Mobi|Android/i.test(
+      navigator.userAgent
+    );
 
   let gpuLimit = 512;
 
@@ -214,60 +213,42 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     "LOW";
 
   try {
-    /*
-      =====================================================
-      NO WEBGPU
-      =====================================================
-    */
-
     if (!webgpu) {
-  
-  return {
-    modelTier: "LOW",
-    gpuLimit,
-    recommended: AVAILABLE_MODELS[0],
-    memory,
-    webgpu,
-    sharedArrayBuffer,
-    ramGB: memory, // Adicionado
-    isMobile: /Mobi|Android/i.test(navigator.userAgent), // Adicionado
-  };
-}
+      cachedSpecs = {
+        modelTier: "LOW",
+        gpuLimit,
+        recommended:
+          AVAILABLE_MODELS[0],
+        memory,
+        webgpu,
+        sharedArrayBuffer,
+        ramGB: memory,
+        isMobile,
+      };
 
-    /*
-      =====================================================
-      GPU ADAPTER
-      =====================================================
-    */
+      return cachedSpecs;
+    }
 
     const adapter =
       await nav.gpu.requestAdapter();
 
     if (!adapter) {
-  // ...
-  return {
-    modelTier: "LOW",
-    gpuLimit,
-    recommended: AVAILABLE_MODELS[0],
-    memory,
-    webgpu,
-    sharedArrayBuffer,
-    ramGB: memory, // Atribuição correta de valor
-    isMobile: /Mobi|Android/i.test(navigator.userAgent), // Atribuição correta
-  };
-}
+      cachedSpecs = {
+        modelTier: "LOW",
+        gpuLimit,
+        recommended:
+          AVAILABLE_MODELS[0],
+        memory,
+        webgpu,
+        sharedArrayBuffer,
+        ramGB: memory,
+        isMobile,
+      };
 
-    /*
-      =====================================================
-      TIER LOGIC
-      =====================================================
-    */
+      return cachedSpecs;
+    }
 
     gpuLimit = 2048;
-
-    /*
-      LOW
-    */
 
     if (
       memory <= 3 ||
@@ -277,10 +258,6 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       modelTier = "LOW";
     }
 
-    /*
-      MID
-    */
-
     else if (
       memory >= 4 &&
       cores >= 6
@@ -288,25 +265,13 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       modelTier = "MID";
     }
 
-    /*
-      HIGH
-    */
-
     if (
       memory >= 8 &&
       cores >= 8
     ) {
       modelTier = "HIGH";
-
       gpuLimit = 4096;
     }
-
-    /*
-      SAFETY:
-      Mobile devices with 4GB RAM
-      should avoid auto-loading
-      giant models.
-    */
 
     if (
       memory <= 4 &&
@@ -314,7 +279,9 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     ) {
       modelTier = "MID";
     }
-  } catch (err) {
+  }
+
+  catch (err) {
     console.error(
       "[WebGPU Detection Error]",
       err
@@ -322,40 +289,32 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
   }
 
   const recommended =
-    getModelByTier(
-      modelTier
-    );
+    getModelByTier(modelTier);
 
   console.log(
     "[System Detection]",
     {
       memory,
-
       cores,
-
       gpuLimit,
-
       modelTier,
-
       webgpu,
-
       sharedArrayBuffer,
-
       recommended:
         recommended.name,
     }
   );
 
-  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  cachedSpecs = {
+    modelTier,
+    gpuLimit,
+    recommended,
+    memory,
+    webgpu,
+    sharedArrayBuffer,
+    ramGB: memory,
+    isMobile,
+  };
 
-return {
-  modelTier,
-  gpuLimit,
-  recommended,
-  memory,
-  webgpu,
-  sharedArrayBuffer,
-  ramGB: memory, // Adicionado
-  isMobile, // Adicionado
-};
-      }
+  return cachedSpecs;
+}
