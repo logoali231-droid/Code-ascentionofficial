@@ -1,11 +1,10 @@
-
 "use client";
 
 import { get, save, updateUser, db } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { InventoryItem, UserStats } from "@/types";
-import { FactionManager } from "./ranking/factions"; // Certifique-se do path correto
+import { FactionManager } from "./ranking/factions";
 
 /**
  * =========================================
@@ -32,7 +31,7 @@ export const RANKS: { name: RankTier; minLevel: number; color: string; }[] = [
 function computeXPReward(base: number, level: number, factionBonus: number = 0) {
   const scaling = 1 / (1 + level * 0.015);
   const reward = Math.floor(base * scaling);
-  // Aplica o bônus de facção (ex: +15% vira 1.15)
+  // Aplica o bônus de facção (ex: 0.15 = +15%)
   return Math.max(5, Math.floor(reward * (1 + factionBonus)));
 }
 
@@ -67,7 +66,7 @@ export function computeMastery(xp: number, streak: number) {
 
 /**
  * =========================================
- * ADD XP (Integrado com Faction Bonus)
+ * ADD XP
  * =========================================
  */
 
@@ -76,7 +75,6 @@ export async function addXP(amount: number) {
     const user = await db.user.get("main") as UserStats;
     if (!user) return null;
 
-    // Busca bônus da facção ativa
     const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
     const xpBoost = bonuses.find(b => b.type === 'XP_BOOST')?.value || 0;
 
@@ -110,7 +108,27 @@ export async function addXP(amount: number) {
 
 /**
  * =========================================
- * BUY ITEM (Integrado com RESOURCE_EFFICIENCY)
+ * ADD COINS
+ * =========================================
+ */
+
+export async function addCoins(amount: number) {
+  return await db.transaction('rw', db.user, async () => {
+    const user = await db.user.get("main") as UserStats;
+    if (!user) return null;
+
+    const finalCoins = computeCoinReward(amount, user.level || 1);
+    const newTotal = (user.coins || 0) + finalCoins;
+
+    await db.user.update("main", { coins: newTotal });
+    
+    return { ...user, coins: newTotal };
+  });
+}
+
+/**
+ * =========================================
+ * BUY ITEM
  * =========================================
  */
 
@@ -119,13 +137,11 @@ export async function buyItem(item: InventoryItem) {
     const user = await db.user.get("main") as UserStats;
     if (!user) throw new Error("USER_NOT_FOUND");
 
-    // Verifica bônus de eficiência (redução de custo)
     const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
     const efficiency = bonuses.find(b => b.type === 'RESOURCE_EFFICIENCY')?.value || 0;
 
     const price = item.price || 0;
     const baseDynamicPrice = Math.floor(price * (1 + (user.level || 1) * 0.03));
-    // Reduz o preço com base no bônus (ex: 25% de redução)
     const dynamicPrice = Math.floor(baseDynamicPrice * (1 - efficiency));
 
     if ((user.coins || 0) < dynamicPrice) {
@@ -150,25 +166,6 @@ export async function buyItem(item: InventoryItem) {
   });
 }
 
-// ... manter funções addCoins e useItem conforme sua implementação original
-
-/**
- * =========================================
- * ADD COINS
- * =========================================
- */
-
-export async function addCoins(amount: number) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
-    if (!user) return null;
-
-    const finalCoins = computeCoinReward(amount, user.level || 1);
-    const newTotal = (user.coins || 0) + finalCoins;
-
-    
-
-
 /**
  * =========================================
  * USE ITEM
@@ -188,7 +185,6 @@ export async function useItem(itemId: string) {
 
     if (item.type === "booster") {
       if (item.effect === "xp_grant") {
-        // ✅ Lógica de XP integrada na mesma transação
         const bonus = item.effectValue || 100;
         const newXP = (user.xp || 0) + bonus;
         user.xp = newXP;
