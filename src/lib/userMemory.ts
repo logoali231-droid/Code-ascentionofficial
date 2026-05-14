@@ -38,6 +38,24 @@ export async function getMemory(): Promise<Memory> {
   );
 }
 
+// Adicione esta função ao final do arquivo usermemory.ts
+export async function getUserStrengthsAndWeaknesses() {
+  const mem = await getMemory();
+  
+  // Filtra tópicos onde o usuário teve sucesso (mais de 3 acertos)
+  const strengths = Object.entries(mem.topics)
+    .filter(([_, count]) => count >= 3)
+    .map(([topic]) => topic);
+
+  // Filtra tópicos com falhas recorrentes
+  const weaknesses = Object.entries(mem.weaknesses)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]) // Prioriza os erros mais frequentes
+    .map(([topic]) => topic);
+
+  return { strengths, weaknesses, recentErrors: mem.lastErrors.slice(-3) };
+}
+
 export async function updateMemory({
   topic,
   correct,

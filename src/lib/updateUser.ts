@@ -9,6 +9,26 @@ let transactionQueue: Promise<any> = Promise.resolve();
 let xpUpdateTimer: NodeJS.Timeout | null = null;
 let pendingXP = 0;
 
+
+
+
+export async function addExperience(amount: number) {
+  const user = await get("main", "user_profile"); // ou a chave que você usa
+  const newXp = (user.xp || 0) + amount;
+  const newLevel = calculateLevel(newXp);
+  
+  // Verifica se subiu de nível para disparar eventos de UI (como o LevelUp.tsx)
+  const leveledUp = newLevel > (user.level || 1);
+
+  await save("main", {
+    ...user,
+    xp: newXp,
+    level: newLevel,
+    lastUpdate: Date.now()
+  });
+
+  return { leveledUp, newLevel };
+}
 async function enqueueTransaction<T>(task: () => Promise<T>): Promise<T> {
   const result = transactionQueue.then(task);
   transactionQueue = result.catch(() => { });

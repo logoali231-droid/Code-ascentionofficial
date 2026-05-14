@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/db";
 import { playSound } from "@/lib/sounds";
+
+import { precompileNeuralModules } from "@/lib/neuralBundler";
 import {
   ShieldAlert, Cpu, Lock, Unlock, ChevronRight, Zap, AlertCircle, Database
 } from "lucide-react";
@@ -24,11 +26,11 @@ export default function MachineLockPage() {
   useEffect(() => {
     async function initHardware() {
       try {
-        const specs = await detectSystemCapabilities(); 
+        const specs = await detectSystemCapabilities();
         setHardwareInfo(specs);
-        // Ajustado de .id para .model_id
+        await precompileNeuralModules();
         if (specs.recommended) {
-          setSelectedModel(specs.recommended.model_id); 
+          setSelectedModel(specs.recommended.model_id);
         }
       } catch (err) {
         console.error("Falha ao detectar hardware:", err);
@@ -56,7 +58,7 @@ export default function MachineLockPage() {
       await initEngine(selectedModel, (p) => {
         setProgress({ progress: Math.round(p.progress * 100), text: p.text });
       });
-      
+
       if (user) {
         await save("user", { ...user, model: selectedModel, engineReady: true }, "main");
       }
@@ -108,8 +110,8 @@ export default function MachineLockPage() {
                 ))}
               </div>
             </div>
-            <button 
-              onClick={handleInitialize} 
+            <button
+              onClick={handleInitialize}
               disabled={!selectedModel}
               className="w-full bg-slate-100 text-slate-950 p-5 rounded-2xl font-black uppercase flex items-center justify-center gap-3 disabled:opacity-50"
             >

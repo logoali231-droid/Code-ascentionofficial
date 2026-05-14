@@ -4,7 +4,8 @@ import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { enqueueGeneration } from "./generationQueue";
-import { validateCourse } from "./courseValidator"; // Mude de validateCourseStructure para validateCourse
+import { validateCourse } from "./courseValidator"; 
+import { getUserStrengthsAndWeaknesses } from "./userMemory";
 
 export async function generateCourse({
   topic,
@@ -23,12 +24,27 @@ export async function generateCourse({
   });
 
   const compressedMaterial = baseMaterial ? compressContext(baseMaterial, 5000) : "";
+  const userAnalysis = await getUserStrengthsAndWeaknesses();
 
+const adaptiveContext = `
+================================
+USER ADAPTIVE PROFILE (MIND PALACE)
+================================
+STRENGTHS: ${userAnalysis.strengths.join(", ") || "None yet"}
+WEAKNESSES: ${userAnalysis.weaknesses.join(", ") || "None yet"}
+RECENT_FAILURES: ${userAnalysis.recentErrors.map(e => e.topic).join(", ")}
+
+INSTRUCTION: 
+1. If the user has weaknesses, start the course by reinforcing those concepts.
+2. If they master a topic (Strength), skip basic definitions and move to complex implementation.
+`;
   const prompt = `
 You are an elite curriculum architect.
 Your mission: create a coherent, progressive, adaptive programming course.
 
 ${cognitiveFragments}
+
+${adaptiveContext}
 
 ================================
 COURSE CONFIG

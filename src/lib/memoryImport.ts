@@ -19,7 +19,7 @@ function validateMemory(data: any) {
   return true;
 }
 
-export async function importMemory(
+export async function importUserMind(
   file: File
 ) {
   const text = await file.text();

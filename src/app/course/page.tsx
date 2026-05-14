@@ -314,13 +314,13 @@ export default function CoursePage() {
     setConsecutiveErrors(0);
 
     const xpGain = 10;
-    const newXp = (user?.xp || 0) + xpGain;
+
+    setStreak((prev) => prev + 1);
 
     await updateUser({
-      xp: newXp,
-      coins: (user?.coins || 0) + 2,
-      level: Math.floor(newXp / 100) + 1,
-    });
+    xp: (user?.xp || 0) + xpGain,
+    coins: (user?.coins || 0) + 2,
+  });
 
     /* ================================
         CLEAR ERROR LOGS

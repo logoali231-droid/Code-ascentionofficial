@@ -64,7 +64,8 @@ export default function ExerciseRenderer({
     if (!value) return;
 
     // --- INTEGRAÇÃO ANTI-SPAM (GIBBERISH DETECTOR) ---
-    if (exercise.type === 'code' && detector.isGibberish(value)) {
+    // Adicionado o segundo argumento 'lesson' exigido pelo TypeScript
+    if (exercise.type === 'code' && detector.isTotalGibberish(value, 'lesson')) {
       setErrorMessage("RUÍDO NEURAL DETECTADO: Input inválido para processamento.");
       onComplete?.(false);
       return; // Bloqueia o processamento de XP e avanço
@@ -85,7 +86,7 @@ export default function ExerciseRenderer({
         currentLevel,
         diff,
         streak,
-        1 
+        1
       );
 
       onComplete?.(true);
@@ -95,7 +96,7 @@ export default function ExerciseRenderer({
     } else {
       onComplete?.(false);
       if (exercise.type === 'code') {
-          setErrorMessage("SINTAXE INCORRETA: Verifique os parâmetros do núcleo.");
+        setErrorMessage("SINTAXE INCORRETA: Verifique os parâmetros do núcleo.");
       }
     }
   }
@@ -135,8 +136,8 @@ export default function ExerciseRenderer({
                 key={idx}
                 onClick={() => setSelectedOption(option)}
                 className={`p-3 text-left text-sm border transition-all rounded-lg ${selectedOption === option
-                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
-                    : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
+                  ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                  : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
                   }`}
               >
                 <span className="opacity-30 mr-2">{idx}#</span> {option}
@@ -170,9 +171,9 @@ export default function ExerciseRenderer({
 
         {exercise.type === 'code' && (
           <div className="flex flex-col gap-2">
-            <CodeEditor 
+            <CodeEditor
               language={exercise.language}
-              initialValue={exercise.starterCode || ""} 
+              initialValue={exercise.starterCode || ""}
               onChange={(value) => setSelectedOption(value)}
               placeholder="Escreva sua solução aqui..."
             />

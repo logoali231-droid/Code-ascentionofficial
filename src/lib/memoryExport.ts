@@ -6,7 +6,7 @@ import { db } from "./db";
  * Realiza o backup completo do estado do usuário.
  * Consolida UserStats, Cursos, Erros e Memória em um único JSON.
  */
-export async function exportMemory() {
+export async function exportUserMind() {
   // Coleta todos os dados das stores do Dexie em paralelo
   const [user, courses, errors, memory] = await Promise.all([
     db.user.get("main"),
