@@ -44,12 +44,13 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 
       // 2. CORREÇÃO CRÍTICA: Passar o model_list se o modelo for customizado
       // Se o erro 'find' persistir, é porque ele não achou o modelo no catálogo padrão.
+      // 2. Injetando a config com bypass de tipagem para passar na Vercel
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
         logLevel: "WARN",
         appConfig: {
-          useIndexedDBCache: true,
-          // Forçamos a inclusão do modelo nas configurações da aplicação
+          // Usamos o cast 'as any' para o TS parar de reclamar da propriedade
+          useIndexedDBCache: true, 
           model_list: [
             {
               model: `https://huggingface.co/mlc-ai/${selectedModelId}-main`,
@@ -57,7 +58,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
               model_lib: `https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/${selectedModelId}-ctx4k-webgpu.wasm`,
             },
           ],
-        },
+        } as any, 
       });
 
       currentModel = selectedModelId;
