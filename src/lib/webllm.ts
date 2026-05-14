@@ -58,7 +58,7 @@ export async function initEngine(
         if (
           engine &&
           currentModel ===
-            selectedModelId
+          selectedModelId
         ) {
           return engine;
         }
@@ -67,16 +67,11 @@ export async function initEngine(
           CLEANUP
         */
 
-        if (worker) {
-          worker.terminate();
-          worker = null;
-        }
-
-        if (engine) {
-          try {
-            await engine.unload();
-          } catch {}
-          engine = null;
+        if (
+          engine &&
+          currentModel === selectedModelId
+        ) {
+          return engine;
         }
 
         /*

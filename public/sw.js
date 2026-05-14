@@ -5,6 +5,20 @@ const ASSETS_TO_CACHE = [
   "/icons/coins.png", "/icons/xp_potion_hd.png", "/icons/xp_potion.png",
 ];
 
+document.addEventListener(
+  "visibilitychange",
+  async () => {
+    if (
+      document.hidden &&
+      navigator.deviceMemory <= 4
+    ) {
+      console.log(
+        "[WebLLM] Background detected"
+      );
+    }
+  }
+);
+
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 
@@ -41,31 +55,76 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+  if (event.request.method !== "GET")
+    return;
+
+  const url =
+    new URL(event.request.url);
+
+  const isAI =
+    url.hostname.includes(
+      "huggingface.co"
+    ) ||
+
+    url.hostname.includes(
+      "cdn-lfs.huggingface.co"
+    ) ||
+
+    url.hostname.includes(
+      "raw.githubusercontent.com"
+    ) ||
+
+    url.pathname.endsWith(".wasm") ||
+
+    url.pathname.endsWith(".bin") ||
+
+    url.pathname.endsWith(".gguf");
+
+  /*
+    AI ASSETS:
+    NEVER CACHE IN SW
+  */
 
   if (isAI) {
-    event.respondWith(fetch(event.request));
+    event.respondWith(
+      fetch(event.request)
+    );
+
     return;
   }
 
-  // Se for IA, saia imediatamente e deixe o navegador (e o WebLLM) cuidar disso
-  if (
-    url.hostname.includes("huggingface.co") ||
-    url.hostname.includes("raw.githubusercontent.com") ||
-    url.pathname.includes(".bin") ||
-    url.pathname.includes(".wasm")
-  ) {
-    return; // O navegador assume o controle direto
-  }
-
-  if (event.request.method !== "GET") return;
+  /*
+    NORMAL CACHE
+  */
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).catch(() => caches.match("/"))
-      );
-    })
+    caches.match(event.request)
+      .then((cached) => {
+        if (cached)
+          return cached;
+
+        return fetch(event.request)
+          .then((response) => {
+            if (
+              !response ||
+              response.status !== 200
+            ) {
+              return response;
+            }
+
+            const cloned =
+              response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(
+                  event.request,
+                  cloned
+                );
+              });
+
+            return response;
+          });
+      })
   );
 });
