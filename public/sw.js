@@ -7,14 +7,17 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        ASSETS_TO_CACHE.map(async (url) => {
-          const response = await fetch(url, { cache: "no-cache" });
-          if (response.ok) return cache.put(url, response);
-        })
-      );
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const url of ASSETS_TO_CACHE) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) await cache.put(url, res);
+        } catch (e) {
+          // ignora silenciosamente
+        }
+      }
     })
   );
 });
