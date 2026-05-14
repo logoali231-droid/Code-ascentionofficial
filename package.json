@@ -1,6 +1,6 @@
 {
   "name": "code-ascentionofficial",
-  "version": "1.1.0",
+  "version": "1.5.10",
   "private": true,
   "description": "Offline AI-powered roguelike educational PWA",
   "main": "index.js",
@@ -23,7 +23,7 @@
     "next": "^15.5.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind": "^4.0.0"
+    
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
