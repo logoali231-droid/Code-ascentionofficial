@@ -38,32 +38,28 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.url.includes('.shard') || event.request.url.includes('.bin')) {
-    return; // Deixa o fetch passar direto sem cache do Service Worker
+  const url = new URL(event.request.url);
+
+  const isAI =
+    url.hostname.includes("huggingface.co") ||
+    url.hostname.includes("mlc-ai") ||
+    url.pathname.includes(".bin") ||
+    url.pathname.includes(".wasm") ||
+    url.pathname.includes(".gguf") ||
+    url.pathname.includes("model");
+
+  if (isAI) {
+    return; // deixa browser lidar direto
   }
 
-  
-  const { request: req } = event;
-  const url = new URL(req.url);
-  if (req.method !== 'GET' || !url.protocol.startsWith("http")) return;
-
-  const isAIAsset = 
-    url.hostname.includes("huggingface.co") || 
-    url.hostname.includes("mlc-ai") || 
-    url.pathname.endsWith(".wasm") || 
-    url.pathname.endsWith(".bin") ||
-    (url.pathname.endsWith(".json") && url.pathname.includes("config"));
-
-  if (url.origin !== self.location.origin || isAIAsset) return;
+  if (event.request.method !== "GET") return;
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      return cached || fetch(req).then((res) => {
-        if (!res || res.status === 404) {
-          if (req.mode === "navigate") return caches.match("/");
-        }
-        return res;
-      }).catch(() => req.mode === "navigate" ? caches.match("/") : new Response("Offline", { status: 503 }))
+    caches.match(event.request).then((cached) => {
+      return (
+        cached ||
+        fetch(event.request).catch(() => caches.match("/"))
+      );
     })
   );
 });
