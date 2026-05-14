@@ -155,13 +155,9 @@ export default function CoursePage() {
 
     setCourse(found);
 
-    setLessonTree(
-      found.lessons || []
-    );
+    
 
-    setCurrentLesson(
-      found.currentLesson || 0
-    );
+    
 
     setCurrentExercise(
       found.currentExercise || 0
