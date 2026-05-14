@@ -39,16 +39,9 @@ export default function CoursePage() {
   const [user, setUser] =
     useState<any>(null);
 
-  const [mode, setMode] =
-    useState<
-      "practice" | "reinforce"
-    >("practice");
+  
 
-  const [
-    currentLesson,
-    setCurrentLesson,
-  ] = useState(0);
-
+  
   const [
     currentExercise,
     setCurrentExercise,
@@ -74,8 +67,7 @@ export default function CoursePage() {
   const [streak, setStreak] =
     useState(0);
 
-  const [lessonTree, setLessonTree] =
-    useState<any[]>([]);
+  
 
   const [downloadInfo, setDownloadInfo] = useState({ text: "", model: "" });
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
@@ -406,13 +398,19 @@ export default function CoursePage() {
      LOADING
   ===================================================== */
 
-  if (loadingCourse) {
-    return (
-      <div className="p-6 text-sm opacity-70">
-        Booting neural course engine...
-      </div>
-    );
-  }
+  // Substitua a verificação de loadingCourse por:
+if (loadingCourse) { 
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="text-cyan-400 animate-pulse">Booting neural course engine...</div>
+      {/* Exibe o status real do WebLLM para o usuário não achar que travou */}
+      {downloadInfo.text && (
+        <div className="text-xs text-slate-500 mt-2">{downloadInfo.text}</div>
+      )}
+    </div>
+  ); 
+}
+
 
   if (!course) {
     return (
