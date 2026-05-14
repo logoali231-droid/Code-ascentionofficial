@@ -19,14 +19,19 @@ export default function SkillsPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadSkills() {
-      const userData = await get("user", "main");
-      // Lógica para carregar habilidades do banco ou estado
-      setLoading(false);
+  // Substitua o useEffect atual por este:
+useEffect(() => { 
+  async function loadSkills() { 
+    const userData = await get("user", "main"); 
+    if (userData) {
+      // Lê o userData e atualiza a tela com as skills do usuário (ou array vazio)
+      setSkills(userData.skills || []); 
     }
-    loadSkills();
-  }, []);
+    setLoading(false); 
+  } 
+  loadSkills(); 
+}, []);
+
 
   if (loading) return <div className="p-8 text-cyan-500">CARREGANDO_MATRIZ...</div>;
 
