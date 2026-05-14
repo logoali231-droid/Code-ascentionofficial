@@ -38,6 +38,11 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (event.request.url.includes('.shard') || event.request.url.includes('.bin')) {
+    return; // Deixa o fetch passar direto sem cache do Service Worker
+  }
+
+  
   const { request: req } = event;
   const url = new URL(req.url);
   if (req.method !== 'GET' || !url.protocol.startsWith("http")) return;
