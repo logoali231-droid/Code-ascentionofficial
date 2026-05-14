@@ -1,9 +1,11 @@
+
 "use client";
 
 import { get, save, updateUser, db } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { InventoryItem, UserStats } from "@/types";
+import { FactionManager } from "./ranking/factions"; // Certifique-se do path correto
 
 /**
  * =========================================
@@ -11,18 +13,9 @@ import { InventoryItem, UserStats } from "@/types";
  * =========================================
  */
 
-export type RankTier =
-  | "Initiate"
-  | "Operator"
-  | "Architect"
-  | "Ghost"
-  | "Overmind";
+export type RankTier = "Initiate" | "Operator" | "Architect" | "Ghost" | "Overmind";
 
-export const RANKS: {
-  name: RankTier;
-  minLevel: number;
-  color: string;
-}[] = [
+export const RANKS: { name: RankTier; minLevel: number; color: string; }[] = [
   { name: "Initiate", minLevel: 1, color: "#94a3b8" },
   { name: "Operator", minLevel: 5, color: "#22c55e" },
   { name: "Architect", minLevel: 12, color: "#3b82f6" },
@@ -36,9 +29,11 @@ export const RANKS: {
  * =========================================
  */
 
-function computeXPReward(base: number, level: number) {
+function computeXPReward(base: number, level: number, factionBonus: number = 0) {
   const scaling = 1 / (1 + level * 0.015);
-  return Math.max(5, Math.floor(base * scaling));
+  const reward = Math.floor(base * scaling);
+  // Aplica o bônus de facção (ex: +15% vira 1.15)
+  return Math.max(5, Math.floor(reward * (1 + factionBonus)));
 }
 
 function computeCoinReward(base: number, level: number) {
@@ -72,18 +67,21 @@ export function computeMastery(xp: number, streak: number) {
 
 /**
  * =========================================
- * ADD XP (Refatorado para estabilidade)
+ * ADD XP (Integrado com Faction Bonus)
  * =========================================
  */
 
 export async function addXP(amount: number) {
-  // ✅ Usando transação nativa para evitar Race Conditions
   return await db.transaction('rw', db.user, async () => {
     const user = await db.user.get("main") as UserStats;
     if (!user) return null;
 
+    // Busca bônus da facção ativa
+    const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
+    const xpBoost = bonuses.find(b => b.type === 'XP_BOOST')?.value || 0;
+
     const currentLevel = user.level || 1;
-    const finalXP = computeXPReward(amount, currentLevel);
+    const finalXP = computeXPReward(amount, currentLevel, xpBoost);
     const newXP = (user.xp || 0) + finalXP;
     const newLevel = calculateLevel(newXP);
     const oldRank = getRankFromLevel(currentLevel);
@@ -104,18 +102,55 @@ export async function addXP(amount: number) {
       lastXPReward: finalXP,
     };
 
-    // ✅ Atualiza apenas uma vez, sem recursão
     await db.user.update("main", updates);
     
-    return { 
-      ...user, 
-      ...updates, 
-      rankUp, 
-      leveledUp, 
-      gainedXP: finalXP 
-    };
+    return { ...user, ...updates, rankUp, leveledUp, gainedXP: finalXP };
   });
 }
+
+/**
+ * =========================================
+ * BUY ITEM (Integrado com RESOURCE_EFFICIENCY)
+ * =========================================
+ */
+
+export async function buyItem(item: InventoryItem) {
+  return await db.transaction('rw', db.user, async () => {
+    const user = await db.user.get("main") as UserStats;
+    if (!user) throw new Error("USER_NOT_FOUND");
+
+    // Verifica bônus de eficiência (redução de custo)
+    const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
+    const efficiency = bonuses.find(b => b.type === 'RESOURCE_EFFICIENCY')?.value || 0;
+
+    const price = item.price || 0;
+    const baseDynamicPrice = Math.floor(price * (1 + (user.level || 1) * 0.03));
+    // Reduz o preço com base no bônus (ex: 25% de redução)
+    const dynamicPrice = Math.floor(baseDynamicPrice * (1 - efficiency));
+
+    if ((user.coins || 0) < dynamicPrice) {
+      playSound("error", 0.4);
+      throw new Error("INSUFFICIENT_CREDITS");
+    }
+
+    const inventory = [...(user.inventory || [])];
+    const existingIndex = inventory.findIndex((i) => i.id === item.id);
+
+    if (existingIndex > -1) {
+      inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + 1;
+    } else {
+      inventory.push({ ...item, quantity: 1, acquiredAt: Date.now() });
+    }
+
+    const newCoins = (user.coins || 0) - dynamicPrice;
+    await db.user.update("main", { coins: newCoins, inventory });
+
+    playSound("buy", 0.5);
+    return { ...user, coins: newCoins, inventory };
+  });
+}
+
+// ... manter funções addCoins e useItem conforme sua implementação original
 
 /**
  * =========================================
@@ -131,53 +166,8 @@ export async function addCoins(amount: number) {
     const finalCoins = computeCoinReward(amount, user.level || 1);
     const newTotal = (user.coins || 0) + finalCoins;
 
-    await db.user.update("main", { coins: newTotal });
     
-    return { ...user, coins: newTotal };
-  });
-}
 
-/**
- * =========================================
- * BUY ITEM
- * =========================================
- */
-
-export async function buyItem(item: InventoryItem) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
-    if (!user) throw new Error("USER_NOT_FOUND");
-
-    const price = item.price || 0;
-    const currentCoins = user.coins || 0;
-    const dynamicPrice = Math.floor(price * (1 + (user.level || 1) * 0.03));
-
-    if (currentCoins < dynamicPrice) {
-      playSound("error", 0.4);
-      throw new Error("INSUFFICIENT_CREDITS");
-    }
-
-    const inventory = [...(user.inventory || [])];
-    const existingIndex = inventory.findIndex((i) => i.id === item.id);
-
-    if (existingIndex > -1) {
-      inventory[existingIndex] = {
-        ...inventory[existingIndex],
-        quantity: (inventory[existingIndex].quantity || 1) + 1,
-      };
-    } else {
-      inventory.push({ ...item, quantity: 1, acquiredAt: Date.now() });
-    }
-
-    await db.user.update("main", {
-      coins: currentCoins - dynamicPrice,
-      inventory,
-    });
-
-    playSound("buy", 0.5);
-    return { ...user, coins: currentCoins - dynamicPrice, inventory };
-  });
-}
 
 /**
  * =========================================
