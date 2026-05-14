@@ -26,6 +26,9 @@ let currentModel:
 
 let generationLock = false;
 
+let backgroundSince:
+  number | null = null;
+
 export async function initEngine(
   modelId?: string,
   onProgress?: (report: any) => void
@@ -237,12 +240,59 @@ if (typeof window !== "undefined") {
   document.addEventListener(
     "visibilitychange",
     async () => {
-      if (document.hidden) {
-        console.log(
-          "[WebLLM] App em background"
+      const isMobile =
+        /Mobi|Android|iPhone/i.test(
+          navigator.userAgent
         );
 
-        await unloadEngine();
+      /*
+        BACKGROUND
+      */
+
+      if (document.hidden) {
+        backgroundSince =
+          Date.now();
+
+        console.log(
+          "[WebLLM] Background mode"
+        );
+
+        return;
+      }
+
+      /*
+        RETURN
+      */
+
+      if (
+        !document.hidden &&
+        backgroundSince
+      ) {
+        const timeAway =
+          Date.now() -
+          backgroundSince;
+
+        console.log(
+          "[WebLLM] Returned after:",
+          timeAway
+        );
+
+        /*
+          MOBILE SAFETY
+        */
+
+        if (
+          isMobile &&
+          timeAway > 120000
+        ) {
+          console.warn(
+            "[WebLLM] Long background detected. Resetting engine."
+          );
+
+          await unloadEngine();
+        }
+
+        backgroundSince = null;
       }
     }
   );
