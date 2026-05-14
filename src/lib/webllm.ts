@@ -35,20 +35,14 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
         if (msg.data.type === "heartbeat_ack") console.log("[HEARTBEAT]", msg.data.timestamp);
       };
 
-      engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
-        initProgressCallback: onProgress,
-        logLevel: "WARN",
-        appConfig: {
-          useIndexedDBCache: false,
-          model_list: [
-            {
-              model: `https://huggingface.co/mlc-ai/${selectedModelId}-main`,
-              model_id: selectedModelId,
-              model_lib: `https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/${selectedModelId}-ctx4k-webgpu.wasm`,
-            },
-          ],
-        } as any, // Bypass de tipagem para Vercel
-      });
+      // DENTRO DO SEU webllm.ts
+engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {  
+    initProgressCallback: onProgress,  
+    logLevel: "INFO", // Aumente para INFO para ver o log real no console
+    appConfig: {  
+      useIndexedDBCache: true, // MUDANÇA CRÍTICA: Use IndexedDB em vez de Cache API
+    }, 
+});
 
       currentModel = selectedModelId;
       return engine;
