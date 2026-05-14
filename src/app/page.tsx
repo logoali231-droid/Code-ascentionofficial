@@ -6,8 +6,13 @@ import { useRouter } from "next/navigation";
 
 import { get, save } from "@/lib/db";
 
+import {  performStorageCleanup } from "@/lib/db";
+
 export default function LoginPage() {
   const [id, setId] = useState("");
+
+  
+  
 
   const [loading, setLoading] =
     useState(true);
@@ -19,6 +24,8 @@ export default function LoginPage() {
   useEffect(() => {
     async function bootstrap() {
       try {
+
+        await performStorageCleanup();
         const existing = await get(
           "user",
           "main"
