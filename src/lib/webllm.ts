@@ -39,7 +39,7 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
         initProgressCallback: onProgress,
         logLevel: "WARN",
         appConfig: {
-          useIndexedDBCache: true,
+          useIndexedDBCache: false,
           model_list: [
             {
               model: `https://huggingface.co/mlc-ai/${selectedModelId}-main`,
