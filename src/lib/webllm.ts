@@ -36,12 +36,14 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
       };
 
       // DENTRO DO SEU webllm.ts
+// No seu arquivo webllm.ts
 engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {  
-    initProgressCallback: onProgress,  
-    logLevel: "INFO", // Aumente para INFO para ver o log real no console
-    appConfig: {  
-      useIndexedDBCache: true, // MUDANÇA CRÍTICA: Use IndexedDB em vez de Cache API
-    }, 
+  initProgressCallback: onProgress,  
+  logLevel: "INFO",
+  appConfig: {  
+    // Forçamos o TS a aceitar as configurações de cache
+    useIndexedDBCache: true, 
+  } as any, // O 'as any' evita o erro de "known properties" na Vercel
 });
 
       currentModel = selectedModelId;
