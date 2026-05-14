@@ -67,16 +67,16 @@ export async function initEngine(
           CLEANUP
         */
 
-        if (
-          engine &&
-          currentModel === selectedModelId
-        ) {
-          return engine;
-        }
+
 
         /*
           NEW WORKER
         */
+
+        if (worker) {
+          worker.terminate();
+          worker = null;
+        }
 
         worker = new Worker(
           new URL(
@@ -110,6 +110,23 @@ export async function initEngine(
               logLevel: "INFO",
             }
           );
+
+        const gpuDevice =
+          (engine as any)?.engine?.device ||
+          (engine as any)?._device;
+
+        if (gpuDevice) {
+          gpuDevice.lost.then(
+            async (info: any) => {
+              console.warn(
+                "[WebGPU Device Lost]",
+                info
+              );
+
+              await unloadEngine();
+            }
+          );
+        }
 
         currentModel =
           selectedModelId;
@@ -214,4 +231,19 @@ export async function* generate(
   } finally {
     generationLock = false;
   }
+}
+
+if (typeof window !== "undefined") {
+  document.addEventListener(
+    "visibilitychange",
+    async () => {
+      if (document.hidden) {
+        console.log(
+          "[WebLLM] App em background"
+        );
+
+        await unloadEngine();
+      }
+    }
+  );
 }

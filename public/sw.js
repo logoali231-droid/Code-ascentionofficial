@@ -5,19 +5,7 @@ const ASSETS_TO_CACHE = [
   "/icons/coins.png", "/icons/xp_potion_hd.png", "/icons/xp_potion.png",
 ];
 
-document.addEventListener(
-  "visibilitychange",
-  async () => {
-    if (
-      document.hidden &&
-      navigator.deviceMemory <= 4
-    ) {
-      console.log(
-        "[WebLLM] Background detected"
-      );
-    }
-  }
-);
+
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -35,6 +23,8 @@ self.addEventListener("install", (event) => {
     })
   );
 });
+
+
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
