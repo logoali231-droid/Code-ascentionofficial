@@ -22,44 +22,49 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
 
   loadingPromise = (async () => {
     try {
+      // 1. Detecta capacidades APENAS na hora de inicializar
+      const system = await detectSystemCapabilities();
+      
       const selectedModelId = modelId || "Phi-3.5-mini-instruct-q4f16_1-MLC";
 
       if (engine && currentModel === selectedModelId) {
         return engine;
       }
 
-      // Destrói worker anterior para liberar RAM física no M23 antes de começar novo carregamento
       if (worker) {
         worker.terminate();
         worker = null;
       }
 
-      // Criação do Worker apontando para o seu arquivo de worker
       worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), {
         type: "module",
       });
 
-      console.log(`[WebLLM] Inicializando motor: ${selectedModelId} via IndexedDB`);
+      console.log(`[WebLLM] Inicializando motor: ${selectedModelId}`);
 
-
-
-
-      // 2. Injeta as capacidades no AppConfig
+      // 2. CORREÇÃO CRÍTICA: Passar o model_list se o modelo for customizado
+      // Se o erro 'find' persistir, é porque ele não achou o modelo no catálogo padrão.
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
         logLevel: "WARN",
         appConfig: {
           useIndexedDBCache: true,
-          // @ts-ignore - Injetando metadados para otimização de runtime no M23
-          systemCapabilities: system,
-        } as any,
+          // Forçamos a inclusão do modelo nas configurações da aplicação
+          model_list: [
+            {
+              model: `https://huggingface.co/mlc-ai/${selectedModelId}-main`,
+              model_id: selectedModelId,
+              model_lib: `https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/${selectedModelId}-ctx4k-webgpu.wasm`,
+            },
+          ],
+        },
       });
 
       currentModel = selectedModelId;
       return engine;
     } catch (err) {
       loadingPromise = null;
-      console.error("[WebLLM] Falha catastrófica na inicialização:", err);
+      console.error("[WebLLM] Erro na inicialização:", err);
       throw err;
     }
   })();
