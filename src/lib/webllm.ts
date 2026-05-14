@@ -102,4 +102,3 @@ export async function unloadEngine() {
     console.log("[WebLLM] Worker destruído e RAM liberada.");
   }
 }
-
