@@ -6,6 +6,21 @@
  * Avalia se a resposta recebida é logicamente equivalente à esperada.
  * Detecta automaticamente se o contexto é código ou texto.
  */
+// No avaliador de exercícios
+import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
+
+const detector = new GibberishDetector();
+
+export function validateInput(userInput: string) {
+    if (detector.isGibberish(userInput)) {
+        return { 
+            isValid: false, 
+            error: "Input detectado como ruído neural. Digite um código válido." 
+        };
+    }
+    // ... restante da lógica de avaliação
+}
+
 export async function evaluateLogic(received: any, expected: any): Promise<boolean> {
   try {
     const valReceived = String(received || "").trim();
