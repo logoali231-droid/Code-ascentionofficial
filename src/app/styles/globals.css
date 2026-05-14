@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Suas outras regras de @apply e variáveis cyberpunk podem continuar abaixo */
 
 
 html, body {
