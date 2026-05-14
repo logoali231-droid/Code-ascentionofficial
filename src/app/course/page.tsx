@@ -517,7 +517,7 @@ export default function CoursePage() {
             </div>
           ) : (
             <ExerciseRenderer
-              exercise={
+              rawExercise={
                 currentStreamExercise
               }
               onNext={handleNext}

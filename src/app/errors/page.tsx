@@ -88,7 +88,7 @@ export default function ErrorsPage() {
           <h2 className="mt-4 font-bold">Practice</h2>
           {exercise && (
             <ExerciseRenderer
-              exercise={exercise}
+              rawExercise={exercise}
               onNext={async (correct: boolean) => {
                 if (!correct) {
                   const retry = await generateReinforcement(selected, selected.course);
