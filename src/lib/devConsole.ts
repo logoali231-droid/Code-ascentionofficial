@@ -26,34 +26,145 @@ function stringify(value: any): string {
       Object.getOwnPropertyNames(value).forEach((key) => {
         try {
           const val = (value as any)[key];
-          parsed[key] = (typeof val === 'object' && val !== null) ? '[Object]' : val;
-        } catch (e) { parsed[key] = "[Unreadable]"; }
+          parsed[key] =
+            typeof val === "object" && val !== null ? "[Object]" : val;
+        } catch (e) {
+          parsed[key] = "[Unreadable]";
+        }
       });
       return JSON.stringify(parsed, null, 2);
     }
     return String(value);
-  } catch (err) { return `[STRINGIFY_FAILED] ${String(err)}`; }
+  } catch (err) {
+    return `[STRINGIFY_FAILED] ${String(err)}`;
+  }
 }
 
+function extractCacheError(err: any) {
+  const text = String(err?.message || err);
+
+  const isCacheError =
+    text.includes("Cache") || text.includes("add on 'Cache'");
+
+  return {
+    isCacheError,
+    type: isCacheError ? "CACHE_API_FAILURE" : "UNKNOWN",
+    hint: isCacheError
+      ? "Service Worker tentou armazenar uma request inválida ou quebrada"
+      : null,
+  };
+}
+
+/* =========================================================
+   FETCH HOOK
+========================================================= */
+
+function hookFetch(addLog: any) {
+  const originalFetch = window.fetch;
+
+  window.fetch = async (...args) => {
+    const url = args?.[0]?.toString?.() || String(args[0]);
+
+    const isModelDownload =
+      url.includes("shard") ||
+      url.includes("params") ||
+      url.includes("config.json");
+
+    if (isModelDownload) {
+      addLog("MODEL_PIPELINE", {
+        url,
+        stage: "WebLLM download stream",
+      });
+    }
+
+    const isAIRequest =
+      url.includes("huggingface") ||
+      url.includes("mlc-ai") ||
+      url.includes(".bin") ||
+      url.includes(".wasm") ||
+      url.includes("model");
+
+    if (isAIRequest) {
+      addLog("AI_FETCH", {
+        url,
+        note: "WebLLM pipeline request detected",
+      });
+    }
+
+    try {
+      const res = await originalFetch(...args);
+
+      if (!res.ok) {
+        addLog("FETCH_FAIL", {
+          url,
+          status: res.status,
+          type: res.type,
+        });
+      }
+
+      return res;
+    } catch (err) {
+      addLog("FETCH_ERROR", {
+        url,
+        error: stringify(err),
+      });
+
+      throw err;
+    }
+  };
+}
+
+/* =========================================================
+   ORIGIN DETECTOR
+========================================================= */
+
+function detectOrigin(error: any) {
+  const stack = String(error?.stack || error);
+
+  return {
+    isServiceWorker:
+      stack.includes("ServiceWorker") || stack.includes("sw.js"),
+    isWorker:
+      stack.includes("worker") || stack.includes("WebWorker"),
+    isNetwork:
+      stack.includes("fetch") || stack.includes("Cache"),
+    probableFile:
+      stack.match(/(sw\.js|webllm|worker|cache|fetch|model|engine)/i)?.[0] ||
+      "unknown",
+  };
+}
+
+/* =========================================================
+   STORAGE
+========================================================= */
+
 function saveLogs(logs: string[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(logs)); } catch (e) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  } catch (e) {}
 }
 
 function loadLogs(): string[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 /* =========================================================
-   CORE LOGIC
+   CORE
 ========================================================= */
 
 function updateOverlay() {
   const overlay = document.getElementById("__DEV_OVERLAY_CONTENT__");
   if (!overlay) return;
-  overlay.textContent = (window.__DEV_LOGS__ || []).slice().reverse().join("\n\n");
+
+  overlay.textContent = (window.__DEV_LOGS__ || [])
+    .slice()
+    .reverse()
+    .join("\n");
 }
 
 function addLog(type: string, ...args: any[]) {
@@ -61,8 +172,15 @@ function addLog(type: string, ...args: any[]) {
 
   if (!window.__DEV_LOGS__) window.__DEV_LOGS__ = loadLogs();
 
-  const line = `[${new Date().toLocaleTimeString()}] [${type}] ${args.map(stringify).join(" ")}`;
-  window.__DEV_LOGS__.push(line);
+  const line = {
+    time: new Date().toISOString(),
+    type,
+    data: args.map(stringify),
+    url: window.location.href,
+    memory: (performance as any)?.memory?.usedJSHeapSize,
+  };
+
+  window.__DEV_LOGS__.push(JSON.stringify(line, null, 2));
 
   if (window.__DEV_LOGS__.length > MAX_LOGS) window.__DEV_LOGS__.shift();
 
@@ -71,10 +189,10 @@ function addLog(type: string, ...args: any[]) {
 }
 
 /* =========================================================
-   UI WITH PAUSE BUTTON
+   UI
 ========================================================= */
 
-function createUI() {
+function createUI(addLog: any) {
   if (document.getElementById("__DEV_CONTAINER__")) return;
 
   const container = document.createElement("div");
@@ -82,25 +200,44 @@ function createUI() {
 
   const button = document.createElement("button");
   Object.assign(button.style, {
-    position: "fixed", bottom: "16px", right: "16px",
-    width: "58px", height: "58px", borderRadius: "999px",
-    background: "#111", color: "#00ff88", zIndex: "9999999",
-    border: "2px solid #00ff88", fontSize: "24px"
+    position: "fixed",
+    bottom: "16px",
+    right: "16px",
+    width: "58px",
+    height: "58px",
+    borderRadius: "999px",
+    background: "#111",
+    color: "#00ff88",
+    zIndex: "9999999",
+    border: "2px solid #00ff88",
+    fontSize: "24px",
   });
   button.innerHTML = "🐞";
 
   const overlay = document.createElement("div");
   Object.assign(overlay.style, {
-    position: "fixed", left: "0", right: "0", bottom: "0",
-    height: "75vh", background: "#050505", color: "#00ff88",
-    zIndex: "9999998", display: "none", flexDirection: "column",
-    borderTop: "2px solid #333", fontFamily: "monospace"
+    position: "fixed",
+    left: "0",
+    right: "0",
+    bottom: "0",
+    height: "75vh",
+    background: "#050505",
+    color: "#00ff88",
+    zIndex: "9999998",
+    display: "none",
+    flexDirection: "column",
+    borderTop: "2px solid #333",
+    fontFamily: "monospace",
   });
 
   const toolbar = document.createElement("div");
   Object.assign(toolbar.style, {
-    display: "flex", justifyContent: "space-between", padding: "10px",
-    background: "#111", borderBottom: "1px solid #222", alignItems: "center"
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "10px",
+    background: "#111",
+    borderBottom: "1px solid #222",
+    alignItems: "center",
   });
 
   const title = document.createElement("b");
@@ -108,54 +245,34 @@ function createUI() {
 
   const actions = document.createElement("div");
 
-  // BOTÃO PAUSE
   const pauseBtn = document.createElement("button");
   pauseBtn.innerText = "PAUSE";
-  Object.assign(pauseBtn.style, {
-    background: "#444", color: "#fff", border: "none",
-    marginRight: "8px", padding: "6px 12px", borderRadius: "4px"
-  });
 
   const clearBtn = document.createElement("button");
   clearBtn.innerText = "CLEAR";
-  Object.assign(clearBtn.style, {
-    background: "transparent", color: "#ff9900", border: "1px solid #ff9900",
-    marginRight: "8px", padding: "6px 12px", borderRadius: "4px"
-  });
 
   const closeBtn = document.createElement("button");
   closeBtn.innerText = "✕";
-  Object.assign(closeBtn.style, {
-    background: "#cc0000", color: "#fff", border: "none",
-    padding: "6px 14px", borderRadius: "4px"
-  });
 
   actions.append(pauseBtn, clearBtn, closeBtn);
   toolbar.append(title, actions);
 
   const content = document.createElement("pre");
   content.id = "__DEV_OVERLAY_CONTENT__";
-  Object.assign(content.style, {
-    flex: "1", overflowY: "auto", padding: "12px",
-    fontSize: "10px", whiteSpace: "pre-wrap", margin: "0"
-  });
 
   overlay.append(toolbar, content);
   container.append(overlay, button);
   document.body.appendChild(container);
 
-  /* EVENTS */
   button.onclick = () => {
-    const isHidden = overlay.style.display === "none";
-    overlay.style.display = isHidden ? "flex" : "none";
-    if (isHidden) updateOverlay();
+    overlay.style.display =
+      overlay.style.display === "none" ? "flex" : "none";
+    if (overlay.style.display === "flex") updateOverlay();
   };
 
   pauseBtn.onclick = () => {
     window.__DEV_IS_PAUSED__ = !window.__DEV_IS_PAUSED__;
     pauseBtn.innerText = window.__DEV_IS_PAUSED__ ? "RESUME" : "PAUSE";
-    pauseBtn.style.background = window.__DEV_IS_PAUSED__ ? "#00ff88" : "#444";
-    pauseBtn.style.color = window.__DEV_IS_PAUSED__ ? "#000" : "#fff";
     if (!window.__DEV_IS_PAUSED__) addLog("SYSTEM", "Logs resumed.");
   };
 
@@ -165,54 +282,63 @@ function createUI() {
     updateOverlay();
   };
 
-  closeBtn.onclick = () => overlay.style.display = "none";
+  closeBtn.onclick = () => (overlay.style.display = "none");
 }
 
 /* =========================================================
-   INITIALIZATION
+   INIT
 ========================================================= */
 
 export function initDevConsole() {
   if (typeof window === "undefined" || window.__DEV_CONSOLE_READY__) return;
+
   window.__DEV_CONSOLE_READY__ = true;
   window.__DEV_IS_PAUSED__ = false;
 
-  const start = async () => {
+  const start = () => {
     window.__DEV_LOGS__ = loadLogs();
-    createUI();
+
+    createUI(addLog);
+    hookFetch(addLog);
 
     if (window.__DEV_LOGS__.length > 0) {
-      addLog("RECOVERY", "--- CRASH DATA RECOVERED ---");
+      addLog("RECOVERY", "Crash logs restored");
     }
 
-    /* MEMORY TRACKER */
-    setInterval(() => {
-      const perf = (performance as any).memory;
-      if (perf && !window.__DEV_IS_PAUSED__) {
-        const used = Math.round(perf.usedJSHeapSize / 1048576);
-        const limit = Math.round(perf.jsHeapSizeLimit / 1048576);
-        addLog("MEM", `${used}MB / ${limit}MB`);
-      }
-    }, 3000);
-
-    /* HOOKS */
-    const hook = (type: string, original: any) => (...args: any[]) => {
-      addLog(type, ...args);
-      original(...args);
-    };
-
-    console.error = hook("ERROR", console.error);
-    console.warn = hook("WARN", console.warn);
+    console.error = (...args) => addLog("ERROR", ...args);
+    console.warn = (...args) => addLog("WARN", ...args);
 
     window.addEventListener("error", (e) => {
-      addLog("FATAL", { msg: e.message, stack: e.error?.stack });
+      const errorObj = e.error || new Error(e.message);
+      const cacheInfo = extractCacheError(errorObj);
+      const origin = detectOrigin(errorObj);
+
+      addLog("FATAL", {
+        message: e.message,
+        stack: e.error?.stack,
+        file: e.filename,
+        line: e.lineno,
+        col: e.colno,
+        origin,
+        cacheInfo,
+      });
     });
 
     window.addEventListener("unhandledrejection", (e) => {
       addLog("PROMISE", e.reason);
     });
+
+    setInterval(() => {
+      const perf = (performance as any).memory;
+      if (!perf || window.__DEV_IS_PAUSED__) return;
+
+      addLog(
+        "MEM",
+        `${Math.round(perf.usedJSHeapSize / 1048576)}MB`
+      );
+    }, 3000);
   };
 
   if (document.body) start();
   else window.addEventListener("load", start);
-    }
+      }
