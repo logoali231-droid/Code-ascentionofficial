@@ -24,7 +24,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => 
+    caches.keys().then((keys) =>
       Promise.all(keys.map(async (key) => {
         if (key !== CACHE_NAME) return caches.delete(key);
         // Limpeza agressiva de lixo binário em caches antigos/atuais
@@ -43,16 +43,14 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  const isAI =
+  // Se for IA, saia imediatamente e deixe o navegador (e o WebLLM) cuidar disso
+  if (
     url.hostname.includes("huggingface.co") ||
-    url.hostname.includes("mlc-ai") ||
+    url.hostname.includes("raw.githubusercontent.com") ||
     url.pathname.includes(".bin") ||
-    url.pathname.includes(".wasm") ||
-    url.pathname.includes(".gguf") ||
-    url.pathname.includes("model");
-
-  if (isAI) {
-    return; // deixa browser lidar direto
+    url.pathname.includes(".wasm")
+  ) {
+    return; // O navegador assume o controle direto
   }
 
   if (event.request.method !== "GET") return;

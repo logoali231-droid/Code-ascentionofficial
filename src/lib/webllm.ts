@@ -2,7 +2,7 @@
 
 import { CreateWebWorkerMLCEngine, MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
-import { detectSystemCapabilities } from "./modelManager";
+import { AVAILABLE_MODELS, detectSystemCapabilities } from "./modelManager";
 
 let worker: Worker | null = null;
 let engine: MLCEngineInterface | null = null;
@@ -12,69 +12,49 @@ let generationLock = false;
 
 /**
  * Inicializa a engine do WebLLM com suporte a Worker e Cache via IndexedDB.
- * Configurado para evitar o erro de leitura 'find' em listas indefinidas.
  */
 export async function initEngine(modelId?: string, onProgress?: (report: any) => void) {
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
     try {
-      // 1. Detecta capacidades de hardware antes de iniciar
       await detectSystemCapabilities();
-      
-      // 2. Define o modelo. Se nenhum for passado, usa o Phi-3.5 como padrão.
-      const selectedModelId = modelId || "Phi-3.5-mini-instruct-q4f16_1-MLC";
 
-      // 3. Singleton: Se a engine já está rodando o modelo correto, não reinicia
+      const selectedModelId = modelId || "Phi-3.5-mini-instruct-q4f16_1-MLC";
+      const modelConfig = AVAILABLE_MODELS.find(m => m.model_id === selectedModelId);
+
+      if (!modelConfig) throw new Error("Modelo não encontrado na base de dados.");
       if (engine && currentModel === selectedModelId) return engine;
 
-      // 4. Limpeza de processos: Mata worker antigo se houver troca de modelo
+      // CORREÇÃO: Usar a variável 'worker' (minúsculo), não o construtor 'Worker'
       if (worker) {
         worker.terminate();
         worker = null;
       }
 
-      // 5. Instanciação do Worker usando o arquivo dedicado
       worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), {
         type: "module",
       });
 
-      // 6. Monitoramento do Worker para Debug no Terminal
-      worker.onmessage = (msg) => {
-        if (msg.data.type === "worker_error") {
-          console.error("[WORKER ERROR]", msg.data.error);
-        }
-        if (msg.data.type === "heartbeat_ack") {
-          console.log("[WORKER HEARTBEAT]", msg.data.timestamp);
-        }
-      };
-
-      /**
-       * 7. Inicialização da Engine
-       * Forçamos a 'model_list' dentro do appConfig para que o método interno
-       * '.find()' da biblioteca encontre o modelo que enviamos no segundo parâmetro.
-       */
-      engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {  
-        initProgressCallback: onProgress,  
-        logLevel: "INFO",
-        appConfig: {  
-          useIndexedDBCache: true, 
+      engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
+        initProgressCallback: onProgress,
+        appConfig: {
+          useIndexedDBCache: true,
           model_list: [
             {
-              model: `https://huggingface.co/mlc-ai/${selectedModelId}-main`,
+              model: modelConfig.model,
               model_id: selectedModelId,
-              model_lib: `https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/${selectedModelId}-ctx4k-webgpu.wasm`,
+              model_lib: modelConfig.model_lib,
             },
           ],
-        } as any, 
+        } as any,
       });
 
       currentModel = selectedModelId;
       return engine;
     } catch (err) {
-      // Em caso de falha, limpa a promise para permitir nova tentativa
       loadingPromise = null;
-      console.error("[WebLLM] Falha na inicialização:", err);
+      console.error("[WebLLM] Erro na Matrix:", err);
       throw err;
     }
   })();
@@ -82,9 +62,27 @@ export async function initEngine(modelId?: string, onProgress?: (report: any) =>
   return loadingPromise;
 }
 
-/**
- * Gera texto via streaming. Bloqueia múltiplas gerações simultâneas.
- */
+export async function unloadEngine() {
+  try {
+    if (engine) {
+      await engine.unload();
+      console.log("[WebLLM] Engine descarregada.");
+    }
+  } catch (err) {
+    console.error("[WebLLM] Erro ao descarregar engine:", err);
+  } finally {
+    if (worker) {
+      worker.terminate();
+      worker = null;
+    }
+    engine = null;
+    loadingPromise = null;
+    currentModel = null;
+    generationLock = false;
+    console.log("[WebLLM] Memória do Worker totalmente liberada.");
+  }
+}
+
 export async function* generate(prompt: string, temperature = 0.7) {
   if (generationLock) return;
   generationLock = true;
@@ -109,30 +107,5 @@ export async function* generate(prompt: string, temperature = 0.7) {
     throw err;
   } finally {
     generationLock = false;
-  }
-}
-
-/**
- * Descarrega a engine e limpa o Worker. 
- * Crucial para dispositivos Android com RAM limitada para evitar crash do Chrome.
- */
-export async function unloadEngine() {
-  try {
-    if (engine) {
-      await engine.unload();
-      console.log("[WebLLM] Engine descarregada.");
-    }
-  } catch (err) {
-    console.error("[WebLLM] Erro ao descarregar engine:", err);
-  } finally {
-    if (worker) {
-      worker.terminate();
-      worker = null;
-    }
-    engine = null;
-    loadingPromise = null;
-    currentModel = null;
-    generationLock = false;
-    console.log("[WebLLM] Memória do Worker totalmente liberada.");
   }
 }
