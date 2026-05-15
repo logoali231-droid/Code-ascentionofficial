@@ -3,7 +3,7 @@
 import { generate } from "./webllm";
 import { getUserProfile, getMemory } from "./userMemory";
 import { buildPromptFragments, compressContext } from "./promptFragments";
-import { enqueueGeneration } from "./generationQueue";
+import { runtimeQueue } from "./generationQueue";
 import { safeParse } from "./safeParse";
 import { validateExplanation } from "./explanationValidator";
 import { getMemorySummary } from "./contextMemory";
@@ -96,9 +96,9 @@ CRITICAL EXECUTION RULES
 `;
 
   try {
-    const res = await enqueueGeneration(async () => {
-      return generate(prompt);
-    });
+    const res = await runtimeQueue.enqueue(async () => {
+  return generate(prompt);
+}, 1);
 
     let fullResponse = "";
     if (res) {
@@ -192,9 +192,9 @@ CRITICAL OUTPUT RULES
 `;
 
   try {
-    const res = await enqueueGeneration(async () => {
-      return generate(prompt);
-    });
+    const res = await runtimeQueue.enqueue(async () => {
+  return generate(prompt);
+}, 1);
 
     let fullResponse = "";
     if (res) {

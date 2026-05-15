@@ -49,6 +49,17 @@ export interface Explanation {
 }
 
 // 1. Definição da Classe do Banco
+// Adicione essa interface junto com as outras
+export interface TelemetryMetric {
+  id?: number;
+  type: "execution_time" | "memory_leak" | "engine_fault" | "bundle_time";
+  engine: string;
+  language: string;
+  duration: number;
+  success: boolean;
+  timestamp: number;
+}
+
 class CodeAscensionDB extends Dexie {
   user!: Table<User>;
   courses!: Table<Course>;
@@ -56,16 +67,16 @@ class CodeAscensionDB extends Dexie {
   explanations!: Table<Explanation>;
   shop!: Table<any>;
   daily!: Table<any>;
-
   memory!: Table<any>;
   curriculum!: Table<any>;
+  // 1. Declarar a nova tabela
+  telemetry!: Table<TelemetryMetric>;
 
   constructor() {
     super("codeascent_db");
 
-    // Define o esquema. 
-    // Adicionado courseId como índice em errors para suportar getErrorLogs
-    this.version(2).stores({
+    // 2. Registrar a tabela na versão atual (Subindo para a versão 3 se necessário)
+    this.version(3).stores({
       user: 'id',
       courses: 'id',
       errors: '++id, timestamp, courseId',
@@ -73,12 +84,29 @@ class CodeAscensionDB extends Dexie {
       shop: 'id',
       daily: 'id',
       memory: 'id, timestamp',
-      curriculum: 'courseId, updatedAt'
+      curriculum: 'courseId, updatedAt',
+      telemetry: '++id, timestamp, type' // Índice por tipo e timestamp para futuras análises
     });
   }
 }
 
 export const db = new CodeAscensionDB();
+
+// 3. Função de escrita em lote de alta performance
+export async function saveTelemetryBatch(metrics: TelemetryMetric[]): Promise<boolean> {
+  if (metrics.length === 0) return true;
+  try {
+    // bulkAdd ignora travas de registros individuais, ideal para telemetria em lote
+    await db.telemetry.bulkAdd(metrics);
+    return true;
+  } catch (e) {
+    console.error("[Telemetry DB] Falha ao persistir lote de telemetria:", e);
+    return false;
+  }
+}
+
+// ... Resto do seu arquivo db.ts permanece idêntico
+
 
 /**
  * CONSTANTES DE MANUTENÇÃO REFINADAS
@@ -203,7 +231,7 @@ export async function save(storeName: string, value: any, key: string = "main") 
 
     await table.put(dataToSave);
 
-    if (Math.random() < 0.1) cleanupOldData();
+    // ❌ REMOVIDO: if (Math.random() < 0.1) cleanupOldData();
 
     return true;
   } catch (e) {

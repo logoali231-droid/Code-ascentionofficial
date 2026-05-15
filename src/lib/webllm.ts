@@ -177,56 +177,65 @@ export async function localUnloadEngine() {
   }
 }
 
+// ... (mantenha os imports e a função initEngine intactos)
+
 export async function* generate(
   prompt: string,
   temperature = 0.7,
-  onProgress?: (report: any) => void
+  onProgress?: (report: any) => void,
+  signal?: AbortSignal // <-- Injeção do parâmetro de controle ativo
 ) {
-  if (generationLock)
-    return;
+  if (generationLock) return;
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   generationLock = true;
 
-  try {
-    const currentEngine =
-      await initEngine(undefined, onProgress);
+  // Escutador local para interromper imediatamente o loop do generator caso abortado externo
+  const abortHandler = () => {
+    generationLock = false;
+  };
+  signal?.addEventListener("abort", abortHandler);
 
-    const stream =
-      await currentEngine.chat.completions.create(
+try {
+    const currentEngine = await initEngine(undefined, onProgress);
+
+    // Coerção cirúrgica com 'as any' para burlar a omissão do 'signal' no tipo estrito do MLC-AI
+    const stream = await currentEngine.chat.completions.create({
+      messages: [
         {
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-
-          temperature,
-          stream: true,
-        }
-      );
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature,
+      stream: true,
+      signal: signal, 
+    } as any);
 
     for await (const chunk of stream as any) {
-      const content =
-        chunk.choices?.[0]
-          ?.delta?.content || "";
+      // Verificação de segurança em tempo real a cada token/pedaço processado da Stream
+      if (signal?.aborted) {
+        throw new DOMException("Generation aborted by system runtime request.", "AbortError");
+      }
 
-      if (content)
-        yield content;
+      const content = chunk.choices?.[0]?.delta?.content || "";
+      if (content) yield content;
     }
-  } catch (err) {
-    console.error(
-      "[GENERATE ERROR]",
-      err
-    );
-
-    playSound("error", 0.4);
-
-    throw err;
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.log("[WebLLM] Geração cancelada ativamente via AbortController.");
+    } else {
+      console.error("[GENERATE ERROR]", err);
+      playSound("error", 0.4);
+      throw err;
+    }
   } finally {
+    signal?.removeEventListener("abort", abortHandler);
     generationLock = false;
   }
 }
+
+// ... (Mantenha o restante do event listener de visibilidade mobile abaixo)
 
 if (typeof window !== "undefined") {
   document.addEventListener(

@@ -5,11 +5,28 @@ let handler: WebWorkerMLCEngineHandler | null = null;
 try {
   handler = new WebWorkerMLCEngineHandler();
 
-  self.onmessage = (msg: MessageEvent) => {
-    // Intercetar comando de descarga para limpar VRAM agressivamente
-    if (msg.data.type === "unload") {
-       console.log("[Worker] A limpar recursos de GPU...");
-       // Força a limpeza se o handler permitir ou mata a instância
+  self.onmessage = async (msg: MessageEvent) => {
+    const { type } = msg.data;
+
+    // INTERCEPÇÃO DE ABORTO / DESCARGA: Limpeza agressiva de VRAM
+    if (type === "unload" || type === "ABORT") {
+      console.log("[WebLLM Worker] Interrupção ativa detectada. Liberando buffers de GPU...");
+      try {
+        if (handler) {
+          // Solicita o descarregamento interno do modelo no MLC-AI se houver motor ativo
+          await handler.onmessage({ data: { type: "unload" } } as MessageEvent);
+        }
+      } catch (cleanErr) {
+        console.error("[WebLLM Worker] Erro ao descarregar motor de inferência:", cleanErr);
+      } finally {
+        handler = null;
+        // Força a reinicialização limpa do Handler no próximo ciclo se necessário
+        handler = new WebWorkerMLCEngineHandler();
+      }
+      
+      // Notifica o sistema de que o cancelamento foi concluído na thread
+      self.postMessage({ type: "ABORTED_SUCCESS" });
+      return;
     }
 
     try {

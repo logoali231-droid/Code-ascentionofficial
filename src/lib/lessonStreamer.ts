@@ -17,7 +17,7 @@ import { buildMemoryContext } from "./vectorMemory";
 
 import { getUserProfile } from "./userMemory";
 
-import { enqueueGeneration } from "./generationQueue";
+import { runtimeQueue } from "./generationQueue";
 
 import {
   buildDynamicConstraint,
@@ -173,9 +173,12 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno (que pode ser string, stream ou undefined)
-const rawRes = await enqueueGeneration(async () => {
-  return generate(prompt);
-});
+const rawRes = await runtimeQueue.enqueue(
+  async (_signal) => {
+    return generate(prompt);
+  },
+  1 // prioridade
+);
 // 2. Coletor Neural: Converte para string
 let raw = "";
 if (rawRes) {
@@ -306,9 +309,12 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno bruto (pode ser Stream)
-    const rawRes = await enqueueGeneration(async () => {
-  return generate(prompt);
-});
+   const rawRes = await runtimeQueue.enqueue(
+  async (_signal) => {
+    return generate(prompt);
+  },
+  1 // prioridade
+);
 
     // 2. Coletor Neural: Converte Stream em String
     let raw = "";

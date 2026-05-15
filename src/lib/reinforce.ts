@@ -14,7 +14,7 @@ import {
   buildPromptFragments,
   compressContext,
 } from "./promptFragments";
-import { enqueueGeneration } from "./generationQueue";
+import { runtimeQueue } from "./generationQueue";
 
 /* =========================================
    GENERATE REINFORCEMENT

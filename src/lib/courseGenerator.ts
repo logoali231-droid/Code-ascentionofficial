@@ -7,7 +7,7 @@ import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
-import { enqueueGeneration } from "./generationQueue";
+import { runtimeQueue } from "./generationQueue";
 import { validateCourse } from "./courseValidator"; 
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 
@@ -120,9 +120,12 @@ Return ONLY valid JSON.
 
   try {
     // 1. Correct variable name 'prompt' used here
-    const rawRes = await enqueueGeneration(async () => {
-      return generate(prompt); 
-    });
+    const rawRes = await runtimeQueue.enqueue(
+  async (_signal) => {
+    return generate(prompt);
+  },
+  1 // prioridade
+);
 
     let fullResponse = "";
     
