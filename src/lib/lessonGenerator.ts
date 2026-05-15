@@ -7,10 +7,9 @@ import {
   getReviewConcepts,
 } from "./knowledgeGraph";
 
-import {
-  buildPromptFragments,
-  compressContext,
-} from "./promptFragments";
+import { buildPromptFragments } from "./promptFragments";
+
+import { compressContext } from "./contextMemory";
 
 import { getUserProfile } from "./userMemory";
 
@@ -99,11 +98,7 @@ export async function generateLessonPlan(
      HISTORY
   ===================================================== */
 
-  const compressedHistory =
-    compressContext(
-      JSON.stringify(history),
-      1200
-    );
+  const compressedHistory = compressContext(history, 1536);
 
   /* =====================================================
      MEMORY CONTEXT

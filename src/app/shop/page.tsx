@@ -38,7 +38,7 @@ export default function ShopPage() {
       effectValue: 500,
       quantity: 1,
       acquiredAt: 0,
-      requiredLevel: 1 // <--- ADICIONE ESTA LINHA
+      requiredLevel: 1 
     },
     {
       id: "logic_chip_v1",
@@ -51,7 +51,7 @@ export default function ShopPage() {
       effectValue: 1.2,
       quantity: 1,
       acquiredAt: 0,
-      requiredLevel: 5 // <--- ADICIONE ESTA LINHA
+      requiredLevel: 5 
     }
   ]);
 
@@ -146,7 +146,7 @@ export default function ShopPage() {
 
       {/* CUSTOM FORGE SECTION */}
       <div className="mb-10 relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20"></div>
+        <div className="absolute -inset-1 bg-linear-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20"></div>
         <div className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-2 text-purple-400 mb-4">
             {isForging ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}

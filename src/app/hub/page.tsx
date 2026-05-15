@@ -1,4 +1,9 @@
 "use client";
+
+
+import { unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
+import { useEffect } from "react"; // <-- Garanta que useEffect está importado aqui
+
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, save } from "@/lib/db";
@@ -11,10 +16,15 @@ export default function Hub() {
   const router = useRouter();
   const [showAscensionModal, setShowAscensionModal] = useState(false);
 
+  // Força uma limpeza limpa ao carregar o Hub, liberando 100% da RAM para o celular do usuário
+  useEffect(() => {
+    unloadEngine().catch((err) => console.error("[HUB PURGE ERROR]", err));
+  }, []);
+
   // Reatividade em tempo real com o IndexedDB
   const user = useLiveQuery(() => db.table("user").get("main"));
   const courses = useLiveQuery(() => db.table("courses").toArray()) || [];
-  
+
   const userLevel = user ? calculateLevel(user.xp || 0) : 0;
 
   if (user && !user.engineReady) { router.push("/machineLock"); return null; }
@@ -35,7 +45,7 @@ export default function Hub() {
   return (
     <div className="p-4 pb-24 text-white min-h-screen bg-black font-sans">
       {userLevel >= 25 && (
-        <div className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.1)]">
+        <div className="mb-8 p-6 rounded-3xl bg-linear-to-br from-indigo-900/40 to-black border border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.1)]">
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-indigo-500/20 rounded-2xl text-indigo-400"><Cpu size={32} className="animate-pulse" /></div>
             <div>
@@ -51,7 +61,7 @@ export default function Hub() {
       )}
 
       {showAscensionModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-100 flex items-center justify-center p-6">
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full">
             <h2 className="text-2xl font-bold text-red-500 mb-4 uppercase tracking-tighter">Aviso de Desintegração</h2>
             <p className="text-slate-300 mb-6 text-sm">A Ascensão resetará seu XP atual para Level 1 em troca de Shards Permanentes.</p>

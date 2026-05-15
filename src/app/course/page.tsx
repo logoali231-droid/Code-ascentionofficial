@@ -1,5 +1,8 @@
 "use client";
 
+
+import { unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
+
 import { useEffect, useState } from "react";
 
 import {
@@ -108,6 +111,13 @@ export default function CoursePage() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  // Libera a memória RAM/GPU do WebLLM assim que o componente é desmontado (mudança de rota/página)
+  useEffect(() => {
+    return () => {
+      unloadEngine().catch((err) => console.error("[COURSE UNLOAD ERROR]", err));
+    };
   }, []);
 
   /* =====================================================

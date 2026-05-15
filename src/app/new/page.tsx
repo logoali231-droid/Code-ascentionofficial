@@ -20,6 +20,8 @@ import {
   ChevronLeft,
   Loader2
 } from "lucide-react";
+import { calculateLevel } from "@/lib/level";
+
 
 export default function NewCoursePage() {
   const router = useRouter();
@@ -57,14 +59,21 @@ export default function NewCoursePage() {
     setProgress(10);
     playSound("click", 0.3);
 
+    // ... (mantenha as verificações iniciais de anti-spam e estados)
+
     try {
       const difficulty = await suggestDifficulty(topic, cognitiveProfile);
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
 
+      // CORREÇÃO: Calcula o nível real a partir do XP usando o motor de progressão do sistema
+      const realLevel = calculateLevel(user?.xp || 0);
+
       const courseId = `course_${Date.now()}`;
-      const userProfile = cognitiveProfile; 
-      const learningStateString = `Level: ${user?.xp || 0}, Cognitive: ${userProfile}`;
+      const userProfile = cognitiveProfile;
+
+      // CORREÇÃO: Passa o nível real calculado na string de estado cognitivo enviada para o prompt do construtor
+      const learningStateString = `Level: ${realLevel}, Cognitive: ${userProfile}`;
 
       const fullPrompt = await buildCoursePrompt(
         topic,
@@ -90,7 +99,6 @@ export default function NewCoursePage() {
       setStatus("STABILIZING_ENCRYPTION...");
 
       const courseData = JSON.parse(cleanContent);
-
       const newCourse = {
         id: courseId,
         topic,
@@ -111,13 +119,14 @@ export default function NewCoursePage() {
         router.push(`/course/${courseId}`);
       }, 800);
 
-    } catch (err) {
+    } catch (err) { 
       console.error("Forge Error:", err);
       setStatus("LINK_CRITICAL_FAILURE");
       playSound("error", 0.5);
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">

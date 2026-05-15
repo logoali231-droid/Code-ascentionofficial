@@ -1,5 +1,8 @@
 "use client";
 
+
+import { unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
+
 import { useEffect, useState } from "react";
 import { getAll, get } from "@/lib/db";
 import { explainError } from "@/lib/explanationAI";
@@ -12,8 +15,15 @@ export default function ErrorsPage() {
   const [explanation, setExplanation] = useState("");
   const [exercise, setExercise] = useState<any>(null);
 
-  useEffect(() => {
+ useEffect(() => {
     load();
+  }, []);
+
+  // Limpa o Web Worker do WebLLM se o usuário sair da página de Erros no meio de uma geração
+  useEffect(() => {
+    return () => {
+      unloadEngine().catch((err) => console.error("[ERRORS UNLOAD ERROR]", err));
+    };
   }, []);
 
   async function load() {
