@@ -10,7 +10,8 @@ import {
   ShieldAlert, Cpu, Lock, Unlock, ChevronRight, Zap, AlertCircle, Database
 } from "lucide-react";
 
-import { detectSystemCapabilities, AVAILABLE_MODELS } from "@/lib/modelManager";
+import { detectSystemCapabilities } from "@/lib/modelManager";
+import { SYSTEM_CONFIG, Model } from "@/config/system";
 import { initEngine } from "@/lib/webllm";
 
 export default function MachineLockPage() {
@@ -34,9 +35,9 @@ export default function MachineLockPage() {
         }
       } catch (err) {
         console.error("Falha ao detectar hardware:", err);
-        // Fallback usando .model_id
-        if (AVAILABLE_MODELS.length > 0) {
-          setSelectedModel(AVAILABLE_MODELS[0].model_id);
+        // Fallback usando a lista centralizada real do SYSTEM_CONFIG
+        if (SYSTEM_CONFIG.AVAILABLE_MODELS.length > 0) {
+          setSelectedModel((SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model).model_id);
         }
       }
     }
@@ -95,7 +96,7 @@ export default function MachineLockPage() {
                 <span className="text-xs font-bold uppercase tracking-widest">Neural_Core</span>
               </div>
               <div className="space-y-2">
-                {AVAILABLE_MODELS.map((m) => (
+                {SYSTEM_CONFIG.AVAILABLE_MODELS.map((m: Model) => (
                   <button
                     key={m.model_id}
                     onClick={() => setSelectedModel(m.model_id)}

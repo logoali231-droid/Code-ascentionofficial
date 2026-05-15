@@ -1,7 +1,7 @@
 "use client";
 
 
-import { unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
+import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
 
 import { useEffect, useState } from "react";
 import { getAll, get } from "@/lib/db";

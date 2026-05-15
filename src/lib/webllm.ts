@@ -1,3 +1,4 @@
+// webLLM.ts
 "use client";
 
 import {
@@ -8,27 +9,18 @@ import {
 import { playSound } from "./sounds";
 
 import {
-  AVAILABLE_MODELS,
+  unloadEngine,
   detectSystemCapabilities,
 } from "./modelManager";
-import { on } from "events";
+
+import { SYSTEM_CONFIG, Model } from "@/config/system";
 
 let worker: Worker | null = null;
-
 let engine: MLCEngineInterface | null = null;
-
-let loadingPromise:
-  | Promise<MLCEngineInterface>
-  | null = null;
-
-let currentModel:
-  | string
-  | null = null;
-
+let loadingPromise: Promise<MLCEngineInterface> | null = null;
+let currentModel: string | null = null;
 let generationLock = false;
-
-let backgroundSince:
-  number | null = null;
+let backgroundSince: number | null = null;
 
 export async function initEngine(
   modelId?: string,
@@ -46,8 +38,9 @@ export async function initEngine(
           modelId ||
           "Phi-3-mini-4k-instruct-q4f16_1-MLC";
 
+        // CORREÇÃO: Busca os modelos declarados dentro do objeto imutável de sistema
         const modelConfig =
-          AVAILABLE_MODELS.find(
+          SYSTEM_CONFIG.AVAILABLE_MODELS.find(
             (m) =>
               m.model_id ===
               selectedModelId
@@ -70,8 +63,6 @@ export async function initEngine(
         /*
           CLEANUP
         */
-
-
 
         /*
           NEW WORKER
@@ -103,30 +94,20 @@ export async function initEngine(
           ENGINE
         */
 
-
         engine = await CreateWebWorkerMLCEngine(
           worker,
           selectedModelId,
           {
             initProgressCallback: onProgress,
             logLevel: "INFO",
-            // Em 2026, usamos chatOpts para definir os limites de memória da GPU
+            // Ajustado para ler as constantes imutáveis do sistema centralizado
             chatOpts: {
-              // O segredo para o M23: Reduzir drasticamente o contexto
-              // O padrão costuma ser 4096, o que é pesado demais para 6GB RAM
-              context_window_size: 1536,
-              // Limita a cache de KV (Key-Value) diretamente
-              sliding_window_size: 1024,
-              // Se o modelo suportar, força o uso de baixa memória
-              attention_sink_size: 4,
+              context_window_size: SYSTEM_CONFIG.LLM.context_window_size,
+              sliding_window_size: SYSTEM_CONFIG.LLM.sliding_window_size,
+              attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
             },
           } as any
         );
-
-
-
-
-
 
         const gpuDevice =
           (engine as any)?.engine?.device ||
@@ -169,7 +150,7 @@ export async function initEngine(
   return loadingPromise;
 }
 
-export async function unloadEngine() {
+export async function localUnloadEngine() {
   try {
     if (engine) {
       await engine.unload();
@@ -186,11 +167,8 @@ export async function unloadEngine() {
     }
 
     engine = null;
-
     loadingPromise = null;
-
     currentModel = null;
-
     generationLock = false;
 
     console.log(
@@ -203,7 +181,6 @@ export async function* generate(
   prompt: string,
   temperature = 0.7,
   onProgress?: (report: any) => void
-
 ) {
   if (generationLock)
     return;
@@ -225,7 +202,6 @@ export async function* generate(
           ],
 
           temperature,
-
           stream: true,
         }
       );
@@ -297,9 +273,10 @@ if (typeof window !== "undefined") {
           MOBILE SAFETY
         */
 
+        // Ajustado para ler o timeout dinâmico e seguro de background do config
         if (
           isMobile &&
-          timeAway > 120000
+          timeAway > SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS
         ) {
           console.warn(
             "[WebLLM] Long background detected. Resetting engine."

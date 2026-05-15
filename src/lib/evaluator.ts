@@ -10,6 +10,9 @@ import { playSound } from "./sounds";
 import { explainError } from "./explanationAI";
 import { computeLessonXp, calculateLevel } from "./level";
 
+// INCLUSÃO: Importação do barramento central e dos tipos de eventos
+import { eventBus, EventType } from "./eventBus";
+
 interface EvaluateExerciseParams {
   exercise: any;
   userAnswer: string;
@@ -52,6 +55,22 @@ export async function evaluateExercise({
   const expected = exercise?.answer || "";
   let iaFeedback = "";
 
+  // 0. INICIALIZAÇÃO DE RASTREABILIDADE
+  // Geramos o traceId na entrada para envelopar toda a jornada desta submissão
+  const traceId = eventBus.generateTraceId();
+  const sourceComponent = "evaluator.ts";
+
+  eventBus.emit({
+    type: EventType.EXERCISE_SUBMITTED,
+    source: sourceComponent,
+    traceId,
+    payload: {
+      exerciseId: exercise?.id,
+      question: exercise?.question,
+      language: course?.language || "unknown"
+    }
+  });
+
   // 1. VALIDAÇÃO LÓGICA
   let correct = await evaluateLogic(userAnswer, expected);
 
@@ -63,12 +82,29 @@ export async function evaluateExercise({
     const normalizedExpected = expected.trim().toLowerCase();
     if (normalizedInput === normalizedExpected) correct = true;
   }
+  
   if (!correct && userAnswer.trim().length > 0) {
     try {
+      // TELEMETRIA: Notifica que o Kernel local de IA foi acionado para o fallback
+      eventBus.emit({
+        type: EventType.AI_ANALYSIS_START,
+        source: sourceComponent,
+        traceId,
+        payload: { question: exercise?.question, inputLength: userAnswer.length }
+      });
+
       const aiAnalysis = await explainError({
         question: exercise.question,
         expected: expected,
         received: userAnswer
+      });
+
+      // TELEMETRIA: Resposta da IA capturada com sucesso
+      eventBus.emit({
+        type: EventType.AI_ANALYSIS_READY,
+        source: sourceComponent,
+        traceId,
+        payload: { isCorrectVariation: aiAnalysis.isCorrectVariation }
       });
 
       if (aiAnalysis.isCorrectVariation) {
@@ -79,6 +115,14 @@ export async function evaluateExercise({
       }
     } catch (e) {
       console.error("AI Fallback failed", e);
+      
+      // TELEMETRIA: Registra falha crítica na execução do modelo local
+      eventBus.emit({
+        type: EventType.AI_ERROR,
+        source: sourceComponent,
+        traceId,
+        payload: { error: e instanceof Error ? e.message : String(e) }
+      });
     }
   }
 
@@ -104,6 +148,15 @@ export async function evaluateExercise({
     await addXP(rewards.xp);
     await addCoins(rewards.coins);
     playSound("success", 0.4);
+
+    // TELEMETRIA: Dispara evento central de sucesso no exercício
+    eventBus.emit({
+      type: EventType.EXERCISE_PASSED,
+      source: sourceComponent,
+      traceId,
+      payload: { xpEarned: rewards.xp, coinsEarned: rewards.coins, conceptId: resolvedConceptId }
+    });
+
   } else {
     playSound("error", 0.35);
     await save("errors", {
@@ -114,6 +167,14 @@ export async function evaluateExercise({
       courseId: course?.id || "unknown",
       timestamp: Date.now(),
     }, crypto.randomUUID());
+
+    // TELEMETRIA: Dispara evento central de falha no exercício
+    eventBus.emit({
+      type: EventType.EXERCISE_FAILED,
+      source: sourceComponent,
+      traceId,
+      payload: { conceptId: resolvedConceptId, difficulty }
+    });
   }
 
   // ALTERADO: Sincroniza dinamicamente com o grafo curricular do usuário usando delta adaptativo
@@ -127,6 +188,7 @@ export async function evaluateExercise({
     await updateConceptMastery(course.id, resolvedConceptId, correct);
   }
 
+  // Retornamos o traceId no payload de saída para caso a UI queira linkar logs visuais
   return {
     correct,
     expected,
@@ -136,6 +198,7 @@ export async function evaluateExercise({
     masteryDelta: currentTopicMastery,
     conceptId: resolvedConceptId,
     difficulty,
+    traceId,
     feedback: correct
       ? (iaFeedback || "Concept assimilated.")
       : (iaFeedback || "Neural mismatch detected."),

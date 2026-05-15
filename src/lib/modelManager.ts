@@ -1,7 +1,9 @@
+// modelManager.ts
 "use client";
 
 import { ModelRecord } from "@mlc-ai/web-llm";
 import { save, get } from "./db";
+import { SYSTEM_CONFIG, Model } from "@/config/system";
 
 /* =========================================================
    BENCHMARK
@@ -10,8 +12,7 @@ import { save, get } from "./db";
 export async function runQuickBenchmark(engine: any): Promise<number> {
   const startTime = performance.now();
 
-  const testPrompt =
-    "Explique loop em 3 palavras.";
+  const testPrompt = "Explique loop em 3 palavras.";
 
   await engine.chat.completions.create({
     messages: [
@@ -24,15 +25,10 @@ export async function runQuickBenchmark(engine: any): Promise<number> {
   });
 
   const endTime = performance.now();
+  const durationSeconds = (endTime - startTime) / 1000;
+  const tokensPerSecond = 10 / durationSeconds;
 
-  const durationSeconds =
-    (endTime - startTime) / 1000;
-
-  const tokensPerSecond =
-    10 / durationSeconds;
-
-  const user =
-    await get("user", "main");
+  const user = await get("user", "main");
 
   await save("user", {
     ...user,
@@ -46,93 +42,44 @@ export async function runQuickBenchmark(engine: any): Promise<number> {
    TYPES
 ========================================================= */
 
-export interface Model
-  extends ModelRecord {
-  name: string;
-
-  sizeMb: number;
-
-  recommendedFor:
-    | "LOW"
-    | "MID"
-    | "HIGH";
-}
-
 export interface SystemSpecs {
-  modelTier:
-    | "LOW"
-    | "MID"
-    | "HIGH";
-
+  modelTier: "LOW" | "MID" | "HIGH";
   gpuLimit: number;
-
   recommended: Model;
-
   memory: number;
-
   webgpu: boolean;
-
   sharedArrayBuffer: boolean;
-
   ramGB: number;
-
   isMobile: boolean;
 }
-
-/* =========================================================
-   MODELS
-========================================================= */
-
-/* =========================================================
-   MODELS
-========================================================= */
-
-export const AVAILABLE_MODELS: Model[] = [
-  {
-    model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
-    model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
-    model_lib: "", // Adicionado para satisfazer a interface
-    name: "Qwen 2.5 0.5B (Safe Mode)",
-    sizeMb: 550,
-    recommendedFor: "LOW",
-  },
-  {
-    model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC",
-    model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
-    model_lib: "", // Adicionado para satisfazer a interface
-    name: "Phi 3 Mini (Safe Mode)",
-    sizeMb: 1900,
-    recommendedFor: "MID",
-  }, // Vírgula de separação adicionada aqui
-  {
-    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
-    model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-    model_lib: "",
-    name: "Phi 3.5 Mini",
-    sizeMb: 2200,
-    recommendedFor: "HIGH",
-  },
-];
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-function getModelByTier(
-  tier:
-    | "LOW"
-    | "MID"
-    | "HIGH"
-) {
+function getModelByTier(tier: "LOW" | "MID" | "HIGH"): Model {
   switch (tier) {
     case "HIGH":
-      return AVAILABLE_MODELS[2];
-
+      return SYSTEM_CONFIG.AVAILABLE_MODELS[2] as Model;
     case "MID":
-      return AVAILABLE_MODELS[1];
-
+      return SYSTEM_CONFIG.AVAILABLE_MODELS[1] as Model;
     default:
-      return AVAILABLE_MODELS[0];
+      return SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model;
+  }
+}
+
+/* =========================================================
+   ENGINE MANAGEMENT
+========================================================= */
+
+export async function unloadEngine(engine?: any): Promise<void> {
+  try {
+    if (engine && typeof engine.unload === "function") {
+      console.log("[Model Manager] Descarregando engine para liberar VRAM...");
+      await engine.unload();
+    }
+  } catch (err) {
+    console.error("[Model Manager] Erro ao descarregar a engine:", err);
   }
 }
 
@@ -140,144 +87,94 @@ function getModelByTier(
    CACHE SYSTEM DETECTION
 ========================================================= */
 
-let cachedSpecs:
-  | SystemSpecs
-  | null = null;
+let cachedSpecs: SystemSpecs | null = null;
 
 /* =========================================================
    SYSTEM DETECTION
 ========================================================= */
 
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
-  if (cachedSpecs)
-    return cachedSpecs;
+  if (cachedSpecs) return cachedSpecs;
 
-  const nav =
-    navigator as any;
-
-  const memory =
-    nav.deviceMemory || 4;
-
-  const cores =
-    navigator.hardwareConcurrency || 4;
-
-  const webgpu =
-    "gpu" in navigator;
-
-  const sharedArrayBuffer =
-    typeof SharedArrayBuffer !==
-    "undefined";
-
-  const isMobile =
-    /Mobi|Android/i.test(
-      navigator.userAgent
-    );
+  const nav = navigator as any;
+  const memory = nav.deviceMemory || 4;
+  const cores = navigator.hardwareConcurrency || 4;
+  const webgpu = "gpu" in navigator;
+  const sharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   let gpuLimit = 512;
-
-  let modelTier:
-    | "LOW"
-    | "MID"
-    | "HIGH" =
-    "LOW";
+  let modelTier: "LOW" | "MID" | "HIGH" = "LOW";
 
   try {
     if (!webgpu) {
       cachedSpecs = {
         modelTier: "LOW",
         gpuLimit,
-        recommended:
-          AVAILABLE_MODELS[0],
+        recommended: SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model,
         memory,
         webgpu,
         sharedArrayBuffer,
         ramGB: memory,
         isMobile,
       };
-
       return cachedSpecs;
     }
 
-    const adapter =
-      await nav.gpu.requestAdapter();
+    const adapter = await nav.gpu.requestAdapter();
 
     if (!adapter) {
       cachedSpecs = {
         modelTier: "LOW",
         gpuLimit,
-        recommended:
-          AVAILABLE_MODELS[0],
+        recommended: SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model,
         memory,
         webgpu,
         sharedArrayBuffer,
         ramGB: memory,
         isMobile,
       };
-
       return cachedSpecs;
     }
 
     gpuLimit = 2048;
 
-    if (
-      memory <= 3 ||
-      cores <= 4 ||
-      !sharedArrayBuffer
-    ) {
+    if (memory <= 3 || cores <= 4 || !sharedArrayBuffer) {
       modelTier = "LOW";
-    }
-
-    else if (
-      memory >= 4 &&
-      cores >= 6
-    ) {
+    } else if (memory >= 4 && cores >= 6) {
       modelTier = "MID";
     }
 
     if (memory >= 8 && cores >= 8) {
-  modelTier = "HIGH";
-  gpuLimit = 4096;
-}
+      modelTier = "HIGH";
+      gpuLimit = 4096;
+    }
 
-// CORREÇÃO CRÍTICA: Se for mobile, nunca use HIGH. 
-// O Shader do M23 não aguenta a complexidade do Phi 3.5
-if (isMobile) {
-  modelTier = memory > 4 ? "MID" : "LOW";
-  gpuLimit = 1024; // Reduz pressão na VRAM
-}
+    // CORREÇÃO CRÍTICA: Se for mobile, nunca use HIGH. 
+    // O Shader do M23 não aguenta a complexidade do Phi 3.5
+    if (isMobile) {
+      modelTier = memory > 4 ? "MID" : "LOW";
+      gpuLimit = 1024; // Reduz pressão na VRAM
+    }
 
-
-    if (
-      memory <= 4 &&
-      modelTier === "HIGH"
-    ) {
+    if (memory <= 4 && modelTier === "HIGH") {
       modelTier = "MID";
     }
+  } catch (err) {
+    console.error("[WebGPU Detection Error]", err);
   }
 
-  catch (err) {
-    console.error(
-      "[WebGPU Detection Error]",
-      err
-    );
-  }
+  const recommended = getModelByTier(modelTier);
 
-  const recommended =
-    getModelByTier(modelTier);
-
-  console.log(
-    "[System Detection]",
-    {
-      memory,
-      cores,
-      gpuLimit,
-      modelTier,
-      webgpu,
-      sharedArrayBuffer,
-      recommended:
-        recommended.name,
-    }
-  );
+  console.log("[System Detection]", {
+    memory,
+    cores,
+    gpuLimit,
+    modelTier,
+    webgpu,
+    sharedArrayBuffer,
+    recommended: recommended.name,
+  });
 
   cachedSpecs = {
     modelTier,

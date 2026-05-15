@@ -11,15 +11,15 @@ import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 const detector = new GibberishDetector();
 
 export function validateInput(userInput: string) {
-    // CORREÇÃO: Nome do método alterado para isTotalGibberish e adição do contexto 'lesson'
-    if (detector.isTotalGibberish(userInput, 'lesson')) {
-        return { 
-            isValid: false, 
-            error: "Input detectado como ruído neural. Digite um código válido." 
-        };
-    }
-    
-    return { isValid: true };
+  // CORREÇÃO: Nome do método alterado para isTotalGibberish e adição do contexto 'lesson'
+  if (detector.isTotalGibberish(userInput, 'lesson')) {
+    return {
+      isValid: false,
+      error: "Input detectado como ruído neural. Digite um código válido."
+    };
+  }
+
+  return { isValid: true };
 }
 
 export async function evaluateLogic(received: any, expected: any): Promise<boolean> {
@@ -36,7 +36,7 @@ export async function evaluateLogic(received: any, expected: any): Promise<boole
     }
 
     return compareAnswers(valExpected, valReceived);
-    
+
   } catch (error) {
     console.error("[Evaluator Logic] Failure in evaluation pipe:", error);
     return false;
@@ -77,7 +77,7 @@ export function compareCode(expected: string, received: string) {
 
   if (expectedTokens.length === 0) return false;
 
-  const overlap = expectedTokens.filter(t => 
+  const overlap = expectedTokens.filter(t =>
     receivedTokens.includes(t)
   ).length;
 
