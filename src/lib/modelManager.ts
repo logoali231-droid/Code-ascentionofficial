@@ -97,7 +97,7 @@ export const AVAILABLE_MODELS: Model[] = [
   name: "Phi 3 Mini (Safe Mode)",
   sizeMb: 1900,
   recommendedFor: "MID",
-}
+},
 
 
   {
