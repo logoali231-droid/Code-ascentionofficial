@@ -83,41 +83,34 @@ export interface SystemSpecs {
    MODELS
 ========================================================= */
 
+/* =========================================================
+   MODELS
+========================================================= */
+
 export const AVAILABLE_MODELS: Model[] = [
   {
-  model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC", // Alterado para f32
-  model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
-  name: "Qwen 2.5 0.5B (Safe Mode)",
-  sizeMb: 550,
-  recommendedFor: "LOW",
-},
-{
-  model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC", // Alterado para f32
-  model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
-  name: "Phi 3 Mini (Safe Mode)",
-  sizeMb: 1900,
-  recommendedFor: "MID",
-},
-
-
+    model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+    model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+    model_lib: "", // Adicionado para satisfazer a interface
+    name: "Qwen 2.5 0.5B (Safe Mode)",
+    sizeMb: 550,
+    recommendedFor: "LOW",
+  },
   {
-    model_id:
-      "Phi-3.5-mini-instruct-q4f16_1-MLC",
-
-    model:
-      "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-
-    model_lib:
-      "",
-
-    name:
-      "Phi 3.5 Mini",
-
-    sizeMb:
-      2200,
-
-    recommendedFor:
-      "HIGH",
+    model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC",
+    model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
+    model_lib: "", // Adicionado para satisfazer a interface
+    name: "Phi 3 Mini (Safe Mode)",
+    sizeMb: 1900,
+    recommendedFor: "MID",
+  }, // Vírgula de separação adicionada aqui
+  {
+    model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
+    model_lib: "",
+    name: "Phi 3.5 Mini",
+    sizeMb: 2200,
+    recommendedFor: "HIGH",
   },
 ];
 
