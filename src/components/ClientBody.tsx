@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { get } from "@/lib/db";
+import { get, performStorageCleanup } from "@/lib/db";
 import { useRouter, usePathname } from "next/navigation"; // Importe usePathname
 
 export default function ClientBody({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,15 @@ export default function ClientBody({ children }: { children: React.ReactNode }) 
           setProfile(user.profile); 
         }
       }
+
+      // 🎯 AUTO-CLEANUP DETERMINÍSTICO NO BOOT
+      // Executa em background logo após o carregamento inicial do usuário
+      performStorageCleanup().catch((err) =>
+        console.error("[Boot Cleanup] Erro na rotina de manutenção:", err)
+      );
     }
+    
+    
     
     load();
   }, [router, pathname]); // Adicione pathname aqui para re-verificar ao mudar de página
