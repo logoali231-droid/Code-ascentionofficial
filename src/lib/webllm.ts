@@ -104,14 +104,27 @@ export async function initEngine(
                 /*
           ENGINE
         */
-        engine = await CreateWebWorkerMLCEngine(
-          worker,
-          selectedModelId,
-          {
-            initProgressCallback: onProgress,
-            logLevel: "INFO",
-          }
-        );
+        // ... dentro da função initEngine ...
+
+engine = await CreateWebWorkerMLCEngine(
+  worker,
+  selectedModelId,
+  {
+    initProgressCallback: onProgress,
+    logLevel: "INFO",
+    // Em 2026, usamos chatOpts para definir os limites de memória da GPU
+    chatOpts: {
+      // O segredo para o M23: Reduzir drasticamente o contexto
+      // O padrão costuma ser 4096, o que é pesado demais para 6GB RAM
+      context_window_size: 1536, 
+      // Limita a cache de KV (Key-Value) diretamente
+      sliding_window_size: 1024,
+      // Se o modelo suportar, força o uso de baixa memória
+      attention_sink_size: 4,
+    },
+  }
+);
+
 
 
 
