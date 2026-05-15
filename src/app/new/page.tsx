@@ -8,7 +8,7 @@ import { buildCoursePrompt } from "@/lib/aiPrompt";
 import { suggestDifficulty } from "@/lib/learningState";
 import { playSound } from "@/lib/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
-import { CognitiveProfile } from "@/types/core"; // <- Adicione esta importação
+import { CognitiveProfile } from "@/types/core";
 
 import {
   Terminal,
@@ -206,51 +206,44 @@ export default function NewCoursePage() {
             </div>
           )}
         </form>
-{/* 1. Mudança na condição: O painel agora fica sempre visível para escolha, mas bloqueia ao carregar */}
-<div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
-  {/* 2. Cores ajustadas para a identidade visual correta do Code Ascension (#00f0ff) */}
-  <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
-    <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
-      <Zap size={16} fill="currentColor" />
-      <span className="text-[11px] font-black uppercase tracking-tighter">Cognitive_Shield</span>
-    </div>
-    <div className="relative">
-      <select
-        value={cognitiveProfile}
-        {/* 3. Adicionado o cast "as CognitiveProfile" para evitar quebras de build no TypeScript */}
-        onChange={(e) => setCognitiveProfile(e.target.value as CognitiveProfile)}
-        {/* 4. Focus ajustado para a cor neon secundária (#ff0055) */}
-        className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
-        disabled={loading}
-      >
-        <option value="Standard">Standard</option>
-        <option value="tdah">TDAH</option>
-        <option value="Deep_Dive">Deep_Dive</option>
-        <option value="Visual_Logic">Visual_Logic</option>
-      </select>
-    </div>
-  </div>
-</div>
 
-              <div className="h-1 w-12 bg-purple-500/30 my-2" />
-              <p className="text-[10px] text-slate-500 leading-normal uppercase">
-                Curriculum density automatically calibrated for your neural profile.
-              </p>
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
+            <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
+              <Zap size={16} fill="currentColor" />
+              <span className="text-[11px] font-black uppercase tracking-tighter">Cognitive_Shield</span>
             </div>
-
-            <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-cyan-400 mb-3">
-                <Cpu size={16} />
-                <span className="text-[11px] font-black uppercase tracking-tighter">Hardware_Status</span>
-              </div>
-              <p className="text-xl font-bold text-slate-200">Local_WebGPU</p>
-              <div className="h-1 w-12 bg-cyan-500/30 my-2" />
-              <p className="text-[10px] text-slate-500 leading-normal uppercase">
-                Zero data exfiltration. All processing happens in device sandbox.
-              </p>
+            <div className="relative">
+              <select
+                value={cognitiveProfile}
+                onChange={(e) => setCognitiveProfile(e.target.value as CognitiveProfile)}
+                className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
+                disabled={loading}
+              >
+                <option value="Standard">Standard</option>
+                <option value="tdah">TDAH</option>
+                <option value="Deep_Dive">Deep_Dive</option>
+                <option value="Visual_Logic">Visual_Logic</option>
+              </select>
             </div>
+            <div className="h-1 w-12 bg-purple-500/30 my-2" />
+            <p className="text-[10px] text-slate-500 leading-normal uppercase">
+              Curriculum density automatically calibrated for your neural profile.
+            </p>
           </div>
-        )}
+
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-cyan-400 mb-3">
+              <Cpu size={16} />
+              <span className="text-[11px] font-black uppercase tracking-tighter">Hardware_Status</span>
+            </div>
+            <p className="text-xl font-bold text-slate-200">Local_WebGPU</p>
+            <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+            <p className="text-[10px] text-slate-500 leading-normal uppercase">
+              Zero data exfiltration. All processing happens in device sandbox.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
