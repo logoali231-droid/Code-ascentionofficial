@@ -61,22 +61,23 @@ export default function NewCoursePage() {
       const difficulty = await suggestDifficulty(topic, user?.cognitive || "Standard");
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
-      const courseId = `course_${Date.now()}`;
-      const learningStateString = `Level: ${Math.max(1, Math.floor((user?.xp || 0) / 100))}, Cognitive: ${user?.cognitive || "Standard"}`;
+      // ... dentro da função handleForge ...
 
-      const promptConfig = {
-        topic,
-        level: Math.max(1, Math.floor((user?.xp || 0) / 100)),
-        difficulty,
-        cognitive: user?.cognitive || "Standard",
-        stylePrompt: user?.cognitive === "tdah" ? "Dopamine-driven, short bursts" : "Deep technical dive"
-      };
+const courseId = `course_${Date.now()}`;
 
-      const fullPrompt = await buildCoursePrompt(
-        topic,
-        learningStateString,
-        courseId
-      );
+// Extraímos o perfil cognitivo do usuário (ou usamos "Standard" como fallback)
+const userProfile = user?.cognitive || "Standard"; 
+
+const learningStateString = calculateLevel(user?.xp || 0), Cognitive: ${userProfile}`;
+
+// ADICIONE O userProfile COMO QUARTO ARGUMENTO AQUI:
+const fullPrompt = await buildCoursePrompt(
+  topic,
+  learningStateString,
+  courseId,
+  userProfile // <--- Faltava este cara!
+);
+
 
       setProgress(40);
       setStatus("FORGING_CURRICULUM_DATA...");
