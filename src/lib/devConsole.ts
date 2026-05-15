@@ -5,8 +5,10 @@ declare global {
     __DEV_LOGS__?: string[];
     __DEV_CONSOLE_READY__?: boolean;
     __DEV_IS_PAUSED__?: boolean;
+    __DEV_DISABLED__?: boolean; // Nova flag de controle global
   }
 }
+
 
 const MAX_LOGS = 300;
 const STORAGE_KEY = "code_ascention_debug_logs";
@@ -248,11 +250,17 @@ function createUI(addLog: any) {
   const pauseBtn = document.createElement("button");
   pauseBtn.innerText = "PAUSE";
 
-  const clearBtn = document.createElement("button");
+    const clearBtn = document.createElement("button");
   clearBtn.innerText = "CLEAR";
+
+  const killBtn = document.createElement("button");
+  killBtn.innerText = "OFF";
+  Object.assign(killBtn.style, { color: "#ff0055", marginLeft: "8px", fontWeight: "bold" });
 
   const closeBtn = document.createElement("button");
   closeBtn.innerText = "✕";
+
+  actions.append(pauseBtn, clearBtn, killBtn, closeBtn);
 
   actions.append(pauseBtn, clearBtn, closeBtn);
   toolbar.append(title, actions);
