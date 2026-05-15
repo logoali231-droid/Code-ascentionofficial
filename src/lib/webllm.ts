@@ -102,17 +102,20 @@ export async function initEngine(
           ENGINE
         */
 
-        engine =
-          await CreateWebWorkerMLCEngine(
-            worker,
-            selectedModelId,
-            {
-              initProgressCallback:
-                onProgress,
+        engine = await CreateWebWorkerMLCEngine(
+  worker,
+  selectedModelId,
+  {
+    initProgressCallback: onProgress,
+    logLevel: "INFO",
+    appConfig: {
+      // Força limites compatíveis com GPUs Mobile (Adreno/Mali)
+      requiredMaxBufferSize: 536870912, // 512MB max buffer
+      lowResources: true 
+    }
+  }
+);
 
-              logLevel: "INFO",
-            }
-          );
 
         const gpuDevice =
           (engine as any)?.engine?.device ||
