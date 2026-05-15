@@ -7,9 +7,6 @@ import { generate } from "@/lib/webllm";
 import { buildCoursePrompt } from "@/lib/aiPrompt";
 import { suggestDifficulty } from "@/lib/learningState";
 import { playSound } from "@/lib/sounds";
-
-// --- CORREÇÃO DA IMPORTAÇÃO ---
-// Importamos a constante exportada do seu novo arquivo
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 
 import {
@@ -31,11 +28,15 @@ export default function NewCoursePage() {
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const [user, setUser] = useState<any>(null);
+  const [cognitiveProfile, setCognitiveProfile] = useState<string>("Standard");
 
   useEffect(() => {
     async function loadUser() {
       const userData = await get("user", "main");
       setUser(userData);
+      if (userData?.cognitive) {
+        setCognitiveProfile(userData.cognitive);
+      }
     }
     loadUser();
   }, []);
@@ -44,8 +45,6 @@ export default function NewCoursePage() {
     e.preventDefault();
     if (!topic.trim() || loading) return;
 
-    // --- NOVA VALIDAÇÃO USANDO A CLASSE ---
-    // Passamos o 'topic' e o contexto 'promptTheme' exigido pelo seu método
     if (gibberishDetector.isTotalGibberish(topic, 'promptTheme')) {
       setStatus("INPUT_REJECTED: NEURAL_NOISE_DETECTED");
       playSound("error", 0.5);
@@ -58,39 +57,29 @@ export default function NewCoursePage() {
     playSound("click", 0.3);
 
     try {
-      const difficulty = await suggestDifficulty(topic, user?.cognitive || "Standard");
+      const difficulty = await suggestDifficulty(topic, cognitiveProfile);
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
-      // ... dentro da função handleForge ...
 
-const courseId = `course_${Date.now()}`;
+      const courseId = `course_${Date.now()}`;
+      const userProfile = cognitiveProfile; 
+      const learningStateString = `Level: ${user?.xp || 0}, Cognitive: ${userProfile}`;
 
-// Extraímos o perfil cognitivo do usuário (ou usamos "Standard" como fallback)
-const userProfile = user?.cognitive || "Standard"; 
-
-const learningStateString = calculateLevel(user?.xp || 0), Cognitive: ${userProfile}`;
-
-// ADICIONE O userProfile COMO QUARTO ARGUMENTO AQUI:
-const fullPrompt = await buildCoursePrompt(
-  topic,
-  learningStateString,
-  courseId,
-  userProfile // <--- Faltava este cara!
-);
-
+      const fullPrompt = await buildCoursePrompt(
+        topic,
+        learningStateString,
+        courseId,
+        userProfile
+      );
 
       setProgress(40);
       setStatus("FORGING_CURRICULUM_DATA...");
 
-      // 1. Chame o gerador (verifique se seu lib/webllm tem uma opção para não ser stream)
-      // 1. Executa o Generator Assíncrono da IA
       const generator = generate(fullPrompt);
       let cleanContent = "";
 
-      // 2. Consome o Stream em tempo real
       for await (const chunk of generator) {
         cleanContent += chunk;
-        // Efeito Cyberpunk: Atualiza o status mostrando os dados chegando em tempo real!
         setStatus(`DOWNLOADING_NEURAL_DATA... [${cleanContent.length} bytes]`);
       }
 
@@ -99,9 +88,7 @@ const fullPrompt = await buildCoursePrompt(
       setProgress(80);
       setStatus("STABILIZING_ENCRYPTION...");
 
-      // 3. Agora o parse funcionará com segurança
       const courseData = JSON.parse(cleanContent);
-
 
       const newCourse = {
         id: courseId,
@@ -219,15 +206,26 @@ const fullPrompt = await buildCoursePrompt(
           )}
         </form>
 
-        
         {!loading && (
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
+            <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-fuchsia-500 transition-colors duration-300">
               <div className="flex items-center gap-2 text-purple-400 mb-3">
                 <Zap size={16} fill="currentColor" />
                 <span className="text-[11px] font-black uppercase tracking-tighter">Cognitive_Shield</span>
               </div>
-              <p className="text-xl font-bold text-slate-200">{user?.cognitive || "Standard"}</p>
+              <div className="relative">
+                <select
+                  value={cognitiveProfile}
+                  onChange={(e) => setCognitiveProfile(e.target.value)}
+                  className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-fuchsia-500 cursor-pointer appearance-none tracking-tight uppercase"
+                  disabled={loading}
+                >
+                  <option value="Standard">Standard</option>
+                  <option value="tdah">TDAH</option>
+                  <option value="Deep_Dive">Deep_Dive</option>
+                  <option value="Visual_Logic">Visual_Logic</option>
+                </select>
+              </div>
               <div className="h-1 w-12 bg-purple-500/30 my-2" />
               <p className="text-[10px] text-slate-500 leading-normal uppercase">
                 Curriculum density automatically calibrated for your neural profile.
