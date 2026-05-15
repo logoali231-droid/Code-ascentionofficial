@@ -8,6 +8,7 @@ import { buildCoursePrompt } from "@/lib/aiPrompt";
 import { suggestDifficulty } from "@/lib/learningState";
 import { playSound } from "@/lib/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
+import { CognitiveProfile } from "@/types/core"; // <- Adicione esta importação
 
 import {
   Terminal,
@@ -28,7 +29,7 @@ export default function NewCoursePage() {
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const [user, setUser] = useState<any>(null);
-  const [cognitiveProfile, setCognitiveProfile] = useState<string>("Standard");
+  const [cognitiveProfile, setCognitiveProfile] = useState<CognitiveProfile>("Standard");
 
   useEffect(() => {
     async function loadUser() {
@@ -205,27 +206,32 @@ export default function NewCoursePage() {
             </div>
           )}
         </form>
+{/* 1. Mudança na condição: O painel agora fica sempre visível para escolha, mas bloqueia ao carregar */}
+<div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* 2. Cores ajustadas para a identidade visual correta do Code Ascension (#00f0ff) */}
+  <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
+    <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
+      <Zap size={16} fill="currentColor" />
+      <span className="text-[11px] font-black uppercase tracking-tighter">Cognitive_Shield</span>
+    </div>
+    <div className="relative">
+      <select
+        value={cognitiveProfile}
+        {/* 3. Adicionado o cast "as CognitiveProfile" para evitar quebras de build no TypeScript */}
+        onChange={(e) => setCognitiveProfile(e.target.value as CognitiveProfile)}
+        {/* 4. Focus ajustado para a cor neon secundária (#ff0055) */}
+        className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
+        disabled={loading}
+      >
+        <option value="Standard">Standard</option>
+        <option value="tdah">TDAH</option>
+        <option value="Deep_Dive">Deep_Dive</option>
+        <option value="Visual_Logic">Visual_Logic</option>
+      </select>
+    </div>
+  </div>
+</div>
 
-        {!loading && (
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-fuchsia-500 transition-colors duration-300">
-              <div className="flex items-center gap-2 text-purple-400 mb-3">
-                <Zap size={16} fill="currentColor" />
-                <span className="text-[11px] font-black uppercase tracking-tighter">Cognitive_Shield</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={cognitiveProfile}
-                  onChange={(e) => setCognitiveProfile(e.target.value)}
-                  className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-fuchsia-500 cursor-pointer appearance-none tracking-tight uppercase"
-                  disabled={loading}
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="tdah">TDAH</option>
-                  <option value="Deep_Dive">Deep_Dive</option>
-                  <option value="Visual_Logic">Visual_Logic</option>
-                </select>
-              </div>
               <div className="h-1 w-12 bg-purple-500/30 my-2" />
               <p className="text-[10px] text-slate-500 leading-normal uppercase">
                 Curriculum density automatically calibrated for your neural profile.
