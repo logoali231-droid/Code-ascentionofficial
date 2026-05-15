@@ -25,22 +25,30 @@ export function getCognitiveInstruction(profile: CognitiveProfile): string {
 
 
 
-export async function buildCoursePrompt(topic: string, learningState: string, courseId: string) {
-  // 1. Passamos o courseId necessário para a busca
+export async function buildCoursePrompt(topic: string, learningState: string, courseId: string, profile: CognitiveProfile) {
   const graph = await getKnowledgeGraph(courseId);
-  
+  const cognitiveStyle = getCognitiveInstruction(profile); // <-- Chama a função aqui
 
   const priorityTopics = graph?.nodes
-    .filter(node => (node.mastery || 0) < 0.4) 
+    .filter(node => (node.mastery || 0) < 0.4)
+    .slice(0, 5) // <-- Evita estourar o contexto
     .map(node => node.id)
     .join(", ");
 
   const reinforcementContext = priorityTopics 
-    ? `\n[SISTEMA_DE_REFORÇO]: O usuário apresenta lacunas de conhecimento nos seguintes conceitos: ${priorityTopics}. Integre revisões destes temas de forma orgânica.`
+    ? `\n[SISTEMA_DE_REFORÇO]: Foco nas lacunas: ${priorityTopics}.`
     : "";
 
-  return `Crie um curso sobre ${topic}. 
-          Estado atual do usuário: ${learningState}
-          ${reinforcementContext}
-          Diretriz: Não repita conceitos onde o domínio já é superior a 80%.`;
+  return `
+    ${cognitiveStyle} 
+    [PERSONA]: Você é o mentor do sistema Code Ascension. Use tom Cyberpunk.
+    [OBJETIVO]: Ministrar curso sobre ${topic}.
+    [ESTADO_ATUAL]: ${learningState}
+    ${reinforcementContext}
+    
+    DIRETRIZES:
+    - Retorne APENAS o conteúdo da lição em formato JSON ou Markdown estruturado.
+    - Mastery > 80% = Ignorar explicação detalhada.
+    - Se houver lacunas em ${priorityTopics}, use analogias rápidas para revisá-los.
+  `.trim();
 }
