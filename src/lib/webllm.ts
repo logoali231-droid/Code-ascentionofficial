@@ -106,15 +106,19 @@ export async function initEngine(
   ENGINE
 */
 engine = await CreateWebWorkerMLCEngine(
+/*
+  ENGINE
+*/
+
+engine = await CreateWebWorkerMLCEngine(
   worker,
   selectedModelId,
   {
     initProgressCallback: onProgress,
     logLevel: "INFO",
-    // Estas propriedades devem estar no nível raiz do objeto de configuração
+    // CORREÇÃO: lowResources deve ficar no nível raiz deste objeto
+    // e requiredMaxBufferSize deve ser removido por não existir na AppConfig
     lowResources: true, 
-    // Nota: 'requiredMaxBufferSize' não existe na AppConfig padrão. 
-    // Para limitar memória no mobile, o projeto utiliza o modelTier e lowResources.
   }
 );
 
