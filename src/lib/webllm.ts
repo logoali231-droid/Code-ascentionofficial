@@ -122,7 +122,7 @@ engine = await CreateWebWorkerMLCEngine(
       // Se o modelo suportar, força o uso de baixa memória
       attention_sink_size: 4,
     },
-  }
+  } as any 
 );
 
 
