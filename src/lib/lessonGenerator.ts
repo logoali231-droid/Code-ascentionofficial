@@ -98,7 +98,7 @@ export async function generateLessonPlan(
      HISTORY
   ===================================================== */
 
-  const compressedHistory = compressContext(history, 1536);
+  const compressedHistory = compressContext(history, 400);
 
   /* =====================================================
      MEMORY CONTEXT

@@ -14,8 +14,9 @@ export default function ErrorsPage() {
   const [selected, setSelected] = useState<any>(null);
   const [explanation, setExplanation] = useState("");
   const [exercise, setExercise] = useState<any>(null);
+  const [activeCourse, setActiveCourse] = useState<any>(null); 
 
- useEffect(() => {
+  useEffect(() => {
     load();
   }, []);
 
@@ -65,7 +66,7 @@ export default function ErrorsPage() {
       // Fallback caso a função retorne uma string simples
       setExplanation(String(expStream));
     }
-
+    setActiveCourse(course); // ADICIONADO
     const ex = await generateReinforcement(err, course);
     setExercise(ex);
   }
@@ -101,12 +102,12 @@ export default function ErrorsPage() {
               rawExercise={exercise}
               onNext={async (correct: boolean) => {
                 if (!correct) {
-                  const retry = await generateReinforcement(selected, selected.course);
+                  const retry = await generateReinforcement(selected, activeCourse);
                   setExercise(retry);
                 } else {
                   alert("Nice. You fixed this mistake 🎯");
                 }
-              } } isStreaming={false} streamProgress={0}            />
+              }} isStreaming={false} streamProgress={0} />
           )}
         </div>
       )}

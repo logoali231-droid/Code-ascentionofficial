@@ -19,7 +19,8 @@ export async function generateCourse({
   baseMaterial,
   stylePrompt,
   cognitive,
-}: any) {
+  courseId
+}: any)  {
   const cognitiveFragments = buildPromptFragments({
     cognitive: cognitive || "Standard",
     difficulty: difficulty || 1,
@@ -33,8 +34,8 @@ export async function generateCourse({
   // 1. Recupera o histórico pedagógico do grafo de conhecimento se aplicável
   let graphReviewText = "None yet";
   try {
-    // Usamos o próprio topic como chave ou id temporário se não houver um ativo
-    const graph = await getKnowledgeGraph(topic.toLowerCase());
+ 
+const graph = await getKnowledgeGraph(courseId || topic.toLowerCase());
     if (graph) {
       const reviewTargets = getReviewConcepts(graph);
       if (reviewTargets.length > 0) {

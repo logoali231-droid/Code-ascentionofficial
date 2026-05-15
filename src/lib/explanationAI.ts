@@ -49,13 +49,13 @@ and intuition.
 
 ${cognitiveFragments}
 
-================================
+=================================
 TEACHING STYLE
 ================================
 
-${course?.stylePrompt || "Explain clearly"}
+${profile?.explanationStyle || profile?.customStyle || course?.stylePrompt || "Explain clearly"}
 
-You MUST maintain the teaching style consistently,
+You MUST maintain this teaching style instruction strictly and consistently throughout the response,
 BUT clarity and pedagogy ALWAYS come first.
 
 ================================
@@ -171,7 +171,7 @@ USER'S ANSWER: ${userAnswer}
 USER'S REASONING: ${userExplanation || "None provided"}
 RELATED WEAKNESS: ${relatedWeakness}
 
-STYLE: ${course?.stylePrompt || "Supportive and clear"}
+STYLE: ${profile?.explanationStyle || profile?.customStyle || course?.stylePrompt || "Supportive and clear"}
 
 Return ONLY JSON:
 {

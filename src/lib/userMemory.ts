@@ -149,5 +149,7 @@ export async function getUserProfile() {
     level,
     explanationType: user?.style || "adaptive",
     cognitive: user?.cognitive || "Standard",
+    explanationStyle: user?.explanationStyle || "", // 🟢 ADICIONADO
+    customStyle: user?.customStyle || "",           // 🟢 ADICIONADO
   };
 }

@@ -34,6 +34,7 @@ export default function NewCoursePage() {
   const [progress, setProgress] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [cognitiveProfile, setCognitiveProfile] = useState<CognitiveProfile>("Standard");
+  const [customStyle, setCustomStyle] = useState("");
 
   useEffect(() => {
     async function loadUser() {
@@ -61,7 +62,7 @@ export default function NewCoursePage() {
     setProgress(10);
     playSound("click", 0.3);
 
-    
+
 
     try {
       const difficulty = await suggestDifficulty(topic, cognitiveProfile);
@@ -73,7 +74,7 @@ export default function NewCoursePage() {
       const userProfile = cognitiveProfile;
 
       // 1. Recupera as deficiências e pendências reais do usuário (Motor Adaptativo)
-      const currentCourseId = user?.activeCourse || "main"; 
+      const currentCourseId = user?.activeCourse || "main";
       const weakTopics = await getWeakTopics(currentCourseId);
       const suggestedTopics = await getSuggestedTopics(currentCourseId);
       const spacedRepetitionTargets = await getReviewConcepts(3);
@@ -89,7 +90,9 @@ export default function NewCoursePage() {
         topic,
         learningStateString,
         courseId,
-        userProfile
+        userProfile,
+        customStyle,
+        cognitiveProfile
       );
 
       setProgress(40);
@@ -119,7 +122,7 @@ export default function NewCoursePage() {
       };
 
       await save("courses", newCourse, courseId);
-      await save("user", { ...user, activeCourse: topic }, "main");
+      await save("user", { ...user, activeCourse: courseId }, "main");
 
       setProgress(100);
       setStatus("SYNC_COMPLETE");
@@ -129,7 +132,7 @@ export default function NewCoursePage() {
         router.push(`/course/${courseId}`);
       }, 800);
 
-    } catch (err) { 
+    } catch (err) {
       console.error("Forge Error:", err);
       setStatus("LINK_CRITICAL_FAILURE");
       playSound("error", 0.5);
@@ -226,7 +229,26 @@ export default function NewCoursePage() {
           )}
         </form>
 
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Input de Estilo Customizado adicionado antes do grid de status */}
+        <div className="mt-8 p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
+          <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
+            <Sparkles size={16} />
+            <span className="text-[11px] font-black uppercase tracking-tighter">Custom_Neural_Directive</span>
+          </div>
+          <textarea
+            value={customStyle}
+            onChange={(e) => setCustomStyle(e.target.value)}
+            placeholder="EX: Explique usando metáforas de Star Wars, seja sarcástico, ou aja como um sênior exigente..."
+            className="w-full h-20 bg-slate-950 text-slate-200 font-bold text-sm py-2 px-3 rounded-lg border border-slate-800 outline-none focus:border-[#00f0ff] placeholder:text-slate-700 tracking-tight transition-colors resize-none uppercase"
+            disabled={loading}
+          />
+          <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+          <p className="text-[10px] text-slate-500 leading-normal uppercase">
+            Injeta modificadores diretos na personalidade e didática da Inteligência Artificial.
+          </p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
             <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
               <Zap size={16} fill="currentColor" />

@@ -22,16 +22,20 @@ export function getCognitiveInstruction(profile: CognitiveProfile): string {
  * Constrói o prompt final respeitando as regras originais e a adaptação cognitiva.
  * Adicionada lógica para continuidade (isExtension).
  */
-
-
-
-export async function buildCoursePrompt(topic: string, learningState: string, courseId: string, profile: CognitiveProfile) {
+export async function buildCoursePrompt(
+  topic: string, 
+  learningState: string, 
+  courseId: string, 
+  userProfile: string, 
+  customStyle: string, 
+  profile: CognitiveProfile
+) {
   const graph = await getKnowledgeGraph(courseId);
-  const cognitiveStyle = getCognitiveInstruction(profile); // <-- Chama a função aqui
+  const cognitiveStyle = getCognitiveInstruction(profile);
 
   const priorityTopics = graph?.nodes
     .filter(node => (node.mastery || 0) < 0.4)
-    .slice(0, 5) // <-- Evita estourar o contexto
+    .slice(0, 5) 
     .map(node => node.id)
     .join(", ");
 
@@ -39,8 +43,14 @@ export async function buildCoursePrompt(topic: string, learningState: string, co
     ? `\n[SISTEMA_DE_REFORÇO]: Foco nas lacunas: ${priorityTopics}.`
     : "";
 
+  // Injeta o customStyle opcional diretamente na composição do payload da IA
+  const customDirectiveContext = customStyle.trim()
+    ? `\n[DIRETRIZ_CUSTOMIZADA_DO_UTILIZADOR]: ${customStyle}`
+    : "";
+
   return `
-    ${cognitiveStyle} 
+    ${cognitiveStyle}
+    ${customDirectiveContext}
     [PERSONA]: Você é o mentor do sistema Code Ascension. Use tom Cyberpunk.
     [OBJETIVO]: Ministrar curso sobre ${topic}.
     [ESTADO_ATUAL]: ${learningState}

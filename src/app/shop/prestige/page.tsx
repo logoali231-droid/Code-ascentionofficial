@@ -1,5 +1,5 @@
 "use client";
-import { PRESTIGE_UPGRADES } from "@/lib/ranking/prestige";
+import { PRESTIGE_UPGRADES, PrestigeManager } from "@/lib/ranking/prestige";
 import { get, save } from "@/lib/db";
 import { useState, useEffect } from "react";
 import { Zap, Shield, Brain } from "lucide-react";
@@ -24,19 +24,20 @@ export default function PrestigeShop() {
   const buyUpgrade = async (id: string) => {
     if (!user) return;
     const currentLevel = upgrades[id] || 0;
-    const cost = PRESTIGE_UPGRADES[id].baseCost * (currentLevel + 1);
-    
+
+    // Utilizando o método correto do manager:
+    const cost = PrestigeManager.getUpgradeCost(id, currentLevel);
+
     if (shards < cost) return;
 
     const newUpgrades = { ...upgrades, [id]: currentLevel + 1 };
     const newShards = shards - cost;
-    
-    const newUser = { 
-      ...user, 
-      memoryShards: newShards, 
+
+    const newUser = {
+      ...user,
+      memoryShards: newShards,
       prestigeUpgrades: newUpgrades,
-      // Exemplo: cada nível de plasticidade neural dá 10% a mais de XP
-      knowledgeMultiplier: 1 + (newUpgrades['neural_plasticity'] || 0) * 0.1 
+      knowledgeMultiplier: 1 + (newUpgrades['neural_plasticity'] || 0) * 0.1
     };
 
     await save("user", newUser, "main");
@@ -63,8 +64,10 @@ export default function PrestigeShop() {
       <div className="grid gap-4">
         {Object.entries(PRESTIGE_UPGRADES).map(([id, upgrade]: [string, any]) => {
           const level = upgrades[id] || 0;
-          const cost = upgrade.baseCost * (level + 1);
-          
+
+          // Substituir o cálculo manual pelo método estático:
+          const cost = PrestigeManager.getUpgradeCost(id, level);
+
           return (
             <div key={id} className="p-5 bg-slate-900 border border-slate-800 rounded-2xl">
               <div className="flex justify-between items-start mb-2">
@@ -72,13 +75,12 @@ export default function PrestigeShop() {
                 <span className="text-xs font-mono bg-slate-800 px-2 py-1 rounded">NÍVEL {level}</span>
               </div>
               <p className="text-slate-400 text-sm mb-4">{upgrade.description}</p>
-              
+
               <button
                 onClick={() => buyUpgrade(id)}
                 disabled={shards < cost}
-                className={`w-full py-3 rounded-xl font-bold flex justify-between px-4 transition-all ${
-                  shards >= cost ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 opacity-50'
-                }`}
+                className={`w-full py-3 rounded-xl font-bold flex justify-between px-4 transition-all ${shards >= cost ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 opacity-50'
+                  }`}
               >
                 <span>MELHORAR</span>
                 <span>{cost} 💎</span>
