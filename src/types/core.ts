@@ -67,6 +67,7 @@ export interface UserStats {
 
   level: number;
 
+  factionId: string;
   /*
     NEW PROGRESSION SYSTEM
   */
