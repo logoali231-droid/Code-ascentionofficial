@@ -234,9 +234,7 @@ export async function storeMemory({
     entry.id
   );
 
-  if (Math.random() < 0.15) {
-    await cleanupVectorMemory();
-  }
+  
 
   return entry;
 }
