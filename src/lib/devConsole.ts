@@ -5,13 +5,13 @@ declare global {
     __DEV_LOGS__?: string[];
     __DEV_CONSOLE_READY__?: boolean;
     __DEV_IS_PAUSED__?: boolean;
-    __DEV_DISABLED__?: boolean; // Nova flag de controle global
+    __DEV_DISABLED__?: boolean; // Flag de controle global do Kill Switch
   }
 }
 
-
 const MAX_LOGS = 300;
 const STORAGE_KEY = "code_ascention_debug_logs";
+const DISABLE_KEY = "code_ascention_debug_disabled";
 
 /* =========================================================
    STRINGIFY & PERSISTENCE
@@ -44,9 +44,7 @@ function stringify(value: any): string {
 
 function extractCacheError(err: any) {
   const text = String(err?.message || err);
-
-  const isCacheError =
-    text.includes("Cache") || text.includes("add on 'Cache'");
+  const isCacheError = text.includes("Cache") || text.includes("add on 'Cache'");
 
   return {
     isCacheError,
@@ -65,18 +63,16 @@ function hookFetch(addLog: any) {
   const originalFetch = window.fetch;
 
   window.fetch = async (...args) => {
+    // Se o console for desativado no meio do runtime, para de interceptar
+    if (window.__DEV_DISABLED__) return originalFetch(...args);
+
     const url = args?.[0]?.toString?.() || String(args[0]);
 
     const isModelDownload =
-      url.includes("shard") ||
-      url.includes("params") ||
-      url.includes("config.json");
+      url.includes("shard") || url.includes("params") || url.includes("config.json");
 
     if (isModelDownload) {
-      addLog("MODEL_PIPELINE", {
-        url,
-        stage: "WebLLM download stream",
-      });
+      addLog("MODEL_PIPELINE", { url, stage: "WebLLM download stream" });
     }
 
     const isAIRequest =
@@ -87,30 +83,17 @@ function hookFetch(addLog: any) {
       url.includes("model");
 
     if (isAIRequest) {
-      addLog("AI_FETCH", {
-        url,
-        note: "WebLLM pipeline request detected",
-      });
+      addLog("AI_FETCH", { url, note: "WebLLM pipeline request detected" });
     }
 
     try {
       const res = await originalFetch(...args);
-
       if (!res.ok) {
-        addLog("FETCH_FAIL", {
-          url,
-          status: res.status,
-          type: res.type,
-        });
+        addLog("FETCH_FAIL", { url, status: res.status, type: res.type });
       }
-
       return res;
     } catch (err) {
-      addLog("FETCH_ERROR", {
-        url,
-        error: stringify(err),
-      });
-
+      addLog("FETCH_ERROR", { url, error: stringify(err) });
       throw err;
     }
   };
@@ -122,17 +105,12 @@ function hookFetch(addLog: any) {
 
 function detectOrigin(error: any) {
   const stack = String(error?.stack || error);
-
   return {
-    isServiceWorker:
-      stack.includes("ServiceWorker") || stack.includes("sw.js"),
-    isWorker:
-      stack.includes("worker") || stack.includes("WebWorker"),
-    isNetwork:
-      stack.includes("fetch") || stack.includes("Cache"),
+    isServiceWorker: stack.includes("ServiceWorker") || stack.includes("sw.js"),
+    isWorker: stack.includes("worker") || stack.includes("WebWorker"),
+    isNetwork: stack.includes("fetch") || stack.includes("Cache"),
     probableFile:
-      stack.match(/(sw\.js|webllm|worker|cache|fetch|model|engine)/i)?.[0] ||
-      "unknown",
+      stack.match(/(sw\.js|webllm|worker|cache|fetch|model|engine)/i)?.[0] || "unknown",
   };
 }
 
@@ -170,7 +148,11 @@ function updateOverlay() {
 }
 
 function addLog(type: string, ...args: any[]) {
-  if (typeof window === "undefined" || window.__DEV_IS_PAUSED__) return;
+  if (
+    typeof window === "undefined" || 
+    window.__DEV_IS_PAUSED__ || 
+    window.__DEV_DISABLED__
+  ) return;
 
   if (!window.__DEV_LOGS__) window.__DEV_LOGS__ = loadLogs();
 
@@ -213,6 +195,7 @@ function createUI(addLog: any) {
     zIndex: "9999999",
     border: "2px solid #00ff88",
     fontSize: "24px",
+    cursor: "pointer"
   });
   button.innerHTML = "🐞";
 
@@ -250,7 +233,7 @@ function createUI(addLog: any) {
   const pauseBtn = document.createElement("button");
   pauseBtn.innerText = "PAUSE";
 
-    const clearBtn = document.createElement("button");
+  const clearBtn = document.createElement("button");
   clearBtn.innerText = "CLEAR";
 
   const killBtn = document.createElement("button");
@@ -259,22 +242,28 @@ function createUI(addLog: any) {
 
   const closeBtn = document.createElement("button");
   closeBtn.innerText = "✕";
+  Object.assign(closeBtn.style, { marginLeft: "8px" });
 
+  // Corrigido: append único com todos os elementos na ordem correta
   actions.append(pauseBtn, clearBtn, killBtn, closeBtn);
-
-  actions.append(pauseBtn, clearBtn, closeBtn);
   toolbar.append(title, actions);
 
   const content = document.createElement("pre");
   content.id = "__DEV_OVERLAY_CONTENT__";
+  Object.assign(content.style, {
+    padding: "10px",
+    overflowY: "auto",
+    flex: "1",
+    margin: "0",
+    whiteSpace: "pre-wrap"
+  });
 
   overlay.append(toolbar, content);
   container.append(overlay, button);
   document.body.appendChild(container);
 
   button.onclick = () => {
-    overlay.style.display =
-      overlay.style.display === "none" ? "flex" : "none";
+    overlay.style.display = overlay.style.display === "none" ? "flex" : "none";
     if (overlay.style.display === "flex") updateOverlay();
   };
 
@@ -290,6 +279,20 @@ function createUI(addLog: any) {
     updateOverlay();
   };
 
+  // Implementado: Lógica do Kill Switch para desligar permanentemente
+  killBtn.onclick = () => {
+    const confirmKill = confirm("Desativar o terminal de desenvolvimento permanentemente nesta sessão?");
+    if (!confirmKill) return;
+
+    window.__DEV_DISABLED__ = true;
+    try {
+      localStorage.setItem(DISABLE_KEY, "true");
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+
+    container.remove(); // Limpa do DOM imediatamente
+  };
+
   closeBtn.onclick = () => (overlay.style.display = "none");
 }
 
@@ -300,10 +303,20 @@ function createUI(addLog: any) {
 export function initDevConsole() {
   if (typeof window === "undefined" || window.__DEV_CONSOLE_READY__) return;
 
+  // Verifica se o console foi morto em um acesso anterior
+  try {
+    if (localStorage.getItem(DISABLE_KEY) === "true") {
+      window.__DEV_DISABLED__ = true;
+      return;
+    }
+  } catch (e) {}
+
   window.__DEV_CONSOLE_READY__ = true;
   window.__DEV_IS_PAUSED__ = false;
 
   const start = () => {
+    if (window.__DEV_DISABLED__) return;
+
     window.__DEV_LOGS__ = loadLogs();
 
     createUI(addLog);
@@ -338,15 +351,12 @@ export function initDevConsole() {
 
     setInterval(() => {
       const perf = (performance as any).memory;
-      if (!perf || window.__DEV_IS_PAUSED__) return;
+      if (!perf || window.__DEV_IS_PAUSED__ || window.__DEV_DISABLED__) return;
 
-      addLog(
-        "MEM",
-        `${Math.round(perf.usedJSHeapSize / 1048576)}MB`
-      );
+      addLog("MEM", `${Math.round(perf.usedJSHeapSize / 1048576)}MB`);
     }, 3000);
   };
 
   if (document.body) start();
   else window.addEventListener("load", start);
-      }
+}
