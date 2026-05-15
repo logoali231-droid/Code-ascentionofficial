@@ -85,44 +85,20 @@ export interface SystemSpecs {
 
 export const AVAILABLE_MODELS: Model[] = [
   {
-    model_id:
-      "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+  model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC", // Alterado para f32
+  model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+  name: "Qwen 2.5 0.5B (Safe Mode)",
+  sizeMb: 550,
+  recommendedFor: "LOW",
+},
+{
+  model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC", // Alterado para f32
+  model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
+  name: "Phi 3 Mini (Safe Mode)",
+  sizeMb: 1900,
+  recommendedFor: "MID",
+}
 
-    model:
-      "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-
-    model_lib:
-      "",
-
-    name:
-      "Qwen 2.5 0.5B",
-
-    sizeMb:
-      550,
-
-    recommendedFor:
-      "LOW",
-  },
-
-  {
-    model_id:
-      "Phi-3-mini-4k-instruct-q4f16_1-MLC",
-
-    model:
-      "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f16_1-MLC",
-
-    model_lib:
-      "",
-
-    name:
-      "Phi 3 Mini",
-
-    sizeMb:
-      1900,
-
-    recommendedFor:
-      "MID",
-  },
 
   {
     model_id:
@@ -265,13 +241,18 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       modelTier = "MID";
     }
 
-    if (
-      memory >= 8 &&
-      cores >= 8
-    ) {
-      modelTier = "HIGH";
-      gpuLimit = 4096;
-    }
+    if (memory >= 8 && cores >= 8) {
+  modelTier = "HIGH";
+  gpuLimit = 4096;
+}
+
+// CORREÇÃO CRÍTICA: Se for mobile, nunca use HIGH. 
+// O Shader do M23 não aguenta a complexidade do Phi 3.5
+if (isMobile) {
+  modelTier = memory > 4 ? "MID" : "LOW";
+  gpuLimit = 1024; // Reduz pressão na VRAM
+}
+
 
     if (
       memory <= 4 &&
