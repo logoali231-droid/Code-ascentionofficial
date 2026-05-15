@@ -269,16 +269,29 @@ export async function updateUser(updates: any) {
   });
 }
 
-/**
- * MANUTENÇÃO COMPLETA
+/*
+ * MANUTENÇÃO COMPLETA DETERMINÍSTICA
  */
 export async function performStorageCleanup() {
-  console.log(" [System] Iniciando manutenção...");
+  console.log("⚙️ [System] Iniciando ciclo de manutenção determinística...");
+  
+  // 1. Executa a limpeza padrão de logs e tabelas estáticas
   await cleanupOldData();
 
+  // 2. Remove cursos inválidos
   await db.courses
     .filter(c => !c.lessons || c.lessons.length === 0)
     .delete();
+
+  // 3. Injeta dinamicamente a limpeza do VectorMemory de forma assíncrona
+  try {
+    const { cleanupVectorMemory } = await import("./vectorMemory");
+    await cleanupVectorMemory();
+  } catch (err) {
+    console.error("[System] Erro ao processar sub-rotina de Vector Memory:", err);
+  }
+
+  console.log("✅ [System] Ciclo de vida de auto-cleanup concluído com sucesso.");
 }
 
 /**
