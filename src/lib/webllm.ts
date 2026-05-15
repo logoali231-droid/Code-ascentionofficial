@@ -102,19 +102,22 @@ export async function initEngine(
           ENGINE
         */
 
-        engine = await CreateWebWorkerMLCEngine(
+        /*
+  ENGINE
+*/
+engine = await CreateWebWorkerMLCEngine(
   worker,
   selectedModelId,
   {
     initProgressCallback: onProgress,
     logLevel: "INFO",
-    appConfig: {
-      // Força limites compatíveis com GPUs Mobile (Adreno/Mali)
-      requiredMaxBufferSize: 536870912, // 512MB max buffer
-      lowResources: true 
-    }
+    // Estas propriedades devem estar no nível raiz do objeto de configuração
+    lowResources: true, 
+    // Nota: 'requiredMaxBufferSize' não existe na AppConfig padrão. 
+    // Para limitar memória no mobile, o projeto utiliza o modelTier e lowResources.
   }
 );
+
 
 
         const gpuDevice =
