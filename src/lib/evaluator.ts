@@ -1,7 +1,7 @@
 "use client";
 
 import { evaluateLogic } from "./evaluator.logic";
-import { updateMastery } from "./mastery";
+import { updateMastery } from "./curriculumState";
 import { updateConceptMastery } from "./knowledgeGraph";
 import { getAdaptiveMetrics } from "./adaptive";
 import { addXP, addCoins } from "./economy";
@@ -116,11 +116,12 @@ export async function evaluateExercise({
     }, crypto.randomUUID());
   }
 
-  const masteryResult = await updateMastery({
-    conceptId: resolvedConceptId,
-    success: correct,
-    weight: Math.max(1, difficulty * 0.6),
-  });
+  // ALTERADO: Sincroniza dinamicamente com o grafo curricular do usuário usando delta adaptativo
+  let currentTopicMastery = 0;
+  if (course?.id && exercise?.topic) {
+    const delta = correct ? Math.max(5, Math.floor(difficulty * 4)) : -5;
+    currentTopicMastery = await updateMastery(course.id, exercise.topic, delta);
+  }
 
   if (course?.id) {
     await updateConceptMastery(course.id, resolvedConceptId, correct);
@@ -132,7 +133,7 @@ export async function evaluateExercise({
     userAnswer,
     xp: rewards.xp,
     coins: rewards.coins,
-    masteryDelta: masteryResult.mastery,
+    masteryDelta: currentTopicMastery,
     conceptId: resolvedConceptId,
     difficulty,
     feedback: correct

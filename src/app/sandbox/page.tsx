@@ -15,9 +15,9 @@ import {
   ChevronLeft,
   Sparkles,
 } from "lucide-react";
-
 import { calculateLevel } from "@/lib/level";
 import { get } from "@/lib/db";
+
 
 const DEFAULT_CODE = {
   javascript: `console.log("Hello JavaScript"); `,
@@ -31,20 +31,37 @@ export default function SandboxPage() {
   const router = useRouter();
   const [isLocked, setIsLocked] = useState(true);
 
+  const [exercise, setExercise] = useState<any>(null);
+  const [course, setCourse] = useState<any>(null);
+  const [currentLesson, setCurrentLesson] = useState<any>(null);
+
   useEffect(() => {
-    async function checkAccess() {
+    async function initSandbox() {
+      // 1. Controle de Acesso por Nível
       const userData = await get("user", "main");
       const level = calculateLevel(userData?.xp || 0);
-      
+
       if (level < 50) {
         alert("ACCESS DENIED: Neural interface requires Level 50.");
         router.push("/hub");
-      } else {
-        setIsLocked(false);
+        return;
       }
+
+      // 2. CORREÇÃO: Consome os modificadores populando dados se houver um contexto ativo de lição
+      // (Pode ser estendido para ler de window.location / query params depois)
+      setCourse({ id: "javascript_core", stylePrompt: "Elite Cyberpunk Tutor" });
+      setCurrentLesson({ id: "lesson_01", difficulty: 2, conceptId: "logic_structures" });
+      setExercise({
+        question: "Crie um console.log que retorne exatamente 'Hello Code-Ascension'",
+        answer: "Hello Code-Ascension",
+        conceptId: "logic_structures",
+        topic: "Variables & Outputs"
+      });
+
+      setIsLocked(false);
     }
-    checkAccess();
-  }, []);
+    initSandbox();
+  }, [router]);
 
   if (isLocked) return <div className="bg-black min-h-screen flex items-center justify-center text-cyan-500 font-mono">ENCRYPTING CONNECTION...</div>;
 
@@ -90,9 +107,7 @@ export default function SandboxPage() {
     if (running) return;
 
     setRunning(true);
-
     setStatus("EXECUTING...");
-
     setOutput([]);
 
     try {
@@ -134,12 +149,36 @@ export default function SandboxPage() {
 
       appendLog("> Execution completed.");
 
-      setStatus("EXECUTION_SUCCESS");
+      const finalUserAnswer = capturedLogs.join("\n").trim();
+
+      // Verifica de forma segura se há um exercício ativo no estado do componente
+      if (exercise) {
+        setStatus("EVALUATING_OUTPUT...");
+
+        // Import relativo dinâmico para evitar quebras de build do Next.js/Webpack
+        const { evaluateExercise } = await import("../../lib/evaluator");
+
+        const evalResult = await evaluateExercise({
+          exercise,
+          userAnswer: finalUserAnswer,
+          course,
+          lesson: currentLesson,
+          conceptId: exercise?.conceptId || "core_fundamentals"
+        });
+
+        if (evalResult?.correct) {
+          setStatus(`EXECUTION_SUCCESS | ASSIMILATED: +${evalResult.xp || 0}XP`);
+        } else {
+          setStatus(`EXECUTION_FAILED | MISMATCH: ${evalResult?.feedback || "Neural mismatch detected."}`);
+        }
+      } else {
+        setStatus("EXECUTION_SUCCESS");
+      }
+
     } catch (err: any) {
       appendLog(
-        `[ERROR]: ${ err?.message || "Unknown error" } `
+        `[ERROR]: ${err?.message || "Unknown error"} `
       );
-
       setStatus("EXECUTION_FAILED");
     } finally {
       setRunning(false);
@@ -187,15 +226,14 @@ export default function SandboxPage() {
                     setLanguage(lang as any);
                     setCode(
                       DEFAULT_CODE[
-                        lang as keyof typeof DEFAULT_CODE
+                      lang as keyof typeof DEFAULT_CODE
                       ]
                     );
                   }}
-                  className={`px - 3 py - 2 rounded - xl text - sm ${
-    language === lang
-        ? "bg-cyan-500 text-black"
-        : "bg-slate-800"
-} `}
+                  className={`px-3 py-2 rounded-xl text-sm ${language === lang
+                    ? "bg-cyan-500 text-black"
+                    : "bg-slate-800"
+                    }`}
                 >
                   {lang}
                 </button>
@@ -207,7 +245,7 @@ export default function SandboxPage() {
               onChange={(e) =>
                 setCode(e.target.value)
               }
-              className="w-full h-[500px] bg-black border border-slate-700 rounded-2xl p-4 font-mono text-sm outline-none"
+              className="w-full h-125 bg-black border border-slate-700 rounded-2xl p-4 font-mono text-sm outline-none"
             />
           </section>
 
@@ -223,7 +261,7 @@ export default function SandboxPage() {
 
               <div
                 ref={consoleRef}
-                className="h-[350px] overflow-y-auto bg-black border border-slate-700 rounded-2xl p-4 font-mono text-sm"
+                className="h-87.5 overflow-y-auto bg-black border border-slate-700 rounded-2xl p-4 font-mono text-sm"
               >
                 {output.length === 0 ? (
                   <div className="text-slate-500">
