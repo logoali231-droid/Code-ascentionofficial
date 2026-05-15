@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   exec("docker info", (error) => {
     res.json({
       server: "online",
@@ -29,15 +29,80 @@ app.post("/run", async (req, res) => {
 
     let output = "";
     switch (language.toLowerCase()) {
+
       case "scala":
         output = await scalaRunner(code);
         break;
+
       case "vbnet":
       case "vb":
         output = await vbnetRunner(code);
         break;
+
+      case "node":
+      case "javascript":
+      case "js": {
+
+        const { createNodeCommand } =
+          require("./languages/node");
+
+        const { stdout } = await execPromise(
+          createNodeCommand(code),
+          { timeout: 15000 }
+        );
+
+        output = stdout;
+
+        break;
+      }
+
+      case "python":
+      case "py": {
+
+        const { createPythonCommand } =
+          require("./languages/python");
+
+        const { stdout } = await execPromise(
+          createPythonCommand(code),
+          { timeout: 15000 }
+        );
+
+        output = stdout;
+
+        break;
+      }
+
+      case "php": {
+
+        const { createPHPCommand } =
+          require("./languages/php");
+
+        const { stdout } = await execPromise(
+          createPHPCommand(code),
+          { timeout: 15000 }
+        );
+
+        output = stdout;
+
+        break;
+      }
+
+      case "kotlin":
+      case "kt": {
+
+        const kotlinRunner =
+          require("./languages/kotlin");
+
+        output = await kotlinRunner(code);
+
+        break;
+      }
+
       default:
-        throw new Error(`Unsupported language: ${language}`);
+        throw new Error(
+          `Unsupported language: ${language}`
+        );
+
     }
 
     res.json({ success: true, output });
@@ -53,4 +118,9 @@ app.post("/run", async (req, res) => {
 const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`⚡ Code Ascension Runtime rodando na porta ${PORT}`);
+});
+
+app.use((req, _res, next) => {
+  req.setTimeout(20000);
+  next();
 });

@@ -8,7 +8,13 @@ export async function runLocal(
 
   const customConsole = {
     log: (...args: any[]) =>
-      logs.push(args.join(" ")),
+      logs.push(
+        args.map(arg =>
+          typeof arg === "object"
+            ? JSON.stringify(arg, null, 2)
+            : String(arg)
+        ).join(" ")
+      ),
 
     error: (...args: any[]) =>
       logs.push("[ERROR] " + args.join(" "))

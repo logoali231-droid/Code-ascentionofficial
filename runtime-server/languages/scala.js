@@ -15,7 +15,18 @@ module.exports = async function runScala(code) {
     const filePath = path.join(tempDir, "Main.scala");
     fs.writeFileSync(filePath, code);
 
-    const command = `docker run --rm --memory="256m" --cpus="0.5" --network none -v "${tempDir}:/app" -w /app sbtscala/scala-sbt sh -c "scalac Main.scala && scala Main"`;
+    const command = `
+docker run --rm \
+--memory="256m" \
+--cpus="0.5" \
+--pids-limit=64 \
+--network none \
+--read-only \
+-v "${tempDir}:/app" \
+-w /app \
+sbtscala/scala-sbt \
+sh -c "scalac Main.scala && scala Main"
+`;
 
     const { stdout } = await execPromise(command, { timeout: 15000 });
     return stdout;

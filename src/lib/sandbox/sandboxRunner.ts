@@ -15,7 +15,7 @@ import { SandboxFile } from "@/components/SandboxEditor";
 
 // Adicione no topo do seu sandboxRunner.ts ou onde você gerencia a execução
 export function executeInWorker(
-  mainFile: SandboxFile, 
+  mainFile: SandboxFile,
   allFiles: SandboxFile[]
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -25,14 +25,40 @@ export function executeInWorker(
     );
 
     worker.onmessage = (e) => {
+
       if (e.data.type === "BUNDLE_READY") {
+
         resolve(e.data.payload.code);
+
         worker.terminate();
-      } else if (e.data.type === "ERROR") {
-        reject(e.data.payload);
-        worker.terminate();
+
       }
+
+      if (e.data.type === "ERROR") {
+
+        reject(new Error(e.data.payload));
+
+        worker.terminate();
+
+      }
+
     };
+
+    worker.onerror = (err) => {
+
+      reject(err);
+
+      worker.terminate();
+
+    };
+
+    setTimeout(() => {
+
+      reject(new Error("Worker timeout"));
+
+      worker.terminate();
+
+    }, 10000);
 
     worker.postMessage({
       type: "BUNDLE_FILES",

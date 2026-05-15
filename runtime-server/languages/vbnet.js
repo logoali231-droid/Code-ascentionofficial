@@ -19,8 +19,17 @@ module.exports = async function runVBNet(code) {
     fs.writeFileSync(filePath, code);
 
     // 2. Executar o código com limites de recursos
-    const command = `docker run --rm --memory="256m" --cpus="0.5" --network none -v "${tempDir}:/src" -w /src/VBApp mcr.microsoft.com/dotnet/sdk:8.0 dotnet run`;
-
+    const command = `
+docker run --rm \
+--memory="256m" \
+--cpus="0.5" \
+--pids-limit=64 \
+--network none \
+-v "${tempDir}:/src" \
+-w /src/VBApp \
+mcr.microsoft.com/dotnet/sdk:8.0 \
+dotnet run
+`;
     const { stdout } = await execPromise(command, { timeout: 15000 });
     return stdout;
 

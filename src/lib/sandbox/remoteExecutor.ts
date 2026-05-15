@@ -17,15 +17,34 @@ export async function runRemote(
       })
     );
 
-    socket.onmessage = (event) => {
+    const timeout = setTimeout(() => {
+
+      reject(new Error("Remote execution timeout"));
+
+    }, 15000);
+
+    socket.addEventListener("message", (event) => {
+
+      clearTimeout(timeout);
+
       const data = JSON.parse(event.data);
 
       resolve({
-        output: data.output || [],
-        error: data.error
-      });
-    };
 
-    socket.onerror = reject;
+        output: data.output || [],
+
+        error: data.error
+
+      });
+
+    }, { once: true });
+
+    socket.addEventListener("error", (err) => {
+
+      clearTimeout(timeout);
+
+      reject(err);
+
+    }, { once: true });
   });
 }
