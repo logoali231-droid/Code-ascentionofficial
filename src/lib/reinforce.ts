@@ -297,7 +297,7 @@ OUTPUT FORMAT
 }
 `;
 
-  const rawRes = await enqueueGeneration(async () => {
+  const rawRes = await runtimeQueue.enqueue(async () => {
     return generate(prompt);
   });
   
