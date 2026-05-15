@@ -11,6 +11,7 @@ import {
   AVAILABLE_MODELS,
   detectSystemCapabilities,
 } from "./modelManager";
+import { on } from "events";
 
 let worker: Worker | null = null;
 
@@ -101,29 +102,26 @@ export async function initEngine(
         /*
           ENGINE
         */
-                /*
-          ENGINE
-        */
-        // ... dentro da função initEngine ...
 
-engine = await CreateWebWorkerMLCEngine(
-  worker,
-  selectedModelId,
-  {
-    initProgressCallback: onProgress,
-    logLevel: "INFO",
-    // Em 2026, usamos chatOpts para definir os limites de memória da GPU
-    chatOpts: {
-      // O segredo para o M23: Reduzir drasticamente o contexto
-      // O padrão costuma ser 4096, o que é pesado demais para 6GB RAM
-      context_window_size: 1536, 
-      // Limita a cache de KV (Key-Value) diretamente
-      sliding_window_size: 1024,
-      // Se o modelo suportar, força o uso de baixa memória
-      attention_sink_size: 4,
-    },
-  } as any 
-);
+
+        engine = await CreateWebWorkerMLCEngine(
+          worker,
+          selectedModelId,
+          {
+            initProgressCallback: onProgress,
+            logLevel: "INFO",
+            // Em 2026, usamos chatOpts para definir os limites de memória da GPU
+            chatOpts: {
+              // O segredo para o M23: Reduzir drasticamente o contexto
+              // O padrão costuma ser 4096, o que é pesado demais para 6GB RAM
+              context_window_size: 1536,
+              // Limita a cache de KV (Key-Value) diretamente
+              sliding_window_size: 1024,
+              // Se o modelo suportar, força o uso de baixa memória
+              attention_sink_size: 4,
+            },
+          } as any
+        );
 
 
 
@@ -203,7 +201,9 @@ export async function unloadEngine() {
 
 export async function* generate(
   prompt: string,
-  temperature = 0.7
+  temperature = 0.7,
+  onProgress?: (report: any) => void
+
 ) {
   if (generationLock)
     return;
@@ -212,7 +212,7 @@ export async function* generate(
 
   try {
     const currentEngine =
-      await initEngine();
+      await initEngine(undefined, onProgress);
 
     const stream =
       await currentEngine.chat.completions.create(

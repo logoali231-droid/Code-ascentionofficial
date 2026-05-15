@@ -25,7 +25,8 @@ interface ExerciseRendererProps {
   rawExercise: any;
   loading?: boolean;
   onComplete?: (success: boolean) => void;
-  onNext?: (success: boolean, value: string) => Promise<void>;
+  // AJUSTE: Adicionado parâmetro opcional para enviar o XP calculado adaptativamente
+  onNext?: (success: boolean, value: string, xpGain?: number) => Promise<void>;
   course?: { topic: string };
   rarity?: string;
   isStreaming?: boolean;
@@ -91,7 +92,7 @@ export default function ExerciseRenderer({
 
       onComplete?.(true);
       if (onNext) {
-        await onNext(true, value);
+        await onNext(true, value, dynamicXp);
       }
     } else {
       onComplete?.(false);

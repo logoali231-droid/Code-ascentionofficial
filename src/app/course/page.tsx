@@ -1,7 +1,7 @@
 "use client";
 
 
-import { unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
+import { initEngine, unloadEngine } from "@/lib/webllm"; // <-- ADICIONADO
 
 import { useEffect, useState } from "react";
 
@@ -32,6 +32,7 @@ import {
   updateMemory,
 } from "@/lib/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
+import { report } from "process";
 
 
 
@@ -42,9 +43,9 @@ export default function CoursePage() {
   const [user, setUser] =
     useState<any>(null);
 
-  
 
-  
+
+
   const [
     currentExercise,
     setCurrentExercise,
@@ -70,7 +71,7 @@ export default function CoursePage() {
   const [streak, setStreak] =
     useState(0);
 
-  
+
 
   const [downloadInfo, setDownloadInfo] = useState({ text: "", model: "" });
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
@@ -165,9 +166,9 @@ export default function CoursePage() {
 
     setCourse(found);
 
-    
 
-    
+
+
 
     setCurrentExercise(
       found.currentExercise || 0
@@ -182,6 +183,14 @@ export default function CoursePage() {
     /* ============================================
        STREAM GENERATION
     ============================================ */
+
+    await initEngine(undefined, (report) => {
+      setDownloadInfo({
+        text: report.text,
+        model: "Neural Engine v1.0",
+      });
+    }
+    )
 
     await startStreamingLesson(
       found
@@ -280,142 +289,180 @@ export default function CoursePage() {
       setIsGeneratingExercises(false);
     } catch (error) {
       console.error("Erro no stream:", error);
+      // Incrementa erros se a IA falhar em gerar (mitiga loop infinito)
+      setConsecutiveErrors(prev => prev + 1);
       setIsGeneratingExplanation(false);
       setIsGeneratingExercises(false);
+
+      if (consecutiveErrors >= 2) {
+        alert("📡 LINK NEURAL INSTÁVEL: O motor de IA falhou. Recarregando módulos...");
+        window.location.reload();
+      }
     }
-  }
+  } // <--- CORREÇÃO CRÍTICA: Adicione esta chave para fechar a função startStreamingLesson!
 
   /* =====================================================
-     NEXT
+      NEXT (Agora movido corretamente para o escopo do componente principal)
   ===================================================== */
 
-  async function handleNext(correct: boolean, userResponse?: string) {
-  if (!course) return;
+  // AJUSTE: Adicionado o terceiro parâmetro 'xpGainFromExercise' vindo do renderer
+  async function handleNext(correct: boolean, userResponse?: string, xpGainFromExercise?: number) {
+    if (!course) return;
 
-  /* ====================================
-      ANTI-SPAM VALIDATION
-  ==================================== */
-  if (userResponse) {
-    // Importante: certifique-se que o import statisticalValidator existe
-    const isSpam = statisticalValidator.isLowEntropy(userResponse);
-    if (isSpam) {
-      alert("⚠️ NEURAL_ERROR: Resposta inconsistente detectada. Tente elaborar melhor.");
-      return; // Interrompe a execução antes de processar XP ou erros
-    }
-  }
-
-  const exercise = streamedExercises[currentExercise];
-
-  /* ====================================
-      MEMORY
-  ==================================== */
-  await updateMemory({
-    topic: course.topic || course.title,
-    correct,
-    type: "exercise",
-    input: exercise?.question || "",
-  });
-
-  /* ====================================
-      XP & PROGRESSION
-  ==================================== */
-  if (correct) {
-    // Reset do contador Roguelike se acertar
-    setConsecutiveErrors(0);
-
-    const xpGain = 10;
-
-    setStreak((prev) => prev + 1);
-
-    await updateUser({
-    xp: (user?.xp || 0) + xpGain,
-    coins: (user?.coins || 0) + 2,
-  });
-
-    /* ================================
-        CLEAR ERROR LOGS
-    ================================= */
-    const errors = await getErrorLogs(course.id);
-    const matching = errors.find(
-      (e: any) => e.question === exercise.question
-    );
-
-    if (matching && matching.id !== undefined) {
-      await clearErrorLog(matching.id);
-    }
-
-  } else {
     /* ====================================
-        ROGUELIKE REDIRECT (3 ERRORS)
+        ANTI-SPAM VALIDATION
     ==================================== */
-    const newErrorCount = consecutiveErrors + 1;
-    setConsecutiveErrors(newErrorCount);
-
-    if (newErrorCount >= 3) {
-      setConsecutiveErrors(0); // Reseta para a próxima tentativa
-      setTab("theory");        // Muda para a aba de teoria
-      alert("🧠 NEURAL GLITCH: Muitas falhas consecutivas. Revise o feed de teoria antes de continuar.");
-      return; // Sai da função sem gerar mais reforço agora
+    if (userResponse) {
+      // Importante: certifique-se que o import statisticalValidator existe
+      const isSpam = statisticalValidator.isLowEntropy(userResponse);
+      if (isSpam) {
+        alert("⚠️ NEURAL_ERROR: Resposta inconsistente detectada. Tente elaborar melhor.");
+        return; // Interrompe a execução antes de processar XP ou erros
+      }
     }
 
-    /* ================================
-        REINFORCEMENT
-    ================================= */
-    const reinforcement = await generateReinforcement(
-      {
-        ...exercise,
-        difficulty: 0.6,
-      },
-      course
-    );
+    const exercise = streamedExercises[currentExercise];
 
-    setStreamedExercises((prev) => {
-      const clone = [...prev];
-      const reinforcementCount = clone.filter((e) => e.isReinforcement).length;
+    /* ====================================
+        MEMORY
+    ==================================== */
+    await updateMemory({
+      topic: course.topic || course.title,
+      correct,
+      type: "exercise",
+      input: exercise?.question || "",
+    });
 
-      if (reinforcementCount < 5) {
-        clone.splice(currentExercise + 1, 0, {
-          ...reinforcement,
-          isReinforcement: true,
+    /* ====================================
+        XP & PROGRESSION
+    ==================================== */
+    /* ====================================
+          XP & PROGRESSION
+      ==================================== */
+    // ADICIONADO: Importações automáticas do ecossistema Code-Ascension
+    const { updateMastery, updateConfidence } = await import("@/lib/curriculumState");
+    const { addXP, addCoins } = await import("@/lib/economy");
+    const { saveMemorySummary, shouldUpdateSummary } = await import("@/lib/contextMemory");
+
+    if (correct) {
+      // Reset do contador Roguelike se acertar
+      setConsecutiveErrors(0);
+
+      const xpGain = xpGainFromExercise ?? 10;
+      setStreak((prev) => prev + 1);
+
+      // ALTERADO: Agora usa as curvas reais do economy.ts (com sons e leveis automáticos)
+      await addXP(xpGain);
+      await addCoins(2);
+
+      // ADICIONADO: Sincroniza o progresso no grafo curricular do usuário (+10 de maestria e +5 de confiança)
+      if (course?.id && exercise?.topic) {
+        await updateMastery(course.id, exercise.topic, 10);
+        await updateConfidence(course.id, exercise.topic, 5);
+      }
+
+      // ADICIONADO: Integração Anti-Spam / Compressão de Memória Periódica
+      const currentLessonCount = (course?.lessons?.length || 0) + 1;
+      if (shouldUpdateSummary(currentLessonCount) && course?.id) {
+        const freshUserMemory = await db.user.get("main");
+        await saveMemorySummary(course.id, {
+          lessons: course.lessons || [],
+          memory: freshUserMemory,
+          mastery: freshUserMemory?.mastery || 0
         });
       }
-      return clone;
-    });
+
+      /* ================================
+          CLEAR ERROR LOGS
+      ================================ */
+      const errors = await getErrorLogs(course.id);
+      const matching = errors.find(
+        (e: any) => e.question === exercise.question
+      );
+
+      if (matching && matching.id !== undefined) {
+        await clearErrorLog(matching.id);
+      }
+
+    } else {
+      // ADICIONADO: Penaliza confiança e resgata o nó no grafo curricular devido ao erro
+      if (course?.id && exercise?.topic) {
+        await updateConfidence(course.id, exercise.topic, -8);
+      }
+      /* ====================================
+          ROGUELIKE REDIRECT (3 ERRORS)
+      ==================================== */
+      const newErrorCount = consecutiveErrors + 1;
+      setConsecutiveErrors(newErrorCount);
+
+      if (newErrorCount >= 3) {
+        setConsecutiveErrors(0); // Reseta para a próxima tentativa
+        setTab("theory");        // Muda para a aba de teoria
+        alert("🧠 NEURAL GLITCH: Muitas falhas consecutivas. Revise o feed de teoria antes de continuar.");
+        return; // Sai da função sem gerar mais reforço agora
+      }
+
+      /* ================================
+          REINFORCEMENT
+      ================================= */
+      const reinforcement = await generateReinforcement(
+        {
+          ...exercise,
+          difficulty: 0.6,
+        },
+        course
+      );
+
+      setStreamedExercises((prev) => {
+        const clone = [...prev];
+        const reinforcementCount = clone.filter((e) => e.isReinforcement).length;
+
+        if (reinforcementCount < 5) {
+          clone.splice(currentExercise + 1, 0, {
+            ...reinforcement,
+            isReinforcement: true,
+          });
+        }
+        return clone;
+      });
+    }
+
+    /* ====================================
+        NEXT EXERCISE
+    ==================================== */
+    const next = currentExercise + 1;
+
+    if (next >= streamedExercises.length) {
+      await startStreamingLesson(course);
+      setCurrentExercise(0);
+      return;
+    }
+
+    setCurrentExercise(next);
+
+    const freshUser = await getUser();
+    setUser(freshUser);
   }
-
-  /* ====================================
-      NEXT EXERCISE
-  ==================================== */
-  const next = currentExercise + 1;
-
-  if (next >= streamedExercises.length) {
-    await startStreamingLesson(course);
-    setCurrentExercise(0);
-    return;
-  }
-
-  setCurrentExercise(next);
-
-  const freshUser = await getUser();
-  setUser(freshUser);
-}
 
   /* =====================================================
      LOADING
   ===================================================== */
 
   // Substitua a verificação de loadingCourse por:
-if (loadingCourse) { 
-  return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="text-cyan-400 animate-pulse">Booting neural course engine...</div>
-      {/* Exibe o status real do WebLLM para o usuário não achar que travou */}
-      {downloadInfo.text && (
-        <div className="text-xs text-slate-500 mt-2">{downloadInfo.text}</div>
-      )}
-    </div>
-  ); 
-}
+  if (loadingCourse) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-black text-cyan-400 font-mono">
+        <div className="relative w-64 h-2 bg-slate-900 border border-cyan-900/30 mb-4 overflow-hidden">
+          <div className="absolute inset-0 bg-cyan-500 animate-pulse-fast"
+            style={{ width: downloadInfo.text.includes('%') ? downloadInfo.text.split('%')[0].split('[')[1] + '%' : '10%' }} />
+        </div>
+        <div className="text-[10px] uppercase tracking-[0.2em] animate-pulse">
+          {downloadInfo.text || "Initializing Core..."}
+        </div>
+        <div className="mt-2 text-[8px] text-cyan-900">SYSTEM_READY: WAITING_FOR_GPU_ALLOCATION</div>
+      </div>
+    );
+  }
 
 
   if (!course) {
@@ -672,3 +719,4 @@ function ErrorsTab({
     </div>
   );
 }
+

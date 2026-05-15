@@ -224,13 +224,13 @@ const parsed = safeParse(raw);
     return parsed;
   } catch (error) {
     console.warn(
-      "Lesson generation failed",
-      error
-    );
+      "Exercise generation failed",
+      error);
+      throw new Error("AI generation failed");
 
-    return buildFallbackLesson(
-      concept
-    );
+      
+
+    
   }
 }
 

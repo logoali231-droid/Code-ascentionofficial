@@ -1,3 +1,5 @@
+const CONFIG = require("../config");
+
 function escapeCode(code) {
   return code
     .replace(/\\/g, "\\\\")
@@ -6,19 +8,16 @@ function escapeCode(code) {
     .replace(/`/g, "\\`");
 }
 
-export function createNodeCommand(code) {
-
+function createNodeCommand(code) {
   const escaped = escapeCode(code);
-
-  return `
-docker run --rm \
---memory="256m" \
---cpus="0.5" \
---pids-limit=64 \
+  return `docker run --rm \
+--memory="${CONFIG.LIMITS.memory_light}" \
+--cpus="${CONFIG.LIMITS.cpus}" \
+--pids-limit=${CONFIG.LIMITS.pidsLimit} \
 --network none \
 --read-only \
 node:20-alpine \
-node -e "${escaped}"
-`;
-
+node -e "${escaped}"`;
 }
+
+module.exports = { createNodeCommand };

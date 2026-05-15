@@ -1,13 +1,16 @@
-export const CONFIG = {
-  PORT: 8080,
-
+// config.js
+const CONFIG = {
+  PORT: 4000,
   LIMITS: {
-    memory: "256m",
+    memory_light: "256m",
+    memory_heavy: "512m", // Kotlin / Java precisam de mais fôlego no JRE
     cpus: "0.5",
-    timeout: 10000
+    pidsLimit: 64,
+    timeout: 15000 // 15 segundos max por execução
   },
-
   QUEUE: {
     maxConcurrent: 2
   }
 };
+
+module.exports = CONFIG;

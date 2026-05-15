@@ -3,6 +3,7 @@ const path = require("path");
 const { exec } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
 const util = require("util");
+const CONFIG = require("../config");
 const execPromise = util.promisify(exec);
 
 module.exports = async function runScala(code) {
@@ -15,22 +16,18 @@ module.exports = async function runScala(code) {
     const filePath = path.join(tempDir, "Main.scala");
     fs.writeFileSync(filePath, code);
 
-    const command = `
-docker run --rm \
---memory="256m" \
---cpus="0.5" \
---pids-limit=64 \
+    const command = `docker run --rm \
+--memory="${CONFIG.LIMITS.memory_light}" \
+--cpus="${CONFIG.LIMITS.cpus}" \
+--pids-limit=${CONFIG.LIMITS.pidsLimit} \
 --network none \
---read-only \
 -v "${tempDir}:/app" \
 -w /app \
 sbtscala/scala-sbt \
-sh -c "scalac Main.scala && scala Main"
-`;
+sh -c "scalac Main.scala && scala Main"`;
 
-    const { stdout } = await execPromise(command, { timeout: 15000 });
+    const { stdout } = await execPromise(command, { timeout: CONFIG.LIMITS.timeout });
     return stdout;
-
   } catch (error) {
     throw new Error(error.stderr || error.message);
   } finally {

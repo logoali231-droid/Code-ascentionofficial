@@ -1,9 +1,21 @@
+// server.js
 const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
-const scalaRunner = require("./languages/scala");
-const vbnetRunner = require("./languages/vbnet");
+const util = require("util");
+const execPromise = util.promisify(exec);
+
+const CONFIG = require("./config");
+const { enqueue } = require("./queue");
 const { validateCode } = require("./security");
+
+// Importando os runners das linguagens
+const runKotlin = require("./languages/kotlin");
+const runScala = require("./languages/scala");
+const runVBNet = require("./languages/vbnet");
+const { createNodeCommand } = require("./languages/node");
+const { createPythonCommand } = require("./languages/python");
+const { createPHPCommand } = require("./languages/php");
 
 const app = express();
 app.use(cors());
@@ -25,102 +37,61 @@ app.post("/run", async (req, res) => {
   try {
     if (!language || !code) throw new Error("Missing language or code");
 
+    // Passa pelo escudo anti-exploit estático primeiro
     validateCode(code);
 
-    let output = "";
-    switch (language.toLowerCase()) {
+    const langKey = language.toLowerCase();
 
-      case "scala":
-        output = await scalaRunner(code);
-        break;
+    // Enfileira a tarefa para execução controlada
+    const output = await enqueue(async () => {
+      switch (langKey) {
+        case "scala":
+          return await runScala(code);
 
-      case "vbnet":
-      case "vb":
-        output = await vbnetRunner(code);
-        break;
+        case "vbnet":
+        case "vb":
+          return await runVBNet(code);
 
-      case "node":
-      case "javascript":
-      case "js": {
+        case "kotlin":
+        case "kt":
+          return await runKotlin(code);
 
-        const { createNodeCommand } =
-          require("./languages/node");
+        case "node":
+        case "javascript":
+        case "js": {
+          const cmd = createNodeCommand(code);
+          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
+          return stdout;
+        }
 
-        const { stdout } = await execPromise(
-          createNodeCommand(code),
-          { timeout: 15000 }
-        );
+        case "python":
+        case "py": {
+          const cmd = createPythonCommand(code);
+          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
+          return stdout;
+        }
 
-        output = stdout;
+        case "php": {
+          const cmd = createPHPCommand(code);
+          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
+          return stdout;
+        }
 
-        break;
+        default:
+          throw new Error(`Unsupported language: ${language}`);
       }
-
-      case "python":
-      case "py": {
-
-        const { createPythonCommand } =
-          require("./languages/python");
-
-        const { stdout } = await execPromise(
-          createPythonCommand(code),
-          { timeout: 15000 }
-        );
-
-        output = stdout;
-
-        break;
-      }
-
-      case "php": {
-
-        const { createPHPCommand } =
-          require("./languages/php");
-
-        const { stdout } = await execPromise(
-          createPHPCommand(code),
-          { timeout: 15000 }
-        );
-
-        output = stdout;
-
-        break;
-      }
-
-      case "kotlin":
-      case "kt": {
-
-        const kotlinRunner =
-          require("./languages/kotlin");
-
-        output = await kotlinRunner(code);
-
-        break;
-      }
-
-      default:
-        throw new Error(
-          `Unsupported language: ${language}`
-        );
-
-    }
+    });
 
     res.json({ success: true, output });
 
   } catch (err) {
     res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message || "Erro interno na execução do código."
     });
   }
 });
 
-const PORT = 4000;
-app.listen(PORT, () => {
-  console.log(`⚡ Code Ascension Runtime rodando na porta ${PORT}`);
-});
-
-app.use((req, _res, next) => {
-  req.setTimeout(20000);
-  next();
+app.listen(CONFIG.PORT, () => {
+  console.log(`⚡ Code Ascension Runtime rodando na porta ${CONFIG.PORT}`);
 });
