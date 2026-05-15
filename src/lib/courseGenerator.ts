@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { buildMemoryContext } from "./vectorMemory";
+import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
@@ -26,18 +30,44 @@ export async function generateCourse({
   const compressedMaterial = baseMaterial ? compressContext(baseMaterial, 5000) : "";
   const userAnalysis = await getUserStrengthsAndWeaknesses();
 
-const adaptiveContext = `
+  // 1. Recupera o histórico pedagógico do grafo de conhecimento se aplicável
+  let graphReviewText = "None yet";
+  try {
+    // Usamos o próprio topic como chave ou id temporário se não houver um ativo
+    const graph = await getKnowledgeGraph(topic.toLowerCase());
+    if (graph) {
+      const reviewTargets = getReviewConcepts(graph);
+      if (reviewTargets.length > 0) {
+        graphReviewText = reviewTargets.map(r => `${r.title} (Mastery: ${r.mastery})`).join(", ");
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch graph review concepts", e);
+  }
+
+  // 2. Recupera memórias históricas semânticas de lições e falhas anteriores do usuário
+  const vectorMemoryContext = await buildMemoryContext({
+    query: `Course creation for topic: ${topic}. User weaknesses: ${userAnalysis.weaknesses.join(", ")}`,
+    tags: [topic.toLowerCase(), level],
+    limit: 3
+  });
+
+  const adaptiveContext = `
 ================================
 USER ADAPTIVE PROFILE (MIND PALACE)
 ================================
 STRENGTHS: ${userAnalysis.strengths.join(", ") || "None yet"}
 WEAKNESSES: ${userAnalysis.weaknesses.join(", ") || "None yet"}
-RECENT_FAILURES: ${userAnalysis.recentErrors.map(e => e.topic).join(", ")}
+PEDAGOGICAL_REVIEW_TARGETS: ${graphReviewText}
+HISTORICAL_VECTOR_MEMORIES:
+${vectorMemoryContext || "No previous historical memory found for this context."}
 
 INSTRUCTION: 
-1. If the user has weaknesses, start the course by reinforcing those concepts.
-2. If they master a topic (Strength), skip basic definitions and move to complex implementation.
+1. If the user has weaknesses or review targets, prioritize starting or embedding tasks within the course structure to reinforce those specific concepts naturally.
+2. If they master a topic (Strength), skip basic definitions in those sub-areas and move to complex implementation.
+3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
 `;
+  
   const prompt = `
 You are an elite curriculum architect.
 Your mission: create a coherent, progressive, adaptive programming course.

@@ -1,5 +1,7 @@
 "use client";
 
+import { getWeakTopics, getSuggestedTopics } from "@/lib/curriculumState"; // Mapeamento do curso atual
+import { getReviewConcepts } from "@/lib/mastery"; // Repetição espaçada global
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/db";
@@ -59,21 +61,29 @@ export default function NewCoursePage() {
     setProgress(10);
     playSound("click", 0.3);
 
-    // ... (mantenha as verificações iniciais de anti-spam e estados)
+    
 
     try {
       const difficulty = await suggestDifficulty(topic, cognitiveProfile);
       setProgress(25);
       setStatus("ANALYZING_COGNITIVE_MAP...");
 
-      // CORREÇÃO: Calcula o nível real a partir do XP usando o motor de progressão do sistema
-      const realLevel = calculateLevel(user?.xp || 0);
-
       const courseId = `course_${Date.now()}`;
+      const realLevel = calculateLevel(user?.xp || 0);
       const userProfile = cognitiveProfile;
 
-      // CORREÇÃO: Passa o nível real calculado na string de estado cognitivo enviada para o prompt do construtor
-      const learningStateString = `Level: ${realLevel}, Cognitive: ${userProfile}`;
+      // 1. Recupera as deficiências e pendências reais do usuário (Motor Adaptativo)
+      const currentCourseId = user?.activeCourse || "main"; 
+      const weakTopics = await getWeakTopics(currentCourseId);
+      const suggestedTopics = await getSuggestedTopics(currentCourseId);
+      const spacedRepetitionTargets = await getReviewConcepts(3);
+
+      // 2. Transforma os dados reais em strings para orientar a geração da IA
+      const weakTopicsStr = weakTopics.map(t => t.topic).slice(0, 3).join(", ") || "None detected";
+      const reviewStr = spacedRepetitionTargets.map(c => c.conceptId).join(", ") || "None pending";
+
+      // 3. Injeta as vulnerabilidades diretamente na string de estado enviada à IA
+      const learningStateString = `Level: ${realLevel}, Cognitive: ${userProfile}, Critical Weaknesses to address: [${weakTopicsStr}], Spaced Repetition Targets: [${reviewStr}]`;
 
       const fullPrompt = await buildCoursePrompt(
         topic,

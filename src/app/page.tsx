@@ -123,7 +123,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 to-slate-900 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-b from-slate-950 to-slate-900 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-cyan-900/40 bg-slate-900/90 backdrop-blur p-6 shadow-2xl shadow-cyan-950/20">
         <div className="mb-6">
           <h1 className="text-center text-xl font-black tracking-[0.25em] text-cyan-400 font-mono">
