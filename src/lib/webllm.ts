@@ -101,18 +101,19 @@ export async function initEngine(
         /*
           ENGINE
         */
+                /*
+          ENGINE
+        */
         engine = await CreateWebWorkerMLCEngine(
           worker,
           selectedModelId,
           {
             initProgressCallback: onProgress,
             logLevel: "INFO",
-            // lowResources deve ficar no nível raiz deste objeto
-            // e requiredMaxBufferSize deve ser removido por não existir na AppConfig
-            lowResources: true, 
           }
         );
-;
+
+
 
 
 
