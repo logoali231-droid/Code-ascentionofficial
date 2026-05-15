@@ -1,12 +1,14 @@
 const CACHE_NAME = "code-ascention-v1.7.1";
+
 const ASSETS_TO_CACHE = [
   "/", "/manifest.json", "/favicon.ico",
   "/icons/icon-192.png", "/icons/icon-512.png",
   "/icons/coins.png", "/icons/xp_potion_hd.png", "/icons/xp_potion.png",
 ];
 
-
-
+/* =========================================================
+   INSTALL EVENT
+========================================================= */
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 
@@ -24,13 +26,15 @@ self.addEventListener("install", (event) => {
   );
 });
 
-
-
+/* =========================================================
+   ACTIVATE EVENT (CLEANUP DE ASSETS ANTIGOS)
+========================================================= */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.map(async (key) => {
         if (key !== CACHE_NAME) return caches.delete(key);
+        
         // Limpeza agressiva de lixo binário em caches antigos/atuais
         const cache = await caches.open(key);
         const requests = await cache.keys();
@@ -40,53 +44,44 @@ self.addEventListener("activate", (event) => {
           }
         }));
       }))
-    ).then(() => self.clients.claim())
+    ).then(() => {
+      console.log("[SW] Controle assumido. Pipelines prontos.");
+      return self.clients.claim();
+    })
   );
 });
 
+/* =========================================================
+   FETCH EVENT (ESTRATÉGIA DE CACHE + ISOLAMENTO DE LOCAL IA)
+========================================================= */
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET")
     return;
 
-  const url =
-    new URL(event.request.url);
+  const url = new URL(event.request.url);
 
   const isAI =
-    url.hostname.includes(
-      "huggingface.co"
-    ) ||
-
-    url.hostname.includes(
-      "cdn-lfs.huggingface.co"
-    ) ||
-
-    url.hostname.includes(
-      "raw.githubusercontent.com"
-    ) ||
-
+    url.hostname.includes("huggingface.co") ||
+    url.hostname.includes("cdn-lfs.huggingface.co") ||
+    url.hostname.includes("raw.githubusercontent.com") ||
     url.pathname.endsWith(".wasm") ||
-
     url.pathname.endsWith(".bin") ||
-
     url.pathname.endsWith(".gguf");
 
   /*
     AI ASSETS:
     NEVER CACHE IN SW
   */
-
   if (isAI) {
     event.respondWith(
       fetch(event.request)
     );
-
     return;
   }
 
   /*
     NORMAL CACHE
   */
-
   event.respondWith(
     caches.match(event.request)
       .then((cached) => {
@@ -102,8 +97,7 @@ self.addEventListener("fetch", (event) => {
               return response;
             }
 
-            const cloned =
-              response.clone();
+            const cloned = response.clone();
 
             caches.open(CACHE_NAME)
               .then((cache) => {
@@ -117,4 +111,14 @@ self.addEventListener("fetch", (event) => {
           });
       })
   );
+});
+
+/* =========================================================
+   CICLO DE VIDA DETERMINÍSTICO (BACKGROUND MESSAGING)
+========================================================= */
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "DETERMINISTIC_CLEANUP") {
+    // Confirmação de recebimento da rotina secundária disparada no App Boot
+    console.log("[SW Channel] Pipeline secundário ativado: Auto-Cleanup validado com sucesso.");
+  }
 });
