@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { get, save } from "@/lib/db";
-import { buyItem } from "@/lib/economy";
+import { get } from "@/lib/db";
 import { playSound } from "@/lib/sounds";
 import { 
   ShoppingCart, 
@@ -26,7 +25,6 @@ export default function ShopPage() {
   const workerRef = useRef<Worker | null>(null);
 
   const [shopItems, setShopItems] = useState<InventoryItem[]>([
-  
     {
       id: "base_xp_booster",
       name: "Neural Overclock",
@@ -55,15 +53,16 @@ export default function ShopPage() {
     }
   ]);
 
-  
-
-  // Inicializa o Worker para processamento pesado (evita travar o M23)
   useEffect(() => {
-    workerRef.current = new Worker(new URL("@/lib/shop.worker.ts", import.meta.url));
+    workerRef.current = new Worker(
+      new URL("../../lib/workers/shop.worker", import.meta.url),
+      { type: "module" }
+    );
     
     workerRef.current.onmessage = (e) => {
       const { type, payload, error } = e.data;
-      if (type === "PURCHASE_COMPLETE") {
+      
+      if (type === "PURCHASE_SUCCESS") {
         setUserCoins(payload.newBalance);
         playSound("success", 0.5);
         setLoading(false);
@@ -71,10 +70,11 @@ export default function ShopPage() {
         setShopItems(prev => [payload.newItem, ...prev]);
         setIsForging(false);
         playSound("upgrade", 0.6);
-      } else if (error) {
-        console.error("Worker Error:", error);
+      } else if (type === "PURCHASE_ERROR" || error) {
+        console.error("Worker Error:", error || e.data.error);
         setLoading(false);
         setIsForging(false);
+        playSound("error", 0.4);
       }
     };
 
@@ -98,17 +98,15 @@ export default function ShopPage() {
     }
 
     setLoading(true);
-    // Envia a transação para o Worker para não engasgar a UI a 60fps
     workerRef.current?.postMessage({
-      type: "PROCESS_PURCHASE",
-      payload: { item, currentCoins: userCoins }
+      type: "PURCHASE_ITEM",
+      payload: { item }
     });
   };
 
   const handleCustomForge = () => {
     if (!input.trim() || isForging) return;
     setIsForging(true);
-    // O Worker utiliza a lógica do shopGenerator/AI para criar o item
     workerRef.current?.postMessage({
       type: "GENERATE_CUSTOM_ITEM",
       payload: { prompt: input }
@@ -126,7 +124,6 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
-      {/* SHOP HEADER */}
       <div className="flex justify-between items-end mb-8 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3 text-yellow-500 mb-2">
@@ -144,9 +141,8 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* CUSTOM FORGE SECTION */}
       <div className="mb-10 relative group">
-        <div className="absolute -inset-1 bg-linear-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20"></div>
+        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20"></div>
         <div className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-2 text-purple-400 mb-4">
             {isForging ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -174,7 +170,6 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* ITEMS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {shopItems.map((item) => (
           <div 
@@ -214,22 +209,6 @@ export default function ShopPage() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* MARKET STATS */}
-      <div className="mt-12 grid grid-cols-3 gap-4 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
-        <div className="p-4 border border-slate-800 rounded-xl flex flex-col items-center gap-2">
-          <TrendingUp size={16} />
-          <span className="text-[8px] font-bold uppercase">Volatility: 0.4%</span>
-        </div>
-        <div className="p-4 border border-slate-800 rounded-xl flex flex-col items-center gap-2">
-          <Lock size={16} />
-          <span className="text-[8px] font-bold uppercase">Encrypted</span>
-        </div>
-        <div className="p-4 border border-slate-800 rounded-xl flex flex-col items-center gap-2">
-          <Box size={16} />
-          <span className="text-[8px] font-bold uppercase">Nodes: 128</span>
-        </div>
       </div>
     </div>
   );

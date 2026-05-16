@@ -54,7 +54,7 @@ export async function initEngine(
       }
 
       worker = new Worker(
-        new URL("./webllm.worker.ts", import.meta.url),
+        new URL("../workers/webllm.worker", import.meta.url), // Remova a extensão explícita .ts aqui
         { type: "module" }
       );
 
@@ -149,7 +149,7 @@ export async function* generate(
   };
   signal?.addEventListener("abort", abortHandler);
 
-try {
+  try {
     const currentEngine = await initEngine(undefined, onProgress);
 
     // Coerção cirúrgica com 'as any' para burlar a omissão do 'signal' no tipo estrito do MLC-AI
@@ -162,7 +162,7 @@ try {
       ],
       temperature,
       stream: true,
-      signal: signal, 
+      signal: signal,
     } as any);
 
     for await (const chunk of stream as any) {
