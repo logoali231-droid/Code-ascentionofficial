@@ -132,6 +132,12 @@ export async function addCoins(amount: number) {
  * =========================================
  */
 
+/**
+ * =========================================
+ * BUY ITEM (COM TRAVA ANTI-INFLAÇÃO)
+ * =========================================
+ */
+
 export async function buyItem(item: InventoryItem) {
   return await db.transaction('rw', db.user, async () => {
     const user = await db.user.get("main") as UserStats;
@@ -140,25 +146,44 @@ export async function buyItem(item: InventoryItem) {
     const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
     const efficiency = bonuses.find(b => b.type === 'RESOURCE_EFFICIENCY')?.value || 0;
 
-    const price = item.price || 0;
-    const baseDynamicPrice = Math.floor(price * (1 + (user.level || 1) * 0.03));
-    const dynamicPrice = Math.floor(baseDynamicPrice * (1 - efficiency));
+    const userCoins = user.coins || 0;
+    const basePrice = item.price || 0;
 
-    if ((user.coins || 0) < dynamicPrice) {
+    // 1. Injeção do Multiplicador de Barreira de Capital (Baseado no saldo acumulado)
+    const capitalBarrierMultiplier = 1 + Math.sqrt(userCoins / 100000);
+
+    // 2. Precificação Procedural combinando Nível do Usuário + Barreira de Capital
+    const levelScaling = 1 + (user.level || 1) * 0.03;
+    const baseDynamicPrice = Math.floor(basePrice * levelScaling * capitalBarrierMultiplier);
+    
+    // 3. Aplica descontos de facção por último
+    const finalPrice = Math.floor(baseDynamicPrice * (1 - efficiency));
+
+    if (userCoins < finalPrice) {
       playSound("error", 0.4);
       throw new Error("INSUFFICIENT_CREDITS");
     }
 
     const inventory = [...(user.inventory || [])];
-    const existingIndex = inventory.findIndex((i) => i.id === item.id);
+    
+    // Chips são itens únicos por causa da durabilidade individual, outros acumulam quantidade
+    const isChip = item.type === "chip";
+    const existingIndex = isChip ? -1 : inventory.findIndex((i) => i.id === item.id);
 
     if (existingIndex > -1) {
       inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + 1;
     } else {
-      inventory.push({ ...item, quantity: 1, acquiredAt: Date.now() });
+      // Se for um chip, inicializa as propriedades de durabilidade
+      const newItem = { 
+        ...item, 
+        quantity: 1, 
+        acquiredAt: Date.now(),
+        ...(isChip && { durability: item.maxDurability || 100, maxDurability: item.maxDurability || 100 })
+      };
+      inventory.push(newItem);
     }
 
-    const newCoins = (user.coins || 0) - dynamicPrice;
+    const newCoins = userCoins - finalPrice;
     await db.user.update("main", { coins: newCoins, inventory });
 
     playSound("buy", 0.5);
@@ -208,5 +233,75 @@ export async function useItem(itemId: string) {
     });
 
     playSound("click", 0.3);
+  });
+}
+
+
+/**
+ * =========================================
+ * MECÂNICA DE QUEIMA DE MOEDAS (MONEY SINK)
+ * =========================================
+ */
+
+/**
+ * Reduz a durabilidade do chip equipado atualmente.
+ * Deve ser chamada após o usuário concluir lições, exercícios ou ações cruciais.
+ */
+export async function degradeEquippedChips(amount: number = 5) {
+  return await db.transaction('rw', db.user, async () => {
+    const user = await db.user.get("main") as UserStats;
+    if (!user || !user.inventory) return null;
+
+    let affected = false;
+    const updatedInventory = user.inventory.map((item) => {
+      if (item.type === "chip" && item.equipped && item.durability !== undefined) {
+        affected = true;
+        const newDurability = Math.max(0, item.durability - amount);
+        return { ...item, durability: newDurability };
+      }
+      return item;
+    });
+
+    if (affected) {
+      await db.user.update("main", { inventory: updatedInventory });
+    }
+    return { ...user, inventory: updatedInventory };
+  });
+}
+
+/**
+ * Cobra moedas para restaurar totalmente a durabilidade de um chip específico
+ */
+export async function repairChip(itemId: string) {
+  return await db.transaction('rw', db.user, async () => {
+    const user = await db.user.get("main") as UserStats;
+    if (!user) throw new Error("USER_NOT_FOUND");
+
+    const inventory = [...(user.inventory || [])];
+    const itemIndex = inventory.findIndex((i) => i.id === itemId && i.type === "chip");
+    
+    if (itemIndex === -1) throw new Error("CHIP_NOT_FOUND");
+    const chip = inventory[itemIndex];
+
+    if (chip.durability === chip.maxDurability) throw new Error("CHIP_ALREADY_MAX_DURABILITY");
+
+    const missingDurability = (chip.maxDurability || 100) - (chip.durability || 0);
+    
+    // O custo de reparo escala proporcionalmente ao preço base do chip e ao desgaste
+    const repairCost = Math.floor((chip.price * 0.2) * (missingDurability / (chip.maxDurability || 100)));
+
+    if (user.coins < repairCost) {
+      playSound("error", 0.4);
+      throw new Error("INSUFFICIENT_CREDITS_FOR_REPAIR");
+    }
+
+    // Restaura o chip e debita as moedas (recurso destruído/queimado)
+    inventory[itemIndex].durability = chip.maxDurability;
+    const newCoins = user.coins - repairCost;
+
+    await db.user.update("main", { coins: newCoins, inventory });
+    playSound("buy", 0.4); // Som de transação de conserto
+
+    return { ...user, coins: newCoins, inventory };
   });
 }

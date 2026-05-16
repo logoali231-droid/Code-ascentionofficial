@@ -22,6 +22,8 @@ export interface AdaptiveMetrics {
   coinMultiplier: number;
   style: string;
   focusMode: boolean;
+  durability?: number;    // Durabilidade atual do Chip (ex: 100)
+  maxDurability?: number; // Durabilidade máxima (ex: 100)
 
 }
 
@@ -42,6 +44,8 @@ export interface InventoryItem {
   acquiredAt: number;
   isFake?: boolean;
   requiredLevel: number;
+  durability?: number;    // Durabilidade atual do Chip (ex: 100)
+  maxDurability?: number; // Durabilidade máxima (ex: 100)
 }
 
 export interface UserStats {
