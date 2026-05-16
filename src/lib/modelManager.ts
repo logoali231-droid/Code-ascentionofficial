@@ -124,17 +124,9 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     const adapter = await nav.gpu.requestAdapter();
 
     if (!adapter) {
-      cachedSpecs = {
-        modelTier: "LOW",
-        gpuLimit,
-        recommended: SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model,
-        memory,
-        webgpu,
-        sharedArrayBuffer,
-        ramGB: memory,
-        isMobile,
-      };
-      return cachedSpecs;
+      console.warn("[WebGPU] Adapter indisponível no ambiente atual.");
+      // Lançamos um erro padronizado para a UI interceptar, em vez de mascarar o estado
+      throw new Error("HARDWARE_INCOMPATIBLE: WebGPU detectado no navegador, mas falhou ao instanciar o Adapter gráfico.");
     }
 
     gpuLimit = 2048;

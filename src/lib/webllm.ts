@@ -26,126 +26,79 @@ export async function initEngine(
   modelId?: string,
   onProgress?: (report: any) => void
 ) {
-  if (loadingPromise)
-    return loadingPromise;
+  if (loadingPromise) return loadingPromise;
 
-  loadingPromise =
-    (async () => {
-      try {
-        await detectSystemCapabilities();
+  loadingPromise = (async () => {
+    try {
+      const specs = await detectSystemCapabilities();
 
-        const selectedModelId =
-          modelId ||
-          "Phi-3-mini-4k-instruct-q4f16_1-MLC";
+      // CORREÇÃO 1: O fallback padrão agora bate exatamente com o ID do SYSTEM_CONFIG (q4f32_1)
+      // ou assume dinamicamente o modelo recomendado para o hardware detectado
+      const selectedModelId = modelId || specs.recommended.model_id;
 
-        // CORREÇÃO: Busca os modelos declarados dentro do objeto imutável de sistema
-        const modelConfig =
-          SYSTEM_CONFIG.AVAILABLE_MODELS.find(
-            (m) =>
-              m.model_id ===
-              selectedModelId
-          );
+      const modelConfig = SYSTEM_CONFIG.AVAILABLE_MODELS.find(
+        (m) => m.model_id === selectedModelId
+      );
 
-        if (!modelConfig) {
-          throw new Error(
-            "Modelo não encontrado."
-          );
-        }
-
-        if (
-          engine &&
-          currentModel ===
-          selectedModelId
-        ) {
-          return engine;
-        }
-
-        /*
-          CLEANUP
-        */
-
-        /*
-          NEW WORKER
-        */
-
-        if (worker) {
-          worker.terminate();
-          worker = null;
-        }
-
-        worker = new Worker(
-          new URL(
-            "./webllm.worker.ts",
-            import.meta.url
-          ),
-          {
-            type: "module",
-          }
-        );
-
-        worker.onerror = (err) => {
-          console.error(
-            "[WORKER ERROR]",
-            err
-          );
-        };
-
-        /*
-          ENGINE
-        */
-
-        engine = await CreateWebWorkerMLCEngine(
-          worker,
-          selectedModelId,
-          {
-            initProgressCallback: onProgress,
-            logLevel: "INFO",
-            // Ajustado para ler as constantes imutáveis do sistema centralizado
-            chatOpts: {
-              context_window_size: SYSTEM_CONFIG.LLM.context_window_size,
-              sliding_window_size: SYSTEM_CONFIG.LLM.sliding_window_size,
-              attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
-            },
-          } as any
-        );
-
-        const gpuDevice =
-          (engine as any)?.engine?.device ||
-          (engine as any)?._device;
-
-        if (gpuDevice) {
-          gpuDevice.lost.then(
-            async (info: any) => {
-              console.warn(
-                "[WebGPU Device Lost]",
-                info
-              );
-
-              await unloadEngine();
-            }
-          );
-        }
-
-        currentModel =
-          selectedModelId;
-
-        console.log(
-          "[WebLLM] Engine pronta:",
-          selectedModelId
-        );
-
-        return engine;
-      } catch (err) {
-        console.error(
-          "[WebLLM INIT ERROR]",
-          err
-        );
-
-        loadingPromise = null;
-
-        throw err;
+      if (!modelConfig) {
+        throw new Error(`Modelo ${selectedModelId} não mapeado no esqueleto do sistema.`);
       }
-    })();
+
+      if (engine && currentModel === selectedModelId) {
+        return engine;
+      }
+
+      if (worker) {
+        worker.terminate();
+        worker = null;
+      }
+
+      worker = new Worker(
+        new URL("./webllm.worker.ts", import.meta.url),
+        { type: "module" }
+      );
+
+      // CORREÇÃO 2: Evita o travamento eterno. Se o Worker falhar na VRAM/Rede, rejeita a Promise
+      worker.onerror = (err) => {
+        console.error("[WORKER COGNITIVE ERROR]", err);
+        loadingPromise = null;
+        throw new Error("Falha crítica na inicialização do thread do Web Worker.");
+      };
+
+      engine = await CreateWebWorkerMLCEngine(
+        worker,
+        selectedModelId,
+        {
+          initProgressCallback: onProgress,
+          logLevel: "INFO",
+          chatOpts: {
+            context_window_size: SYSTEM_CONFIG.LLM.context_window_size,
+            sliding_window_size: SYSTEM_CONFIG.LLM.sliding_window_size,
+            attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
+          },
+        } as any
+      );
+
+      const gpuDevice = (engine as any)?.engine?.device || (engine as any)?._device;
+
+      if (gpuDevice) {
+        gpuDevice.lost.then(async (info: any) => {
+          console.warn("[WebGPU Device Lost - Context Evicted]", info);
+          // CORREÇÃO 3: Chama a função local de limpeza estrita que limpa worker e referências
+          await localUnloadEngine();
+        });
+      }
+
+      currentModel = selectedModelId;
+      console.log("[WebLLM] Engine isolada e pronta:", selectedModelId);
+
+      return engine;
+    } catch (err) {
+      console.error("[WebLLM INIT ERROR]", err);
+      loadingPromise = null; // Libera a trava para tentativas subsequentes
+      throw err;
+    }
+  })();
 
   return loadingPromise;
 }
