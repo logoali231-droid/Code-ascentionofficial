@@ -31,8 +31,8 @@ export const RANKS: { name: RankTier; minLevel: number; color: string; }[] = [
 function computeXPReward(base: number, level: number, factionBonus: number = 0) {
   const scaling = 1 / (1 + level * 0.015);
   const reward = Math.floor(base * scaling);
-  // Aplica o bônus de facção (ex: 0.15 = +15%)
-  return Math.max(5, Math.floor(reward * (1 + factionBonus)));
+  const diminishingFactionBonus = factionBonus / (1 + factionBonus);
+  return Math.max(5, Math.floor(reward * (1 + diminishingFactionBonus)));
 }
 
 function computeCoinReward(base: number, level: number) {

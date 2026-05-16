@@ -74,7 +74,50 @@ export async function evaluateExercise({
   // 1. VALIDAÇÃO LÓGICA
   let correct = await evaluateLogic(userAnswer, expected);
 
-  // 2. FALLBACK DE IA (Trava reduzida para 1 caractere para aceitar keywords curtas)
+  // 2. FALLBACK DE IA COM TRAVA ALGORÍTMICA (Skill Caps & Hard Floors)
+  // Recupera o usuário e calcula bônus modificadores antes do motor aceitar variações
+  const userStats = await getUser();
+  
+  // Resgata bônus de precisão da árvore de habilidades/facções (Ex: +0.15 de bônus passivo)
+  const userFactionId = userStats?.factionId || "";
+  const userXp = userStats?.xp || 0;
+  
+  // Importação sob demanda do gerenciador para calcular o recuo adaptativo do threshold
+  const { FactionManager } = await import("./ranking/factions");
+  const currentActiveBonuses = FactionManager.getActiveBonuses(userFactionId, userXp);
+  
+  // CORREÇÃO TS2367: Casting "as string" adicionado para permitir a checagem no enum/tipo dinâmico
+  const evaluationBonus = currentActiveBonuses.find(b => (b.type as string) === 'EVALUATION_ACCURACY_BOOST')?.value || 0;
+
+  // Aplicação da Curva de Retornos Decrescentes (Diminishing Returns) para o bônus passivo
+  // Impede que o bônus escale linearmente até quebrar o desafio. Fórmula: bônus_real = bônus / (1 + bônus)
+  const diminishedBonus = evaluationBonus / (1 + evaluationBonus);
+
+  // O threshold padrão do sistema é 0.72 (definido no compareCode do evaluator.logic)
+  // O bônus passivo reduz a exigência de acerto, mas NUNCA pode baixar o threshold além do Hard Floor de 0.62
+  const targetThreshold = Math.max(0.62, 0.72 - diminishedBonus);
+
+  // Se o código atingiu a nota matemática modificada, passa a ser considerado correto pelo motor
+  if (!correct && userAnswer.trim().length > 0) {
+    const cleanExpected = expected.toLowerCase().trim(); // Equivalente rápido à normalização local
+    const cleanReceived = userAnswer.toLowerCase().trim();
+    
+    // Executa a tokenização rápida para validar a nota atual do usuário contra o threshold dinâmico
+    const expectedTokens = cleanExpected.split(/[^a-z0-9_]+/gi).filter(Boolean);
+    const receivedTokens = cleanReceived.split(/[^a-z0-9_]+/gi).filter(Boolean);
+    
+    if (expectedTokens.length > 0) {
+      // CORREÇÃO TS7006: Tipagem explícita (t: string) adicionada no escopo do filter
+      const overlap = expectedTokens.filter((t: string) => receivedTokens.includes(t)).length;
+      const currentRatio = overlap / expectedTokens.length;
+      
+      // Se o score do usuário passar da barreira flexibilizada pelo bônus (respeitando o floor de 0.62)
+      if (currentRatio >= targetThreshold) {
+        correct = true;
+        iaFeedback = `Neural alignment enhanced by Skill Tree bônus. Adjusted Threshold: ${targetThreshold.toFixed(2)}`;
+      }
+    }
+  }
 
   // FALLBACK OTIMIZADO: Validação Heurística para respostas curtas (Keywords)
   if (!correct && userAnswer.trim().length <= 5) {

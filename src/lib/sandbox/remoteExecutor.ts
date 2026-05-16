@@ -5,7 +5,7 @@ import { connectSandboxSocket } from "./sandboxSocket";
 export async function runRemote(
   code: string,
   language: string,
-  signal?: AbortSignal // <-- Injeção do sinal vinda da Runtime Queue
+  signal?: AbortSignal
 ): Promise<{ output: string[]; error?: string }> {
   
   if (signal?.aborted) {
@@ -15,33 +15,22 @@ export async function runRemote(
   const socket = await connectSandboxSocket();
 
   return new Promise((resolve, reject) => {
-    // 1. Envia a ordem de execução inicial
-    socket.send(
-      JSON.stringify({
-        type: "execute",
-        language,
-        code
-      })
-    );
-
-    // Handler de cancelamento ativo acionado pela troca de contexto/abas
+    // ID único ou filtro de execução para garantir que este Handler só leia a resposta DESTA execução específica
+    // (Útil se você rodar vários códigos ou compartilhar o socket)
+    
+    // Handler de cancelamento ativo acionado pela troca de contexto/abas (Safari Guard)
     const abortHandler = () => {
-      clearTimeout(timeout);
+      cleanup();
       
-      // Notifica o servidor remoto para matar o container/processo ativo lá fora
+      // Notifica o servidor remoto para dar um "docker stop/kill" no container ativo lá fora
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "abort" }));
       }
       
-      cleanup();
       reject(new DOMException("Remote execution intercepted actively (Context switched).", "AbortError"));
     };
 
-    if (signal) {
-      signal.addEventListener("abort", abortHandler);
-    }
-
-    // Centralizador de limpeza de escutadores para o ciclo de vida deste Promise
+    // Centralizador de limpeza estrito (Remove absolutamente tudo para poupar RAM no iOS)
     const cleanup = () => {
       clearTimeout(timeout);
       if (signal) {
@@ -51,27 +40,52 @@ export async function runRemote(
       socket.removeEventListener("error", errorHandler);
     };
 
+    if (signal) {
+      signal.addEventListener("abort", abortHandler);
+    }
+
     const timeout = setTimeout(() => {
-      reject(new Error("Remote execution timeout"));
       cleanup();
+      reject(new Error("Remote execution timeout"));
     }, 15000);
 
     const messageHandler = (event: MessageEvent) => {
-      const data = JSON.parse(event.data);
-      resolve({
-        output: data.output || [],
-        error: data.error
-      });
-      cleanup();
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Opcional: se o seu backend devolver um ID, filtre aqui (ex: if (data.runId !== meuId) return;)
+        
+        resolve({
+          output: data.output || [],
+          error: data.error
+        });
+        cleanup(); // Garante a remoção dos escutadores imediatamente após o retorno
+      } catch (e) {
+        // Ignora mensagens mal-formatadas que não pertençam ao fluxo de execução atual
+      }
     };
 
     const errorHandler = (err: Event) => {
-      reject(err);
       cleanup();
+      reject(err);
     };
 
-    // Vincula os escutadores gerenciáveis manualmente (removendo o { once: true } para controle total do cleanup)
+    // Vincula os escutadores
     socket.addEventListener("message", messageHandler);
     socket.addEventListener("error", errorHandler);
+
+    // 1. Envia a ordem de execução inicial para o cluster Docker
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "execute",
+          language,
+          code
+        })
+      );
+    } else {
+      cleanup();
+      reject(new Error("WebSocket is not in OPEN state."));
+    }
   });
 }

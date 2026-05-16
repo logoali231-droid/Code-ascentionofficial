@@ -2,25 +2,23 @@
 const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
-const util = require("util");
-const execPromise = util.promisify(exec);
+const fs = require("fs");
 
 const CONFIG = require("./config");
 const { enqueue } = require("./queue");
 const { validateCode } = require("./security");
-
-// Importando os runners das linguagens
-const runKotlin = require("./languages/kotlin");
-const runScala = require("./languages/scala");
-const runVBNet = require("./languages/vbnet");
-const { createNodeCommand } = require("./languages/node");
-const { createPythonCommand } = require("./languages/python");
-const { createPHPCommand } = require("./languages/php");
+const { runDocker } = require("./docker");
+const { buildRuntime } = require("./languages/factory");
 
 const app = express();
+
+// Injeta o suporte a WebSockets dentro do app Express
+const expressWs = require("express-ws")(app);
+
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
+// Health Check HTTP básico
 app.get("/health", (_req, res) => {
   exec("docker info", (error) => {
     res.json({
@@ -31,67 +29,87 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.post("/run", async (req, res) => {
-  const { language, code } = req.body;
+// --- GATEWAY WEBSOCKET (SANDBOX CORE) ---
+app.ws("/", (ws) => {
+  console.log("🔌 [WS] Nova instância de execução conectada via PWA.");
+  
+  let currentExecution = null;
+  let activeTempDir = null; // Rastreia o diretório físico da execução atual
 
-  try {
-    if (!language || !code) throw new Error("Missing language or code");
+  // Centralizador de limpeza estrita para evitar vazamentos (Aba fechada / Abort)
+  const cleanActiveResources = () => {
+    if (currentExecution) {
+      console.log("🛑 [DOCKER] Derrubando container ativo imediatamente.");
+      currentExecution.kill();
+      currentExecution = null;
+    }
+    if (activeTempDir && fs.existsSync(activeTempDir)) {
+      console.log(`📁 [DISK] Removendo diretório temporário: ${activeTempDir}`);
+      fs.rmSync(activeTempDir, { recursive: true, force: true });
+      activeTempDir = null;
+    }
+  };
 
-    // Passa pelo escudo anti-exploit estático primeiro
-    validateCode(code);
+  ws.on("message", async (msg) => {
+    try {
+      const data = JSON.parse(msg);
 
-    const langKey = language.toLowerCase();
+      // --- CENÁRIO A: ORDEM DE EXECUÇÃO ---
+      if (data.type === "execute") {
+        const { language, code } = data;
 
-    // Enfileira a tarefa para execução controlada
-    const output = await enqueue(async () => {
-      switch (langKey) {
-        case "scala":
-          return await runScala(code);
-
-        case "vbnet":
-        case "vb":
-          return await runVBNet(code);
-
-        case "kotlin":
-        case "kt":
-          return await runKotlin(code);
-
-        case "node":
-        case "javascript":
-        case "js": {
-          const cmd = createNodeCommand(code);
-          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
-          return stdout;
+        if (!language || !code) {
+          return ws.send(JSON.stringify({ success: false, error: "Missing language or code" }));
         }
 
-        case "python":
-        case "py": {
-          const cmd = createPythonCommand(code);
-          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
-          return stdout;
-        }
+        validateCode(code);
+        const langKey = language.toLowerCase();
 
-        case "php": {
-          const cmd = createPHPCommand(code);
-          const { stdout } = await execPromise(cmd, { timeout: CONFIG.LIMITS.timeout });
-          return stdout;
-        }
+        // Enfileira a tarefa na fila controlada concorrente
+        await enqueue(async () => {
+          try {
+            const { command, tempDir } = buildRuntime(langKey, code);
+            
+            activeTempDir = tempDir; 
 
-        default:
-          throw new Error(`Unsupported language: ${language}`);
+            if (command) {
+              // Chama o executor do docker.js integrado por CommonJS
+              currentExecution = runDocker(command);
+              const stdout = await currentExecution.promise;
+              
+              ws.send(JSON.stringify({ success: true, output: [stdout] }));
+            }
+
+          } catch (execErr) {
+            const isAborted = execErr.signal === "SIGKILL" || (execErr.message && execErr.message.includes("null"));
+            ws.send(JSON.stringify({
+              success: false,
+              error: isAborted 
+                ? "[SYSTEM] Processamento interrompido: Container destruído pelo usuário." 
+                : execErr.message
+            }));
+          } finally {
+            cleanActiveResources();
+          }
+        });
       }
-    });
 
-    res.json({ success: true, output });
+      // --- CENÁRIO B: CANCELAMENTO ATIVO (ABORT) ---
+      if (data.type === "abort") {
+        cleanActiveResources();
+      }
 
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message || "Erro interno na execução do código."
-    });
-  }
+    } catch (err) {
+      ws.send(JSON.stringify({ success: false, error: "Erro de parseamento do payload interno." }));
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("⚠️ [WS] Conexão encerrada pelo cliente. Limpando possíveis resíduos.");
+    cleanActiveResources();
+  });
 });
 
 app.listen(CONFIG.PORT, () => {
-  console.log(`⚡ Code Ascension Runtime rodando na porta ${CONFIG.PORT}`);
+  console.log(`⚡ Code Ascension Runtime unificada rodando na porta ${CONFIG.PORT}`);
 });

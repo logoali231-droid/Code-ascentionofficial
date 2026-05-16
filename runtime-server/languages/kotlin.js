@@ -1,22 +1,20 @@
 const fs = require("fs");
 const path = require("path");
-const { exec } = require("child_process");
-const { promisify } = require("util");
 const { v4: uuidv4 } = require("uuid");
 const CONFIG = require("../config");
 
-const execPromise = promisify(exec);
-
-module.exports = async function runKotlin(code) {
+function setupKotlin(code) {
   const id = uuidv4();
   const tempDir = path.resolve(__dirname, `../temp-kotlin-${id}`);
 
-  try {
+  if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
-    const filePath = path.join(tempDir, "Main.kt");
-    fs.writeFileSync(filePath, code);
+  }
 
-    const command = `docker run --rm \
+  const filePath = path.join(tempDir, "Main.kt");
+  fs.writeFileSync(filePath, code);
+
+  const command = `docker run --rm \
 --memory="${CONFIG.LIMITS.memory_heavy}" \
 --cpus="${CONFIG.LIMITS.cpus}" \
 --pids-limit=${CONFIG.LIMITS.pidsLimit} \
@@ -26,13 +24,8 @@ module.exports = async function runKotlin(code) {
 gradle:8.7-jdk21 \
 sh -c "kotlinc Main.kt -include-runtime -d main.jar && java -jar main.jar"`;
 
-    const { stdout, stderr } = await execPromise(command, { timeout: CONFIG.LIMITS.timeout });
+  // Devolve o comando e a pasta para o gerenciador do WS controlar
+  return { command, tempDir };
+}
 
-    if (stderr && !stdout) {
-      throw new Error(stderr);
-    }
-    return stdout;
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
-};
+module.exports = { setupKotlin };

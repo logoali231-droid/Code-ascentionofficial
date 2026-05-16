@@ -1,0 +1,1 @@
+console.log("🚀 Code-Ascension rodando seguro dentro do Docker!");

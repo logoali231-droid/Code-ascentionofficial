@@ -22,10 +22,11 @@ export function validateInput(userInput: string) {
   return { isValid: true };
 }
 
-export async function evaluateLogic(received: any, expected: any): Promise<boolean> {
+export async function evaluateLogic(received: any, expected: any, customThreshold?: number): Promise<boolean> {
   try {
     const valReceived = String(received || "").trim();
     const valExpected = String(expected || "").trim();
+    const customThresholdNum = typeof customThreshold === "number" && !isNaN(customThreshold) ? customThreshold : 0.72;
 
     if (!valReceived && valExpected) return false;
 
@@ -64,12 +65,13 @@ export function compareAnswers(expected: string, received: string) {
    CODE COMPARISON (HARDCORE FLEXIBLE)
 ========================================================= */
 
-export function compareCode(expected: string, received: string) {
+
+
+export function compareCode(expected: string, received: string, customThreshold: number = 0.72) {
   const cleanExpected = normalizeCode(expected);
   const cleanReceived = normalizeCode(received);
 
   if (cleanExpected === cleanReceived) return true;
-
   if (cleanReceived.includes(cleanExpected)) return true;
 
   const expectedTokens = tokenize(cleanExpected);
@@ -83,7 +85,10 @@ export function compareCode(expected: string, received: string) {
 
   const ratio = overlap / expectedTokens.length;
 
-  return ratio >= 0.72;
+  // HARD FLOOR SEGURO: Mesmo que os bônus reduzam o threshold, ele NUNCA cai abaixo de 0.62
+  const finalThreshold = Math.max(0.62, customThreshold);
+
+  return ratio >= finalThreshold;
 }
 
 /* =========================================================

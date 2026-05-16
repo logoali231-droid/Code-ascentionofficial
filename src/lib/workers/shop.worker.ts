@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals */
-import { calculateDiscount, processInventory } from "./aiShop";
-import { save, get } from "./db";
+import { calculateDiscount, processInventory } from "../aiShop";
+import { save, get } from "../db";
 
 /**
  * Worker de Loja Otimizado - Code Ascension

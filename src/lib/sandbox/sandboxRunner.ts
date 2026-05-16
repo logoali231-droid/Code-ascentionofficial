@@ -115,6 +115,9 @@ export function executeInWorker(
 /**
  * Despacha a execução do código para o motor correto repassando o AbortSignal
  */
+/**
+ * Despacha a execução do código para o motor correto repassando o AbortSignal
+ */
 export async function executeSandboxCode(
   code: string,
   language: Language,
@@ -126,40 +129,50 @@ export async function executeSandboxCode(
   }
 
   const engine = ENGINE_MAP[language];
-  const startTime = performance.now(); // Início da métrica de execução do motor
+  const startTime = performance.now();
   let success = false;
+
+  // Handler para rejeitar imediatamente a Promise caso o Safari suspenda a aba durante o processamento
+  const abortPromise = new Promise<SandboxResult>((_, reject) => {
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        reject(new DOMException("Execution interrupted by tab lifecycle change.", "AbortError"));
+      });
+    }
+  });
 
   try {
     let result: SandboxResult;
 
-    switch (engine) {
-      case "local":
-        result = await runLocal(code, language, signal) as SandboxResult;
-        break;
+    // Corrida entre a execução do motor e o sinal de aborto abrupto do iOS
+    const executionPromise = (async () => {
+      switch (engine) {
+        case "local":
+          return await runLocal(code, language, signal) as SandboxResult;
 
-      case "remote":
-        result = await runRemote(code, language, signal) as SandboxResult;
-        break;
+        case "remote":
+          // O runRemote vai disparar o fetch() passando o signal. Se abortar, a rede corta na hora.
+          return await runRemote(code, language, signal) as SandboxResult;
 
-      case "wasm":
-        result = await (runWasm as any)(code, language, signal) as SandboxResult;
-        break;
+        case "wasm":
+          return await (runWasm as any)(code, language, signal) as SandboxResult;
 
-      case "neural":
-        result = await (runNeural as any)(code, language, signal) as SandboxResult;
-        break;
+        case "neural":
+          return await (runNeural as any)(code, language, signal) as SandboxResult;
 
-      default:
-        return {
-          output: [],
-          error: "Unknown engine"
-        };
-    }
+        default:
+          return {
+            output: [],
+            error: `Unknown engine for language: ${language}`
+          };
+      }
+    })();
 
-    // Se retornou sem lançar exceção e não possui erro na payload do output
+    // Se o sinal disparar primeiro, o abortPromise joga o erro pro catch
+    result = await Promise.race([executionPromise, abortPromise]);
+
     success = !result.error;
     
-    // Registra métrica normal
     telemetry.record({
       type: "execution_time",
       engine,
@@ -170,15 +183,21 @@ export async function executeSandboxCode(
 
     return result;
 
-  } catch (error) {
-    // Registra métrica de falha crítica do motor/executor
+  } catch (error: any) {
     telemetry.record({
       type: "engine_fault",
-      engine,
+      engine: engine || "unknown",
       language,
       duration: performance.now() - startTime,
       success: false
     });
+
+    if (error.name === "AbortError") {
+      return {
+        output: [],
+        error: "[SYSTEM] Processamento interrompido: A aba foi suspensa ou limpa da memória."
+      };
+    }
     throw error;
   }
 }
