@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react'; // Adicionado useEffect explicitamente
+import React, { useState, useEffect } from 'react';
 import { computeLessonXp, calculateLevel } from '@/lib/level';
 import { getUser } from '@/lib/db';
 import CodeEditor from './CodeEditor';
 import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
-import { getAdaptiveMetrics } from '@/lib/adaptive'; // <-- IMPORT FIXADO AQUI
+import { getAdaptiveMetrics } from '@/lib/adaptive';
 
 const detector = new GibberishDetector();
 
@@ -49,11 +49,15 @@ export default function ExerciseRenderer({
 }: ExerciseRendererProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [codeValue, setCodeValue] = useState<string>('');
   
+  // Estados específicos para a UI de Drag n Drop (Estilo Duolingo)
+  const [dragTokens, setDragTokens] = useState<string[]>([]); // Opções disponíveis embaixo
+  const [selectedTokens, setSelectedTokens] = useState<string[]>([]); // Blocos jogados no slot de cima
+
   const [computedMetrics, setComputedMetrics] = useState<any>(null);
   const [mutatedType, setMutatedType] = useState<'code' | 'quiz' | 'dragdrop' | 'mcq'>('code');
 
-  // Ajustado o ciclo de vida para garantir o sincronismo sem travar o escopo do componente
   useEffect(() => {
     async function fetchTopology() {
       if (!rawExercise) return;
@@ -81,7 +85,29 @@ export default function ExerciseRenderer({
     fetchTopology();
   }, [rawExercise, course?.topic]);
 
-  // Montagem segura do esqueleto do exercício com fallback de opções se necessário
+  // Inicializador de estado quando o exercício muda ou muta
+  useEffect(() => {
+    if (rawExercise) {
+      setCodeValue(rawExercise.starterCode || '');
+      setSelectedOption(null);
+      setErrorMessage(null);
+      setSelectedTokens([]);
+
+      // Gerar e embaralhar tokens se for modo dragdrop
+      let optionsArray: string[] = rawExercise.options || [];
+      if (optionsArray.length === 0) {
+        optionsArray = Array.from(new Set([
+          ...rawExercise.answer.split(/[\s{}();]+/).filter((x: string) => x.length > 0),
+          "undefined",
+          "null",
+          "return"
+        ])).slice(0, 6);
+      }
+      // Embaralha os tokens para o Duolingo Mode
+      setDragTokens([...optionsArray].sort(() => Math.random() - 0.5));
+    }
+  }, [rawExercise, mutatedType]);
+
   const exercise: Exercise = {
     id: rawExercise?.id || '',
     language: rawExercise?.language || 'javascript',
@@ -89,17 +115,8 @@ export default function ExerciseRenderer({
     answer: rawExercise?.answer || '',
     options: rawExercise?.options || [],
     ...rawExercise,
-    type: mutatedType // O tipo mutado entra por último para sobrescrever o rawExercise de forma segura
+    type: mutatedType 
   } as Exercise;
-
-  if ((exercise.type === 'dragdrop' || exercise.type === 'mcq') && (!exercise.options || exercise.options.length === 0)) {
-    exercise.options = Array.from(new Set([
-      ...exercise.answer.split(/[\s{}();]+/).filter(x => x.length > 1),
-      "undefined",
-      "null",
-      "return"
-    ])).slice(0, 6);
-  }
 
   const handleValidation = async (value: string) => {
     setErrorMessage(null);
@@ -111,7 +128,11 @@ export default function ExerciseRenderer({
       return; 
     }
 
-    const isCorrect = value.trim() === exercise.answer.trim();
+    // No dragdrop, validamos juntando os tokens com espaço ou sem espaços dependendo do tipo de resposta
+    const finalCleanValue = value.trim().replace(/\s+/g, ' ');
+    const finalCleanAnswer = exercise.answer.trim().replace(/\s+/g, ' ');
+
+    const isCorrect = finalCleanValue === finalCleanAnswer;
 
     if (isCorrect) {
       const xpMultiplier = computedMetrics?.xpMultiplier || 1.2;
@@ -135,24 +156,178 @@ export default function ExerciseRenderer({
       onComplete?.(false);
       if (exercise.type === 'code') {
         setErrorMessage("SINTAXE INCORRETA: Verifique os parâmetros do núcleo.");
+      } else if (exercise.type === 'dragdrop') {
+        setErrorMessage("SEQUÊNCIA LOGICA INCORRETA: O compilador rejeitou a ordem dos blocos.");
       } else {
-        setErrorMessage("COMBINAÇÃO DE LÓGICA INCORRETA. Tente reordenar os blocos.");
+        setErrorMessage("COMBINAÇÃO DE LÓGICA INCORRETA. Tente outra alternativa.");
       }
     }
   };
 
-  // --- GARANTIA DO SKELETON DE LOADING ---
+  // Funções de manejo de tokens (Duolingo Style Click-to-Drag)
+  const addToken = (token: string, index: number) => {
+    setSelectedTokens([...selectedTokens, token]);
+    setDragTokens(dragTokens.filter((_, i) => i !== index));
+    setErrorMessage(null);
+  };
+
+  const removeToken = (token: string, index: number) => {
+    setDragTokens([...dragTokens, token]);
+    setSelectedTokens(selectedTokens.filter((_, i) => i !== index));
+    setErrorMessage(null);
+  };
+
   if (loading || !exercise.id) {
     return (
-      <div className="p-6 border border-slate-800 bg-slate-950/50 animate-pulse rounded-xl font-mono text-cyan-500">
+      <div className="p-6 border border-[#1e293b] bg-[#020617]/50 animate-pulse rounded-xl font-mono text-[#06b6d4]">
         INITIALIZING_NEURAL_LINK...
       </div>
     );
   }
 
-  // O bloco de return principal abaixo agora é alcançado perfeitamente pelo parser!
   return (
-    <div className="flex flex-col gap-4 p-4 border border-slate-800 bg-black/40 rounded-xl font-mono">
-      {/* Resto do seu JSX contendo o layout das questões, botões e editores */}
-    </div>);
+    <div className="flex flex-col gap-4 p-5 border border-white/10 bg-black/40 rounded-xl font-mono text-slate-200">
+      {/* HEADER METRICS */}
+      <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[10px] text-slate-500 font-bold">
+        <div>TOPOLOGY: <span className="text-[#00f2ff]">{exercise.type.toUpperCase()}</span></div>
+        {computedMetrics && (
+          <div className="flex gap-3">
+            <span>DIFF: <span className="text-[#ff0055]">{computedMetrics.difficulty.toFixed(2)}</span></span>
+            <span>MULT: <span className="text-[#00ff88]">x{computedMetrics.xpMultiplier.toFixed(1)}</span></span>
+          </div>
+        )}
+      </div>
+
+      {/* QUESTION */}
+      <div className="text-sm leading-relaxed text-slate-300 my-2">
+        {exercise.question}
+      </div>
+
+      {/* 1. APENAS SE FOR EXERCÍCIO DE ESCRITA DE CÓDIGO */}
+      {exercise.type === 'code' && (
+        <div className="w-full border border-white/5 rounded-lg overflow-hidden">
+          <CodeEditor
+            initialValue={codeValue}
+            onChange={(val) => setCodeValue(val || '')}
+            language={exercise.language}
+            theme="vs-dark"
+          />
+          <div className="p-3 bg-[#050505] border-t border-white/5 flex justify-end">
+            <button
+              onClick={() => handleValidation(codeValue)}
+              className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider bg-[#00f2ff]/20 text-[#00f2ff] border border-[#00f2ff]/30 hover:bg-[#00f2ff]/30 rounded transition-all"
+            >
+              EXECUTE_SCRIPT
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. SE FOR INTEGRADO COMO DRAG N DROP (ESTILO DUOLINGO) */}
+      {exercise.type === 'dragdrop' && (
+        <div className="flex flex-col gap-4 w-full">
+          {exercise.codeSnippet && (
+            <pre className="p-3 bg-black/60 border border-white/5 rounded text-xs text-emerald-400 overflow-x-auto">
+              <code>{exercise.codeSnippet}</code>
+            </pre>
+          )}
+
+          {/* Zona de Destino (Onde os blocos encaixam) */}
+          <div className="min-h-16 w-full p-3 bg-black/50 border border-dashed border-white/10 rounded-lg flex flex-wrap gap-2 items-center">
+            {selectedTokens.length === 0 ? (
+              <span className="text-xs text-slate-600 select-none italic">Selecione os blocos abaixo para ordenar...</span>
+            ) : (
+              selectedTokens.map((token, index) => (
+                <button
+                  key={index}
+                  onClick={() => removeToken(token, index)}
+                  className="px-3 py-1.5 text-xs font-bold bg-[#00f2ff]/20 text-[#00f2ff] border border-[#00f2ff]/40 rounded hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all duration-150 animate-fadeIn"
+                >
+                  {token}
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Banco de Tokens Disponíveis */}
+          <div className="w-full p-3 bg-[#050505] border border-white/5 rounded-lg flex flex-wrap gap-2">
+            {dragTokens.map((token, index) => (
+              <button
+                key={index}
+                onClick={() => addToken(token, index)}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-900 border border-white/5 text-slate-300 rounded hover:border-[#00f2ff]/30 hover:text-white transition-all"
+              >
+                {token}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2 flex justify-end">
+            <button
+              disabled={selectedTokens.length === 0}
+              onClick={() => handleValidation(selectedTokens.join(' '))}
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
+                selectedTokens.length > 0
+                  ? 'bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/30 hover:bg-[#00ff88]/30 cursor-pointer'
+                  : 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+              }`}
+            >
+              COMPILE_BLOCKS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. SE FOR TEXTUAL (QUIZ / MCQ ALTERNATIVAS) */}
+      {(exercise.type === 'quiz' || exercise.type === 'mcq') && (
+        <div className="flex flex-col gap-2">
+          {exercise.codeSnippet && (
+            <pre className="p-3 bg-black/60 border border-white/5 rounded text-xs text-emerald-400 overflow-x-auto mb-2">
+              <code>{exercise.codeSnippet}</code>
+            </pre>
+          )}
+          
+          <div className="grid grid-cols-1 gap-2">
+            {exercise.options?.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setSelectedOption(option);
+                  setErrorMessage(null);
+                }}
+                className={`p-3 text-left text-xs rounded border transition-all ${
+                  selectedOption === option
+                    ? 'bg-[#00f2ff]/10 text-[#00f2ff] border-[#00f2ff]/40'
+                    : 'bg-black/20 text-slate-400 border-white/5 hover:border-white/10 hover:text-slate-200'
+                }`}
+              >
+                <span className="text-slate-600 mr-2 font-bold">[{index}]</span> {option}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              disabled={!selectedOption}
+              onClick={() => selectedOption && handleValidation(selectedOption)}
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
+                selectedOption
+                  ? 'bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/30 hover:bg-[#00ff88]/30 cursor-pointer'
+                  : 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+              }`}
+            >
+              SUBMIT_DECISION
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ERROR FEEDBACK */}
+      {errorMessage && (
+        <div className="p-3 mt-2 text-xs border border-red-500/20 bg-red-500/10 text-red-400 rounded dynamic-shake">
+          {errorMessage}
+        </div>
+      )}
+    </div>
+  );
 }
