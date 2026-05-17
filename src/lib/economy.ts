@@ -1,10 +1,12 @@
 "use client";
+"use client";
 
 import { get, save, updateUser, db } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { InventoryItem, UserStats } from "@/types";
 import { FactionManager } from "./ranking/factions";
+import { syncScoreToCloud } from "./leaderboardService"; // Importação do worker de sincronização
 
 /**
  * =========================================
@@ -102,9 +104,15 @@ export async function addXP(amount: number) {
 
     await db.user.update("main", updates);
     
+    // Dispara a sincronização em segundo plano sem bloquear a UI do usuário
+    setTimeout(() => {
+      syncScoreToCloud().catch(err => console.warn("[CLOUD_SYNC_MUTED]", err));
+    }, 800);
+    
     return { ...user, ...updates, rankUp, leveledUp, gainedXP: finalXP };
   });
 }
+
 
 /**
  * =========================================

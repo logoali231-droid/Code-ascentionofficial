@@ -15,7 +15,8 @@ import {
   Search,   // Substituindo imagem por ícone de SearchCode
   User,
   Flame,
-  Coins
+  Coins,
+  Trophy
 } from "lucide-react";
 import SoundButton from "./SoundButton";
 
@@ -86,11 +87,13 @@ export default function Navbar() {
       </div>
 
       {/* LINKS PRINCIPAIS */}
-      <div className="flex justify-around items-center max-w-md mx-auto">
+ {/* LINKS PRINCIPAIS */}
+      <div className="flex justify-around items-center max-w-md mx-auto gap-1">
         {navLink("/hub", Home)}
         {navLink("/course", BookOpen)}
         {navLink("/review", Brain)} 
-        {navLink("/vault", Database)}  {/* Ícone vetorial para o Vault */}
+        {navLink("/vault", Database)}
+        {navLink("/leaderboard", Trophy)} {/* Injeção da aba de Ligas & Facções */}
         {navLink("/new", PlusSquare)} 
         {navLink("/shop", ShoppingCart)}
         {navLink("/profile", User)}
