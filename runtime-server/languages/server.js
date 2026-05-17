@@ -29,7 +29,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// --- GATEWAY WEBSOCKET (SANDBOX CORE) ---
+// --- GATEWAY WEBSAOCKET (SANDBOX CORE) ---
 app.ws("/", (ws) => {
   console.log("🔌 [WS] Nova instância de execução conectada via PWA.");
   

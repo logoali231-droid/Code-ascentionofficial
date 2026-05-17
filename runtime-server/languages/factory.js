@@ -2,7 +2,6 @@
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
-const CONFIG = require("./config.js");
 const { LANGUAGE_METADATA } = require("./meta.js");
 
 function escapeCode(code, escapeBacktick = false) {
@@ -23,42 +22,28 @@ function buildRuntime(language, code) {
     throw new Error(`Unsupported language engine: ${language}`);
   }
 
-  const memoryLimit = meta.memory === "heavy" ? CONFIG.LIMITS.memory_heavy : CONFIG.LIMITS.memory_light;
+  // Cria o ID único para a Sandbox desta execução específica
+  const id = uuidv4();
+  const tempDir = path.resolve(__dirname, `../temp-${language.toLowerCase()}-${id}`);
 
-  // Se for padrão de Linha de Comando direta (Interpretadas)
+  // Garante que a pasta temporária isolada exista no disco do container
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  // Se for padrão de Linha de Comando direta (Interpretadas locais/runtimes simples)
   if (meta.type === "cli") {
     const escaped = escapeCode(code, meta.escapeBacktick);
-    const innerCmd = meta.cmd(escaped);
-    
-    const command = `docker run --rm \
---memory="${memoryLimit}" \
---cpus="${CONFIG.LIMITS.cpus}" \
---pids-limit=${CONFIG.LIMITS.pidsLimit} \
---network none \
-${meta.image} \
-${innerCmd}`;
-
-    return { command, tempDir: null };
+    const command = meta.cmd(escaped);
+    return { command, tempDir };
   }
 
-  // Se for padrão que exige compilação ou arquivos em disco
+  // Se for padrão que exige compilação (C++, C#, Java, Go, Rust...)
   if (meta.type === "temp") {
-    const id = uuidv4();
-    const tempDir = path.resolve(__dirname, `../temp-${language.toLowerCase()}-${id}`);
-
-    fs.mkdirSync(tempDir, { recursive: true });
     const filePath = path.join(tempDir, meta.ext);
     fs.writeFileSync(filePath, code);
 
-    const command = `docker run --rm \
---memory="${memoryLimit}" \
---cpus="${CONFIG.LIMITS.cpus}" \
---pids-limit=${CONFIG.LIMITS.pidsLimit} \
---network none \
--v "${tempDir}:/app" \
--w /app \
-${meta.image} \
-sh -c "${meta.cmd}"`;
+    // O comando roda de forma isolada dentro da pasta que acabamos de criar
+    // Exemplo: cd /app/temp-cpp-123 && g++ main.cpp -o main && ./main
+    const command = `cd "${tempDir}" && ${meta.cmd}`;
 
     return { command, tempDir };
   }

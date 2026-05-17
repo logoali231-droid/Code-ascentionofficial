@@ -1,16 +1,12 @@
 "use client";
 
-import { db } from "./db";
+// Importa a função real com os gatilhos de sincronização de abas e nuvem
+import { updateUser as realUpdateUser } from "./db"; 
 import { addXP as economyAddXP } from "./economy";
 
-// Função genérica atômica para metadados simples
+// Repassa a chamada para a função central mapeada no db.ts
 export async function updateUser(updates: any) {
-  return await db.transaction('rw', db.user, async () => {
-    const current = await db.user.get('main') || { id: 'main', xp: 0, coins: 0 };
-    const merged = { ...current, ...updates, id: 'main' };
-    await db.user.put(merged);
-    return merged;
-  });
+  return await realUpdateUser(updates);
 }
 
 // Aponta diretamente para a engine real da economia e evita inconsistência de concorrência

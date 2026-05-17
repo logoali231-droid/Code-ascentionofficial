@@ -2,6 +2,22 @@ import Dexie, { type Table } from 'dexie';
 
 // Adicione a URL do seu Worker no topo do db.ts
 const CLOUDFLARE_WORKER_URL = "https://code-ascension-api.logoali231.workers.dev/save-progress";
+const syncChannel = new BroadcastChannel("code_ascension_sync");
+
+
+syncChannel.onmessage = async (event) => {
+  const { store, key, data } = event.data;
+  try {
+    const table = (db as any)[store];
+    if (table) {
+      // Coloca os dados atualizados diretamente no Dexie local da aba secundária
+      await table.put(data);
+      console.log(`[Multi-Aba] Tabela '${store}' atualizada via BroadcastChannel.`);
+    }
+  } catch (e) {
+    console.error("[Multi-Aba] Falha ao processar sincronização paralela:", e);
+  }
+};
 
 /**
  * FUNÇÃO AUXILIAR PARA SINCRONIZAR COM A NUVEM (AZURE VIA CLOUDFLARE)
@@ -56,6 +72,9 @@ export async function save(storeName: string, value: any, key: string = "main") 
 
     await table.put(dataToSave);
 
+    // MULTI-ABA: Notifica abas paralelas para clonarem o estado imediatamente
+    syncChannel.postMessage({ store: storeName, key, data: dataToSave });
+
     // GATILHO DE CONEXÃO: Tenta espelhar na nuvem após salvar local com sucesso
     await syncToCloud(storeName, dataToSave);
 
@@ -66,13 +85,16 @@ export async function save(storeName: string, value: any, key: string = "main") 
   }
 }
 
-// ✅ UPDATE USER (Substitua a sua função atual por esta)
+// ✅ UPDATE USER
 export async function updateUser(updates: any) {
   return await db.transaction('rw', db.user, async () => {
     const current = await db.user.get('main') || {};
     const merged = { ...current, ...updates, id: 'main' };
     await db.user.put(merged);
     
+    // MULTI-ABA: Sincroniza mutações críticas (XP, moedas, streaks) inter-abas
+    syncChannel.postMessage({ store: 'user', key: 'main', data: merged });
+
     // GATILHO DE CONEXÃO: Atualiza a nuvem com os dados mesclados do player
     await syncToCloud('user', merged);
     

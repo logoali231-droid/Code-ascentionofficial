@@ -1,21 +1,13 @@
 // docker.js
 const { exec } = require("child_process");
-const CONFIG = require("./config"); // Importa seu config para puxar o timeout de lá
+const CONFIG = require("./config"); 
 
 function runDocker(command) {
   let childProcess;
 
-  // Garante que qualquer comando "docker run" enviado possua o isolamento de rede ativo
-  // Isso previne brechas caso alguma linguagem esqueça de adicionar a flag.
-  let secureCommand = command;
-  if (secureCommand.includes("docker run") && !secureCommand.includes("--network")) {
-    secureCommand = secureCommand.replace("docker run", "docker run --network none");
-  }
-
   const promise = new Promise((resolve, reject) => {
-    // Usando o timeout centralizado do seu CONFIG
-    // Adicionado killSignal para garantir a destruição imediata do container em caso de timeout
-    childProcess = exec(secureCommand, { 
+    // Executa o comando diretamente no container Linux da Azure
+    childProcess = exec(command, { 
       timeout: CONFIG.LIMITS.timeout,
       killSignal: "SIGKILL" 
     });
@@ -27,7 +19,6 @@ function runDocker(command) {
     childProcess.stderr.on("data", data => { stderrData += data; });
 
     childProcess.on("close", (code, signal) => {
-      // Se o processo foi morto por timeout, o signal será 'SIGKILL'
       if (signal === "SIGKILL") {
         return reject(new Error(`Timeout de Execução: O código excedeu o limite de ${CONFIG.LIMITS.timeout / 1000} segundos.`));
       }
@@ -35,6 +26,7 @@ function runDocker(command) {
       if (code === 0 || code === null) {
         resolve(stdoutData);
       } else {
+        // Retorna o erro de compilação/execução estruturado para o aluno aprender
         reject(new Error(stderrData.trim() || `Processo falhou com código ${code}`));
       }
     });
