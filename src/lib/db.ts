@@ -1,6 +1,84 @@
 import Dexie, { type Table } from 'dexie';
 
+// Adicione a URL do seu Worker no topo do db.ts
+const CLOUDFLARE_WORKER_URL = "https://code-ascension-api.logoali231.workers.dev/save-progress";
 
+/**
+ * FUNÇÃO AUXILIAR PARA SINCRONIZAR COM A NUVEM (AZURE VIA CLOUDFLARE)
+ */
+async function syncToCloud(storeName: string, data: any) {
+  // Só sincroniza tabelas críticas de progresso (user e courses)
+  if (storeName !== 'user' && storeName !== 'courses') return;
+
+  // Se o navegador estiver offline, falha silenciosamente (fica guardado no Dexie)
+  if (!navigator.onLine) {
+    console.log(`[Sync] Dispositivo offline. Alteração em '${storeName}' mantida apenas local.`);
+    return;
+  }
+
+  try {
+    // Envia o payload contendo a tabela modificada e os dados
+    const payload = {
+      store: storeName,
+      userId: "main", // Como você usa chaves fixas ou 'main'
+      payload: data,
+      timestamp: Date.now()
+    };
+
+    // Dispara o fetch para o seu worker de forma assíncrona (non-blocking)
+    fetch(CLOUDFLARE_WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(async (res) => {
+      if (!res.ok) {
+        console.warn(`[Sync Cloud] Worker retornou status: ${res.status}`);
+      } else {
+        console.log(`[Sync Cloud] Dados de '${storeName}' espelhados na Azure com sucesso.`);
+      }
+    }).catch(err => {
+      console.error("[Sync Cloud] Erro na requisição para o Worker:", err);
+    });
+
+  } catch (e) {
+    console.error("[Sync Cloud] Falha ao tentar sincronizar:", e);
+  }
+}
+
+
+export async function save(storeName: string, value: any, key: string = "main") {
+  try {
+    const table = (db as any)[storeName];
+
+    const dataToSave = typeof value === 'object'
+      ? { ...value, id: key, timestamp: Date.now() }
+      : value;
+
+    await table.put(dataToSave);
+
+    // GATILHO DE CONEXÃO: Tenta espelhar na nuvem após salvar local com sucesso
+    await syncToCloud(storeName, dataToSave);
+
+    return true;
+  } catch (e) {
+    console.error(`Erro ao salvar em ${storeName}:`, e);
+    return false;
+  }
+}
+
+// ✅ UPDATE USER (Substitua a sua função atual por esta)
+export async function updateUser(updates: any) {
+  return await db.transaction('rw', db.user, async () => {
+    const current = await db.user.get('main') || {};
+    const merged = { ...current, ...updates, id: 'main' };
+    await db.user.put(merged);
+    
+    // GATILHO DE CONEXÃO: Atualiza a nuvem com os dados mesclados do player
+    await syncToCloud('user', merged);
+    
+    return merged;
+  });
+}
 /**
  * CONFIGURAÇÃO DO BANCO DE DADOS (DEXIE)
  */
@@ -221,24 +299,7 @@ export async function get<T = any>(storeName: string, key: string): Promise<T | 
 }
 
 // ✅ GENERIC SAVE
-export async function save(storeName: string, value: any, key: string = "main") {
-  try {
-    const table = (db as any)[storeName];
 
-    const dataToSave = typeof value === 'object'
-      ? { ...value, id: key, timestamp: Date.now() }
-      : value;
-
-    await table.put(dataToSave);
-
-    // ❌ REMOVIDO: if (Math.random() < 0.1) cleanupOldData();
-
-    return true;
-  } catch (e) {
-    console.error(`Erro ao salvar em ${storeName}:`, e);
-    return false;
-  }
-}
 
 // ✅ GENERIC GET ALL
 export async function getAll(storeName: string) {
@@ -259,15 +320,7 @@ export async function saveRecord(store: string, value: any, id?: string | number
   return save(store, value, id !== undefined ? String(id) : "main");
 }
 
-// ✅ UPDATE USER
-export async function updateUser(updates: any) {
-  return await db.transaction('rw', db.user, async () => {
-    const current = await db.user.get('main') || {};
-    const merged = { ...current, ...updates, id: 'main' };
-    await db.user.put(merged);
-    return merged;
-  });
-}
+
 
 /*
  * MANUTENÇÃO COMPLETA DETERMINÍSTICA
