@@ -3,7 +3,7 @@ const path = require("path");
 const { exec } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
 const util = require("util");
-const CONFIG = require("../config");
+const CONFIG = require("./config");
 const execPromise = util.promisify(exec);
 
 module.exports = async function runVBNet(code) {

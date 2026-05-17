@@ -4,11 +4,11 @@ const cors = require("cors");
 const { exec } = require("child_process");
 const fs = require("fs");
 
-const CONFIG = require("./config");
-const { enqueue } = require("./queue");
-const { validateCode } = require("./security");
-const { runDocker } = require("./docker");
-const { buildRuntime } = require("./languages/factory");
+const CONFIG = require("./config.js");
+const { enqueue } = require("./queue.js");
+const { validateCode } = require("./security.js");
+const { runDocker } = require("./docker.js");
+const { buildRuntime } = require("./factory.js");
 
 const app = express();
 
@@ -110,6 +110,6 @@ app.ws("/", (ws) => {
   });
 });
 
-app.listen(CONFIG.PORT, () => {
-  console.log(`⚡ Code Ascension Runtime unificada rodando na porta ${CONFIG.PORT}`);
+app.listen(3001, "0.0.0.0", () => {
+  console.log("runtime online");
 });

@@ -1,5 +1,5 @@
 // languages/meta.js
-const CONFIG = require("../config");
+const CONFIG = require("./config");
 
 const LANGUAGE_METADATA = {
   // === PADRÃO CLI (INTERPRETADAS / RÚSTICAS) ===

@@ -2,8 +2,8 @@
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
-const CONFIG = require("../config");
-const { LANGUAGE_METADATA } = require("./meta");
+const CONFIG = require("./config.js");
+const { LANGUAGE_METADATA } = require("./meta.js");
 
 function escapeCode(code, escapeBacktick = false) {
   let escaped = code

@@ -54,7 +54,7 @@ export async function initEngine(
       }
 
       worker = new Worker(
-        new URL("../workers/webllm.worker", import.meta.url), // Remova a extensão explícita .ts aqui
+        new URL("./workers/webllm.worker", import.meta.url), // Remova a extensão explícita .ts aqui
         { type: "module" }
       );
 

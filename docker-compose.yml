@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  runtime-server:
+    build: .
+    container_name: code-runtime-container
+    ports:
+      - "3001:3001"
+    # Mapeia os arquivos locais para dentro do container
+    volumes:
+      - ./runtime-server:/app/runtime-server
+      - /app/runtime-server/node_modules # Evita sobrescrever os packages do container
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

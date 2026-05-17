@@ -1,4 +1,4 @@
-const CONFIG = require("../config");
+const CONFIG = require("./config");
 
 function escapeCode(code) {
   return code
