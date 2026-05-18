@@ -12,7 +12,7 @@ const detector = new GibberishDetector();
 interface Exercise {
   id: string;
   type: 'code' | 'quiz' | 'dragdrop' | 'mcq';
-  language: string;
+  language: any; // Ajustado temporariamente para aceitar a tipagem do CodeEditor
   question: string;
   answer: string;
   codeSnippet?: string;
