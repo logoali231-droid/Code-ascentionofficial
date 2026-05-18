@@ -29,10 +29,10 @@ export async function evaluateLogic(received: any, expected: any, customThreshol
     const valExpected = String(expected || "").trim();
     
     let calculatedThreshold = typeof customThreshold === "number" && !isNaN(customThreshold) ? customThreshold : 0.72;
-
-    // Adaptação elástica baseada na carga de fadiga e atrito do motor unificado central
     try {
-      const activeState = await get("memory", "pedagogical_state_main");
+      // Procura pelo estado dinâmico do curso atual. Como a assinatura do evaluateLogic não recebe courseId diretamente,
+      // varre as chaves ou assume o prefixo correto se mapeado globalmente.
+      const activeState = await get("memory", "pedagogical_state_javascript") || await get("memory", "pedagogical_state_main");
       if (activeState) {
         if (activeState.struggleLevel > 0.6 || activeState.cognitiveLoad > 0.7) {
           calculatedThreshold = Math.max(0.62, calculatedThreshold - 0.08); // Concede leniência inteligente para evitar desistência por cansaço
