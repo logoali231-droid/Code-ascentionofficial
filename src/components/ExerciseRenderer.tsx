@@ -119,12 +119,14 @@ export default function ExerciseRenderer({
     setErrorMessage(null);
     if (!value) return;
 
+    // Modo Learn: Intercepção estática anti-spam
     if (exercise.type === 'code' && detector.isTotalGibberish(value, 'lesson')) {
       setErrorMessage("RUÍDO NEURAL DETECTADO: Input inválido para processamento.");
       onComplete?.(false);
       return; 
     }
 
+    // Modo Learn: Validação puramente estática e textual contra o gabarito esperado
     const finalCleanValue = value.trim().replace(/\s+/g, ' ');
     const finalCleanAnswer = exercise.answer.trim().replace(/\s+/g, ' ');
 
