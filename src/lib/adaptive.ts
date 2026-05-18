@@ -1,6 +1,6 @@
 "use client";
 
-import { db, getUser } from "./db";
+import { db, getUser, get } from "./db";
 import { UserStats, MemoryLog, CognitiveProfile, AdaptiveMetrics } from '@/types/index';
 import { calculateLevel } from "./level"; 
 
@@ -44,7 +44,22 @@ export async function getAdaptiveMetrics(
   if (successRate > 0.85) baseDifficulty += 0.4;
   if (successRate < 0.4) baseDifficulty -= 0.6;
 
-  const finalDifficulty = calculateGranularDifficulty(baseDifficulty, successRate, avgAttempts);
+  let finalDifficulty = calculateGranularDifficulty(baseDifficulty, successRate, avgAttempts);
+
+  // Amortece e sincroniza com a soberania do motor central se houver um estado ativo registrado
+  try {
+    const activeState = await get("memory", `pedagogical_state_main`);
+    if (activeState) {
+      if (activeState.pacing === "slow") {
+        finalDifficulty = Math.max(1, finalDifficulty - 0.5);
+      } else if (activeState.pacing === "accelerated") {
+        finalDifficulty = Math.min(5, finalDifficulty + 0.3);
+      }
+    }
+  } catch (e) {
+    console.warn("[Adaptive Engine] Fallback para cálculo isolado temporário:", e);
+  }
+
   const normalizedProfile = String(profile || 'standard').toLowerCase();
   const isADHD = normalizedProfile === 'tdah';
   const streakBonus = Math.min(2, 1 + (streak * 0.05));
@@ -57,7 +72,6 @@ export async function getAdaptiveMetrics(
     
     focusMode: isADHD && (finalDifficulty > 3.8 || avgAttempts > 2),
     
-   
     style: getCognitiveFormattingRules(normalizedProfile)
   };
 }
@@ -67,7 +81,7 @@ export function getCognitiveFormattingRules(profile: string): string {
     "tdah": "FORÇAR: Explicações atômicas. Use negritos markdown de forma cirúrgica. Máximo de 3 tópicos curtos por seção.",
     "deep_dive": "FORÇAR: Arquitetura profunda, destrinchando o comportamento de baixo nível e escopo de memória do interpretador/compilador.",
     "visual_logic": "FORÇAR: Representações em fluxogramas de texto (ASCII Art), mapeamento de dados ou tabelas comparativas de fluxo.",
-    "standard": "FORÇAR: Um exemplo prático em primeiro lugar, seguido de uma síntese teórica curta contendo a regra conceitual."
+    "standard": "FORÇAR: Um exemplo prático em primeiro lugar, seguido de uma síntese teórica corta contendo a regra conceitual."
   };
   return rules[profile] || rules["standard"];
 }
