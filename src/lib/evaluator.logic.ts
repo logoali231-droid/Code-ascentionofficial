@@ -29,10 +29,15 @@ export async function evaluateLogic(received: any, expected: any, customThreshol
     const valExpected = String(expected || "").trim();
     
     let calculatedThreshold = typeof customThreshold === "number" && !isNaN(customThreshold) ? customThreshold : 0.72;
-    try {
-      // Procura pelo estado dinâmico do curso atual. Como a assinatura do evaluateLogic não recebe courseId diretamente,
-      // varre as chaves ou assume o prefixo correto se mapeado globalmente.
-      const activeState = await get("memory", "pedagogical_state_javascript") || await get("memory", "pedagogical_state_main");
+try {
+      // Descobre dinamicamente qual o curso ativo lendo o último registro de histórico salvo na memória global "main"
+      const rawMemory = await get("memory", "main");
+      const lastHistoryItem = rawMemory?.history?.slice(-1)[0];
+      
+      // Se achar o item recente, monta a chave exata registrada pelo LearningStateEngine automaticamente (independente se for c, rust, java, etc.)
+      const currentCourseId = lastHistoryItem?.courseId || "javascript"; 
+      const activeState = await get("memory", `pedagogical_state_${currentCourseId.toLowerCase().trim()}`);
+
       if (activeState) {
         if (activeState.struggleLevel > 0.6 || activeState.cognitiveLoad > 0.7) {
           calculatedThreshold = Math.max(0.62, calculatedThreshold - 0.08); // Concede leniência inteligente para evitar desistência por cansaço
