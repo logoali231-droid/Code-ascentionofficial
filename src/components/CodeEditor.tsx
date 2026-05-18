@@ -34,23 +34,59 @@ export default function CodeEditor({
     const label = language.toUpperCase();
     let ext = ".txt";
 
-    // Mapeamento dinâmico e preciso para extensões do ecossistema global de linguagens
+    // Mapeamento estrito de extensões para 100% das linguagens do ecossistema Code Ascension
     switch (language) {
-      case "javascript": ext = ".js"; break;
-      case "typescript": ext = ".ts"; break;
       case "python": ext = ".py"; break;
+      case "javascript": ext = ".js"; break;
+      case "java": ext = ".java"; break;
+      case "typescript": ext = ".ts"; break;
       case "csharp": ext = ".cs"; break;
-      case "c++": case "cpp": ext = ".cpp"; break;
       case "html": ext = ".html"; break;
+      case "cpp": ext = ".cpp"; break;
+      case "go": ext = ".go"; break;
       case "rust": ext = ".rs"; break;
-      case "golang": case "go": ext = ".go"; break;
+      case "php": ext = ".php"; break;
+      case "lua": ext = ".lua"; break;
       case "ruby": ext = ".rb"; break;
-      case "kotlin": case "kotlin-native": ext = ".kt"; break;
-      case "shell": case "powershell": ext = ".sh"; break;
+      case "kotlin": ext = ".kt"; break;
+      case "kotlin-native": ext = ".kt"; break;
+      case "scala": ext = ".sc"; break;
+      case "shell": ext = ".sh"; break;
+      case "perl": ext = ".pl"; break;
+      case "groovy": ext = ".groovy"; break;
+      case "swift": ext = ".swift"; break;
+      case "dart": ext = ".dart"; break;
+      case "matlab": ext = ".m"; break;
+      case "cobol": ext = ".cbl"; break;
+      case "abap": ext = ".abap"; break;
+      case "vhdl": ext = ".vhd"; break;
+      case "verilog": ext = ".v"; break;
+      case "scratch": ext = ".sb3"; break;
+      case "fortran": ext = ".f90"; break;
+      case "ada": ext = ".adb"; break;
+      case "lisp": ext = ".lisp"; break;
+      case "prolog": ext = ".pl"; break;
+      case "smalltalk": ext = ".st"; break;
+      case "scheme": ext = ".scm"; break;
+      case "plsql": ext = ".sql"; break;
       case "solidity": ext = ".sol"; break;
+      case "apex": ext = ".cls"; break;
+      case "clojure": ext = ".clj"; break;
+      case "fsharp": ext = ".fs"; break;
+      case "vbnet": ext = ".vb"; break;
+      case "delphi": ext = ".pas"; break;
+      case "objective-c": ext = ".m"; break;
+      case "powershell": ext = ".ps1"; break;
+      case "elixir": ext = ".ex"; break;
+      case "haskell": ext = ".hs"; break;
+      case "r": ext = ".r"; break;
+      case "julia": ext = ".jl"; break;
+      case "d": ext = ".d"; break;
+      case "pascal": ext = ".pas"; break;
+      case "sql": ext = ".sql"; break;
       case "actionscript": ext = ".as"; break;
+      case "wasm": ext = ".wasm"; break;
       default:
-        // Fallback inteligente para siglas de 3 letras (php, lua, sql, vhdl, asm, swift, etc)
         ext = `.${language.split("-")[0].slice(0, 3)}`;
     }
 
