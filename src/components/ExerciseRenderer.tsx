@@ -12,7 +12,7 @@ const detector = new GibberishDetector();
 interface Exercise {
   id: string;
   type: 'code' | 'quiz' | 'dragdrop' | 'mcq';
-  language: any; // Ajustado temporariamente para aceitar a tipagem do CodeEditor
+  language: any;
   question: string;
   answer: string;
   codeSnippet?: string;
@@ -51,9 +51,8 @@ export default function ExerciseRenderer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [codeValue, setCodeValue] = useState<string>('');
   
-  // Estados específicos para a UI de Drag n Drop (Estilo Duolingo)
-  const [dragTokens, setDragTokens] = useState<string[]>([]); // Opções disponíveis embaixo
-  const [selectedTokens, setSelectedTokens] = useState<string[]>([]); // Blocos jogados no slot de cima
+  const [dragTokens, setDragTokens] = useState<string[]>([]);
+  const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
 
   const [computedMetrics, setComputedMetrics] = useState<any>(null);
   const [mutatedType, setMutatedType] = useState<'code' | 'quiz' | 'dragdrop' | 'mcq'>('code');
@@ -64,7 +63,7 @@ export default function ExerciseRenderer({
       
       try {
         const baseDiff = rawExercise.difficulty || 2; 
-        const metrics = await getAdaptiveMetrics(baseDiff, course?.topic);
+        const metrics = await getAdaptiveMetrics(baseDiff, course?.id || "core_fundamentals");
         setComputedMetrics(metrics);
 
         const currentDifficulty = metrics.difficulty;
@@ -83,9 +82,8 @@ export default function ExerciseRenderer({
     }
     
     fetchTopology();
-  }, [rawExercise, course?.topic]);
+  }, [rawExercise, course?.id]);
 
-  // Inicializador de estado quando o exercício muda ou muta
   useEffect(() => {
     if (rawExercise) {
       setCodeValue(rawExercise.starterCode || '');
@@ -93,7 +91,6 @@ export default function ExerciseRenderer({
       setErrorMessage(null);
       setSelectedTokens([]);
 
-      // Gerar e embaralhar tokens se for modo dragdrop
       let optionsArray: string[] = rawExercise.options || [];
       if (optionsArray.length === 0) {
         optionsArray = Array.from(new Set([
@@ -103,7 +100,6 @@ export default function ExerciseRenderer({
           "return"
         ])).slice(0, 6);
       }
-      // Embaralha os tokens para o Duolingo Mode
       setDragTokens([...optionsArray].sort(() => Math.random() - 0.5));
     }
   }, [rawExercise, mutatedType]);
@@ -128,7 +124,6 @@ export default function ExerciseRenderer({
       return; 
     }
 
-    // No dragdrop, validamos juntando os tokens com espaço ou sem espaços dependendo do tipo de resposta
     const finalCleanValue = value.trim().replace(/\s+/g, ' ');
     const finalCleanAnswer = exercise.answer.trim().replace(/\s+/g, ' ');
 
@@ -164,7 +159,6 @@ export default function ExerciseRenderer({
     }
   };
 
-  // Funções de manejo de tokens (Duolingo Style Click-to-Drag)
   const addToken = (token: string, index: number) => {
     setSelectedTokens([...selectedTokens, token]);
     setDragTokens(dragTokens.filter((_, i) => i !== index));
@@ -187,7 +181,6 @@ export default function ExerciseRenderer({
 
   return (
     <div className="flex flex-col gap-4 p-5 border border-white/10 bg-black/40 rounded-xl font-mono text-slate-200">
-      {/* HEADER METRICS */}
       <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[10px] text-slate-500 font-bold">
         <div>TOPOLOGY: <span className="text-[#00f2ff]">{exercise.type.toUpperCase()}</span></div>
         {computedMetrics && (
@@ -198,19 +191,16 @@ export default function ExerciseRenderer({
         )}
       </div>
 
-      {/* QUESTION */}
       <div className="text-sm leading-relaxed text-slate-300 my-2">
         {exercise.question}
       </div>
 
-      {/* 1. APENAS SE FOR EXERCÍCIO DE ESCRITA DE CÓDIGO */}
       {exercise.type === 'code' && (
         <div className="w-full border border-white/5 rounded-lg overflow-hidden">
           <CodeEditor
             initialValue={codeValue}
             onChange={(val) => setCodeValue(val || '')}
             language={exercise.language}
-            
           />
           <div className="p-3 bg-[#050505] border-t border-white/5 flex justify-end">
             <button
@@ -223,7 +213,6 @@ export default function ExerciseRenderer({
         </div>
       )}
 
-      {/* 2. SE FOR INTEGRADO COMO DRAG N DROP (ESTILO DUOLINGO) */}
       {exercise.type === 'dragdrop' && (
         <div className="flex flex-col gap-4 w-full">
           {exercise.codeSnippet && (
@@ -232,7 +221,6 @@ export default function ExerciseRenderer({
             </pre>
           )}
 
-          {/* Zona de Destino (Onde os blocos encaixam) */}
           <div className="min-h-16 w-full p-3 bg-black/50 border border-dashed border-white/10 rounded-lg flex flex-wrap gap-2 items-center">
             {selectedTokens.length === 0 ? (
               <span className="text-xs text-slate-600 select-none italic">Selecione os blocos abaixo para ordenar...</span>
@@ -241,7 +229,7 @@ export default function ExerciseRenderer({
                 <button
                   key={index}
                   onClick={() => removeToken(token, index)}
-                  className="px-3 py-1.5 text-xs font-bold bg-[#00f2ff]/20 text-[#00f2ff] border border-[#00f2ff]/40 rounded hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all duration-150 animate-fadeIn"
+                  className="px-3 py-1.5 text-xs font-bold bg-[#00f2ff]/20 text-[#00f2ff] border border-[#00f2ff]/40 rounded hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all duration-150"
                 >
                   {token}
                 </button>
@@ -249,7 +237,6 @@ export default function ExerciseRenderer({
             )}
           </div>
 
-          {/* Banco de Tokens Disponíveis */}
           <div className="w-full p-3 bg-[#050505] border border-white/5 rounded-lg flex flex-wrap gap-2">
             {dragTokens.map((token, index) => (
               <button
@@ -278,7 +265,6 @@ export default function ExerciseRenderer({
         </div>
       )}
 
-      {/* 3. SE FOR TEXTUAL (QUIZ / MCQ ALTERNATIVAS) */}
       {(exercise.type === 'quiz' || exercise.type === 'mcq') && (
         <div className="flex flex-col gap-2">
           {exercise.codeSnippet && (
@@ -322,9 +308,8 @@ export default function ExerciseRenderer({
         </div>
       )}
 
-      {/* ERROR FEEDBACK */}
       {errorMessage && (
-        <div className="p-3 mt-2 text-xs border border-red-500/20 bg-red-500/10 text-red-400 rounded dynamic-shake">
+        <div className="p-3 mt-2 text-xs border border-red-500/20 bg-red-500/10 text-red-400 rounded">
           {errorMessage}
         </div>
       )}
