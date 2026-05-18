@@ -6,7 +6,7 @@ const loadEngine = async () => {
 };
 
 import { unloadEngine } from "@/lib/modelManager";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { updateUser, db, getErrorLogs, clearErrorLog, getUser } from "@/lib/db";
 import { streamLesson } from "@/lib/lessonStreamer";
 import { generateReinforcement } from "@/lib/reinforce";
@@ -22,6 +22,8 @@ import { updateMemory } from "@/lib/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
 
 export default function CoursePage() {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [course, setCourse] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [currentExercise, setCurrentExercise] = useState(0);
@@ -49,6 +51,7 @@ export default function CoursePage() {
   // CONTROLLED LIFECYCLE HOOK (LOAD AND UNMOUNT CLEANUP)
   useEffect(() => {
     const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     async function load() {
       setLoadingCourse(true);
@@ -103,7 +106,9 @@ export default function CoursePage() {
     load();
 
     return () => {
-      controller.abort(); // Cancela todos os streams e chamadas pendentes de IA
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       unloadEngine().catch((err) =>
         console.error("[COURSE UNLOAD ERROR]", err)
       );
@@ -131,7 +136,7 @@ export default function CoursePage() {
         concept: currentCourse.topic || currentCourse.title,
         difficulty: currentCourse.difficulty || 1,
         exerciseCount: 3,
-        signal, // Envia o sinal para abortar iterações internas de geração
+        signal,
         onExercise(exercise, index) {
           if (signal?.aborted) return;
           setStreamedExercises((prev) => [...prev, exercise]);
@@ -163,7 +168,7 @@ export default function CoursePage() {
       ) {
         let fullText = "";
         for await (const chunk of explanationStream as any) {
-          if (signal?.aborted) return; // Interrompe o consumo de tokens imediatamente
+          if (signal?.aborted) return;
           const content = chunk.choices?.[0]?.delta?.content || "";
           fullText += content;
           setStreamedExplanation(fullText);
@@ -334,7 +339,14 @@ export default function CoursePage() {
     const next = currentExercise + 1;
 
     if (next >= streamedExercises.length) {
-      await startStreamingLesson(course);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      const nextController = new AbortController();
+      abortControllerRef.current = nextController;
+
+      await startStreamingLesson(course, nextController.signal);
       setCurrentExercise(0);
       return;
     }
@@ -409,7 +421,7 @@ export default function CoursePage() {
         <p>[{isGeneratingExercises ? "..." : "✓"}] exercises</p>
       </div>
 
-      {/* TABS */}
+      /* TABS */
       <div className="flex gap-2 mb-5">
         {["practice", "theory", "errors"].map((t) => (
           <button
@@ -531,4 +543,4 @@ function ErrorsTab({ course }: { course: any }) {
       )}
     </div>
   );
-    }
+            }
