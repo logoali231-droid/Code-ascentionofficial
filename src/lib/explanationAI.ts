@@ -18,7 +18,7 @@ export async function generateExplanationAI({
   lesson,
   history,
   course,
-}: any) {
+}: any, signal?: AbortSignal) {
   // ALTERADO: Busca paralela no banco para não travar a UI e carregar os dados reais de level e mastery
   const [profile, userStats] = await Promise.all([
     getUserProfile(),
@@ -97,8 +97,8 @@ CRITICAL EXECUTION RULES
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-  return generate(prompt);
-}, 1);
+      return generate(prompt, 0.7, undefined, signal);
+    }, 1);
 
     let fullResponse = "";
     if (res) {
@@ -131,17 +131,17 @@ CRITICAL EXECUTION RULES
     return null;
   }
 }
+
 /* =========================================
    ERROR EXPLANATION
 ========================================= */
-
 export async function explainError({
   question,
   correct,
   userAnswer,
   userExplanation,
   course,
-}: any) {
+}: any, signal?: AbortSignal) {
   const profile = await getUserProfile();
   const memory = await getMemory();
 
@@ -193,8 +193,8 @@ CRITICAL OUTPUT RULES
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-  return generate(prompt);
-}, 1);
+      return generate(prompt, 0.7, undefined, signal);
+    }, 1);
 
     let fullResponse = "";
     if (res) {
