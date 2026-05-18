@@ -1,19 +1,9 @@
-// webLLM.ts
 "use client";
 
-import {
-  CreateWebWorkerMLCEngine,
-  MLCEngineInterface,
-} from "@mlc-ai/web-llm";
-
+import { CreateWebWorkerMLCEngine, type MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
-
-import {
-  unloadEngine,
-  detectSystemCapabilities,
-} from "./modelManager";
-
-import { SYSTEM_CONFIG, Model } from "@/config/system";
+import { unloadEngine, detectSystemCapabilities } from "./modelManager";
+import { SYSTEM_CONFIG } from "@/config/system";
 
 let worker: Worker | null = null;
 let engine: MLCEngineInterface | null = null;
@@ -22,18 +12,18 @@ let currentModel: string | null = null;
 let generationLock = false;
 let backgroundSince: number | null = null;
 
+/* =========================================================
+   ENGINE INITIALIZATION (WITH WEB WORKER)
+========================================================= */
 export async function initEngine(
   modelId?: string,
   onProgress?: (report: any) => void
-) {
+): Promise<MLCEngineInterface> {
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
     try {
       const specs = await detectSystemCapabilities();
-
-      // CORREÇÃO 1: O fallback padrão agora bate exatamente com o ID do SYSTEM_CONFIG (q4f32_1)
-      // ou assume dinamicamente o modelo recomendado para o hardware detectado
       const selectedModelId = modelId || specs.recommended.model_id;
 
       const modelConfig = SYSTEM_CONFIG.AVAILABLE_MODELS.find(
@@ -54,13 +44,12 @@ export async function initEngine(
       }
 
       worker = new Worker(
-        new URL("./workers/webllm.worker", import.meta.url), // Remova a extensão explícita .ts aqui
+        new URL("./workers/webllm.worker", import.meta.url),
         { type: "module" }
       );
 
-      // CORREÇÃO 2: Evita o travamento eterno. Se o Worker falhar na VRAM/Rede, rejeita a Promise
       worker.onerror = (err) => {
-        console.error("[WORKER COGNITIVE ERROR]", err);
+        console.error("%c[WORKER:COGNITIVE:ERROR]", "color: #ff0055", err);
         loadingPromise = null;
         throw new Error("Falha crítica na inicialização do thread do Web Worker.");
       };
@@ -80,22 +69,20 @@ export async function initEngine(
       );
 
       const gpuDevice = (engine as any)?.engine?.device || (engine as any)?._device;
-
       if (gpuDevice) {
         gpuDevice.lost.then(async (info: any) => {
-          console.warn("[WebGPU Device Lost - Context Evicted]", info);
-          // CORREÇÃO 3: Chama a função local de limpeza estrita que limpa worker e referências
+          console.warn("%c[WEBGPU:DEVICE:LOST] Context Evicted da GPU.", "color: #ff9900", info);
           await localUnloadEngine();
         });
       }
 
       currentModel = selectedModelId;
-      console.log("[WebLLM] Engine isolada e pronta:", selectedModelId);
+      console.log(`%c[WEBLLM] Engine isolada e pronta para execuções: ${selectedModelId}`, "color: #00ffcc");
 
       return engine;
     } catch (err) {
-      console.error("[WebLLM INIT ERROR]", err);
-      loadingPromise = null; // Libera a trava para tentativas subsequentes
+      console.error("%c[WEBLLM:INIT:ERROR]", "color: #ff0055", err);
+      loadingPromise = null;
       throw err;
     }
   })();
@@ -103,47 +90,43 @@ export async function initEngine(
   return loadingPromise;
 }
 
-export async function localUnloadEngine() {
+/* =========================================================
+   STRICT MEMORY UNLOAD (VRAM GUARD)
+========================================================= */
+export async function localUnloadEngine(): Promise<void> {
   try {
     if (engine) {
       await engine.unload();
     }
   } catch (err) {
-    console.error(
-      "[UNLOAD ERROR]",
-      err
-    );
+    console.error("%c[UNLOAD:ERROR] Falha ao descarregar tensores da engine:", "color: #ff0055", err);
   } finally {
     if (worker) {
       worker.terminate();
       worker = null;
     }
-
     engine = null;
     loadingPromise = null;
     currentModel = null;
     generationLock = false;
-
-    console.log(
-      "[WebLLM] Memória liberada."
-    );
+    console.log("%c[WEBLLM] Memória volátil e Web Worker destruídos com sucesso.", "color: #00ffcc");
   }
 }
 
-// ... (mantenha os imports e a função initEngine intactos)
-
+/* =========================================================
+   REACTIVE GENERATION ENGINE (STREAMING & ABORT)
+========================================================= */
 export async function* generate(
   prompt: string,
   temperature = 0.7,
   onProgress?: (report: any) => void,
-  signal?: AbortSignal // <-- Injeção do parâmetro de controle ativo
-) {
+  signal?: AbortSignal
+): AsyncGenerator<string, void, unknown> {
   if (generationLock) return;
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   generationLock = true;
 
-  // Escutador local para interromper imediatamente o loop do generator caso abortado externo
   const abortHandler = () => {
     generationLock = false;
   };
@@ -152,33 +135,25 @@ export async function* generate(
   try {
     const currentEngine = await initEngine(undefined, onProgress);
 
-    // Coerção cirúrgica com 'as any' para burlar a omissão do 'signal' no tipo estrito do MLC-AI
     const stream = await currentEngine.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
       signal: signal,
     } as any);
 
     for await (const chunk of stream as any) {
-      // Verificação de segurança em tempo real a cada token/pedaço processado da Stream
       if (signal?.aborted) {
         throw new DOMException("Generation aborted by system runtime request.", "AbortError");
       }
-
       const content = chunk.choices?.[0]?.delta?.content || "";
       if (content) yield content;
     }
   } catch (err: any) {
     if (err.name === "AbortError") {
-      console.log("[WebLLM] Geração cancelada ativamente via AbortController.");
+      console.log("%c[WEBLLM] Geração cancelada ativamente via AbortController.", "color: #ff9900");
     } else {
-      console.error("[GENERATE ERROR]", err);
+      console.error("%c[GENERATE:ERROR]", "color: #ff0055", err);
       playSound("error", 0.4);
       throw err;
     }
@@ -188,67 +163,29 @@ export async function* generate(
   }
 }
 
-// ... (Mantenha o restante do event listener de visibilidade mobile abaixo)
-
+/* =========================================================
+   MOBILE VISIBILITY & BACKGROUND CYCLE LIFECYCLE
+========================================================= */
 if (typeof window !== "undefined") {
-  document.addEventListener(
-    "visibilitychange",
-    async () => {
-      const isMobile =
-        /Mobi|Android|iPhone/i.test(
-          navigator.userAgent
-        );
+  document.addEventListener("visibilitychange", async () => {
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
-      /*
-        BACKGROUND
-      */
-
-      if (document.hidden) {
-        backgroundSince =
-          Date.now();
-
-        console.log(
-          "[WebLLM] Background mode"
-        );
-
-        return;
-      }
-
-      /*
-        RETURN
-      */
-
-      if (
-        !document.hidden &&
-        backgroundSince
-      ) {
-        const timeAway =
-          Date.now() -
-          backgroundSince;
-
-        console.log(
-          "[WebLLM] Returned after:",
-          timeAway
-        );
-
-        /*
-          MOBILE SAFETY
-        */
-
-        // Ajustado para ler o timeout dinâmico e seguro de background do config
-        if (
-          isMobile &&
-          timeAway > SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS
-        ) {
-          console.warn(
-            "[WebLLM] Long background detected. Resetting engine."
-          );
-
-          await unloadEngine();
-        }
-
-        backgroundSince = null;
-      }
+    if (document.hidden) {
+      backgroundSince = Date.now();
+      console.log("%c[WEBLLM] Modo background ativado. Monitorando consumo térmico...", "color: #ff9900");
+      return;
     }
-  );
+
+    if (!document.hidden && backgroundSince) {
+      const timeAway = Date.now() - backgroundSince;
+      console.log(`%c[WEBLLM] Foco retomado após ${timeAway}ms.`, "color: #00ffcc");
+
+      if (isMobile && timeAway > SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS) {
+        console.warn("%c[WEBLLM] Tempo limite em background excedido no Mobile. Expulsando VRAM.", "color: #ff0055");
+        await localUnloadEngine();
+        await unloadEngine();
+      }
+      backgroundSince = null;
+    }
+  });
 }
