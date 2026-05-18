@@ -271,8 +271,16 @@ export async function updateUser(updates: Partial<User>): Promise<User> {
     };
     const merged = { ...current, ...updates, id: "main" };
     await db.user.put(merged);
-    syncChannel.postMessage({ store: "user", key: "main", data: merged });
-    await syncToCloud("user", merged);
+
+if (syncChannel) {
+  syncChannel.postMessage({
+    store: "user",
+    key: "main",
+    data: merged,
+  });
+}
+
+await syncToCloud("user", merged);
     return merged;
   });
 }
