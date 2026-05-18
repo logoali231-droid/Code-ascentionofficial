@@ -3,13 +3,14 @@
 import {
   getKnowledgeGraph,
   getNextConcept,
-  updateConceptMastery,
   getReviewConcepts,
 } from "./knowledgeGraph";
 import { buildPromptFragments } from "./promptFragments";
 import { compressContext } from "./contextMemory";
 import { getUserProfile } from "./userMemory";
 import { buildMemoryContext } from "./vectorMemory";
+import { CognitiveProfile } from "@/types/core";
+import { eventBus, EventType } from "./eventBus";
 
 export interface LessonPlan {
   conceptTitle: string;
@@ -24,9 +25,6 @@ export interface LessonPlan {
   profile: any;
 }
 
-/* =========================================================
-   LESSON DIRECTOR
-========================================================= */
 export async function generateLessonPlan(params: {
   course: any;
   history?: any[];
@@ -34,20 +32,16 @@ export async function generateLessonPlan(params: {
   const { course, history = [] } = params;
   const profile = await getUserProfile();
 
-  /* KNOWLEDGE GRAPH VALIDATION */
   const graph = await getKnowledgeGraph(course.id);
   const nextConcept = graph ? getNextConcept(graph) : null;
   const reviewTargets = graph ? getReviewConcepts(graph) : [];
 
-  /* CONCEPT RESOLUTION */
   const conceptTitle = nextConcept?.title || "Core Fundamentals";
   const conceptId = nextConcept?.id || "core_fundamentals";
   const conceptDifficulty = nextConcept?.difficulty || course.difficulty || 1;
 
-  /* SLIDING WINDOW HISTORY COMPRESSION */
   const compressedHistory = compressContext(history, 400);
 
-  /* VECTOR RAG EMBEDDING CONTEXT */
   const memoryContext = await buildMemoryContext({
     query: `\n${course.topic}\n${conceptTitle}\n${compressedHistory}\n`,
     tags: [course.topic, course.level],
@@ -55,15 +49,13 @@ export async function generateLessonPlan(params: {
     limit: 4,
   });
 
-  /* REVIEW TARGET DETECTION */
   const shouldReview = reviewTargets.length >= 3;
   const reviewText = shouldReview
     ? `\nREVIEW TARGETS:\n${reviewTargets.slice(0, 3).map((r) => `${r.title} (${r.mastery})`).join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
     : "";
 
-  /* COGNITIVE BLOCK FRAGMENTS */
   const promptFragments = buildPromptFragments({
-    cognitive: profile?.cognitive,
+    cognitive: (profile?.cognitive || "Standard") as CognitiveProfile,
     difficulty: conceptDifficulty,
     mastery: nextConcept?.mastery || 0,
     reinforcement: shouldReview,
@@ -83,9 +75,6 @@ export async function generateLessonPlan(params: {
   };
 }
 
-/* =========================================================
-   EXPLANATION PROMPT (THEORY FEED)
-========================================================= */
 export function buildExplanationPrompt(plan: LessonPlan): string {
   return `
 You are an adaptive programming tutor working inside Code Ascension local PWA interface.
@@ -127,9 +116,6 @@ RETURN JSON:
 `;
 }
 
-/* =========================================================
-   EXERCISE PROMPT (WITH OPTIONAL SHARD CONDITIONAL)
-========================================================= */
 export function buildExercisePrompt({
   plan,
   explanation,
@@ -189,11 +175,14 @@ RETURN JSON SPECIFICATION:
 `;
 }
 
-/* =========================================================
-   GRAPH SUCCESS UPDATE
-========================================================= */
 export async function completeLessonPlan(plan: LessonPlan): Promise<void> {
   if (plan?.course?.id && plan?.conceptId) {
-    await updateConceptMastery(plan.course.id, plan.conceptId, true);
+    const traceId = eventBus.generateTraceId();
+    eventBus.emit({
+      type: EventType.EXERCISE_PASSED,
+      source: "lessonGenerator.ts",
+      traceId,
+      payload: { xpEarned: 0, coinsEarned: 0, conceptId: plan.conceptId, automatedSync: true }
+    });
   }
 }
