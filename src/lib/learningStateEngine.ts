@@ -212,13 +212,11 @@ export async function processPedagogicalEvent(
     adjustedDifficulty = Math.min(5, adjustedDifficulty + 0.3);
   }
 
-  // 7. Persistência Consolidada Transacional (Fim do conflito de concorrência)
-  await Promise.all([
-    saveKnowledgeGraph(graph),
-    save("memory", rawMemory, "main"),
-    save("memory", currentState, stateKey),
-    saveMemorySummary(courseId, { lessons: rawMemory.history, memory: rawMemory, mastery: Math.round(node.mastery * 100) })
-  ]);
+  // 7. Persistência Consolidada Transacional Sequencial
+  await saveKnowledgeGraph(graph);
+  await save("memory", rawMemory, "main");
+  await save("memory", currentState, stateKey);
+  await saveMemorySummary(normalizedCourseId, { lessons: rawMemory.history, memory: rawMemory, mastery: Math.round(node.mastery * 100) });
 
   return {
     pedagogicalState: currentState,
