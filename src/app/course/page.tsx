@@ -174,14 +174,15 @@ export default function CoursePage() {
           setStreamProgress(40 + (index + 1) * 20);
         },
       });
-
-      /* ====================================
+/* ====================================
          THEORY EXPLANATION AI
       ==================================== */
+      // Busca as lições fragmentadas de forma relacional no Dexie antes da chamada
+      const historyLessons = await db.table("lessons").where("courseId").equals(currentCourse.id).toArray();
 
       const explanationStream = await generateExplanationAI({
         lesson: streamed,
-        history: currentCourse.lessons || [],
+        history: historyLessons,
         user,
         course: currentCourse,
       });
@@ -293,16 +294,21 @@ export default function CoursePage() {
       }
 
       // ADICIONADO: Integração Anti-Spam / Compressão de Memória Periódica
-      const currentLessonCount = (course?.lessons?.length || 0) + 1;
+      // ADICIONADO: Integração Anti-Spam / Compressão de Memória Periódica
+      // Conta os registros fragmentados na tabela relacional
+      const lessonCount = await db.table("lessons").where("courseId").equals(course?.id).count();
+      const currentLessonCount = lessonCount + 1;
+      
       if (shouldUpdateSummary(currentLessonCount) && course?.id) {
         const freshUserMemory = await db.user.get("main");
+        const courseLessons = await db.table("lessons").where("courseId").equals(course.id).toArray();
+        
         await saveMemorySummary(course.id, {
-          lessons: course.lessons || [],
+          lessons: courseLessons,
           memory: freshUserMemory,
           mastery: freshUserMemory?.mastery || 0,
         });
       }
-
       /* ================================
           CLEAR ERROR LOGS
       ================================ */
