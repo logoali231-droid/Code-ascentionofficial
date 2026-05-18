@@ -232,14 +232,17 @@ export async function updateConceptMastery(
 
   if (!node) return null;
 
-  const current = node.mastery || 0;
-
-  let updated = current;
-
-  if (success) {
-    updated += 0.12;
-  } else {
-    updated -= 0.08;
+  // Tenta ler o delta dinamicamente balanceado pelo motor soberano
+  let updated = node.mastery || 0;
+  try {
+    const activeState = await get("memory", `pedagogical_state_${courseId}`);
+    if (activeState && activeState.currentConcept === conceptId) {
+      updated = activeState.mastery;
+    } else {
+      updated += success ? 0.12 : -0.08;
+    }
+  } catch (e) {
+    updated += success ? 0.12 : -0.08;
   }
 
   node.mastery = Math.max(0, Math.min(1, updated));
