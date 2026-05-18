@@ -2,351 +2,101 @@
 
 import { get, save } from "./db";
 
-/**
- * CODE ASCENT - KNOWLEDGE GRAPH ENGINE
- *
- * Responsável por:
- * - prerequisites
- * - unlock progression
- * - concept mastery
- * - dead-end prevention
- * - intelligent next concept selection
- */
-
-export interface ConceptNode {
+export interface MemorySummary {
   id: string;
-
-  title: string;
-
-  prerequisites: string[];
-
-  difficulty: number;
-
-  tags?: string[];
-
-  mastery?: number;
-
-  unlocked?: boolean;
-
-  completed?: boolean;
-
-  timesReviewed?: number;
-
-  lastSeen?: number;
-}
-
-export interface KnowledgeGraph {
-  courseId: string;
-
-  nodes: ConceptNode[];
-
+  summary: string;
   updatedAt: number;
+  lessonCount: number;
+  topics: string[];
+  weaknesses: string[];
+  strengths: string[];
+  mastery: number;
 }
 
-/* =========================================================
-   DEFAULT FALLBACK GRAPH
-========================================================= */
+const MAX_RAW_ERRORS = 8;
+const MAX_HISTORY_ITEMS = 12;
+const SUMMARY_TRIGGER = 6;
 
-const fallbackGraphs: Record<string, ConceptNode[]> = {
-  javascript: [
-    {
-      id: "variables",
-      title: "Variables",
-      prerequisites: [],
-      difficulty: 1,
-    },
+function cleanText(text?: string): string {
+  if (!text) return "";
+  return text.replace(/\s+/g, " ").trim().slice(0, 600);
+}
 
-    {
-      id: "functions",
-      title: "Functions",
-      prerequisites: ["variables"],
-      difficulty: 2,
-    },
+export function buildMemorySummary({ lessons, memory, mastery }: any): string {
+  const recentLessons = (lessons || [])
+    .slice(-MAX_HISTORY_ITEMS)
+    .map((l: any) => l.topic || l.title)
+    .join(", ");
 
-    {
-      id: "loops",
-      title: "Loops",
-      prerequisites: ["variables"],
-      difficulty: 2,
-    },
+  const weaknesses = Object.entries(memory?.weaknesses || {})
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k]) => k)
+    .join(", ");
 
-    {
-      id: "arrays",
-      title: "Arrays",
-      prerequisites: ["variables"],
-      difficulty: 2,
-    },
+  const strengths = Object.entries(memory?.topics || {})
+    .sort((a: any, b: any) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k]) => k)
+    .join(", ");
 
-    {
-      id: "objects",
-      title: "Objects",
-      prerequisites: ["arrays"],
-      difficulty: 3,
-    },
+  const recentErrors = (memory?.lastErrors || [])
+    .slice(-MAX_RAW_ERRORS)
+    .map((e: any) => `${e.topic}: ${cleanText(e.input)}`)
+    .join(" | ");
 
-    {
-      id: "closures",
-      title: "Closures",
-      prerequisites: ["functions"],
-      difficulty: 5,
-    },
+  return `
+USER LEARNING STATE
 
-    {
-      id: "async-await",
-      title: "Async/Await",
-      prerequisites: ["functions"],
-      difficulty: 5,
-    },
+Mastery:
+${mastery || 0}/100
 
-    {
-      id: "react-hooks",
-      title: "React Hooks",
-      prerequisites: ["functions", "closures"],
-      difficulty: 7,
-    },
-  ],
-};
+Recent lessons:
+${recentLessons || "none"}
 
-/* =========================================================
-   CREATE GRAPH
-========================================================= */
+Strong areas:
+${strengths || "none"}
 
-export async function createKnowledgeGraph(
+Weak areas:
+${weaknesses || "none"}
+
+Recent struggles:
+${recentErrors || "none"}
+`.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export function shouldUpdateSummary(lessonCount: number): boolean {
+  return lessonCount > 0 && lessonCount % SUMMARY_TRIGGER === 0;
+}
+
+export async function saveMemorySummary(
   courseId: string,
-  topic: string
-): Promise<KnowledgeGraph> {
-  const normalized = topic.toLowerCase();
+  data: { lessons: any[]; memory: any; mastery: number }
+): Promise<MemorySummary> {
+  const summary = buildMemorySummary(data);
 
-  const nodes =
-    fallbackGraphs[normalized] ||
-    [
-      {
-        id: "intro",
-        title: `${topic} Fundamentals`,
-        prerequisites: [],
-        difficulty: 1,
-      },
-    ];
-
-  const graph: KnowledgeGraph = {
-    courseId,
-
+  const payload: MemorySummary = {
+    id: `summary_${courseId}`,
+    summary,
     updatedAt: Date.now(),
-
-    nodes: nodes.map((n) => ({
-      ...n,
-
-      mastery: 0,
-
-      unlocked: n.prerequisites.length === 0,
-
-      completed: false,
-
-      timesReviewed: 0,
-
-      lastSeen: 0,
-    })),
+    lessonCount: data.lessons.length,
+    topics: Object.keys(data.memory?.topics || {}),
+    weaknesses: Object.keys(data.memory?.weaknesses || {}),
+    strengths: Object.keys(data.memory?.topics || {}),
+    mastery: data.mastery || 0,
   };
 
-  await save("memory", graph, `graph_${courseId}`);
-
-  return graph;
+  await save("memory", payload, payload.id);
+  return payload;
 }
 
-/* =========================================================
-   LOAD GRAPH
-========================================================= */
-
-export async function getKnowledgeGraph(
-  courseId: string
-): Promise<KnowledgeGraph | null> {
-  return await get("memory", `graph_${courseId}`);
+export async function getMemorySummary(courseId: string): Promise<string> {
+  const data = await get("memory", `summary_${courseId}`);
+  return data?.summary || "";
 }
 
-/* =========================================================
-   SAVE GRAPH
-========================================================= */
-
-export async function saveKnowledgeGraph(
-  graph: KnowledgeGraph
-) {
-  graph.updatedAt = Date.now();
-
-  await save("memory", graph, `graph_${graph.courseId}`);
-}
-
-/* =========================================================
-   UNLOCK CHECK
-========================================================= */
-
-export function canUnlockConcept(
-  graph: KnowledgeGraph,
-  conceptId: string
-): boolean {
-  const node = graph.nodes.find((n) => n.id === conceptId);
-
-  if (!node) return false;
-
-  if (node.unlocked) return true;
-
-  return node.prerequisites.every((req) => {
-    const prerequisite = graph.nodes.find((n) => n.id === req);
-
-    return prerequisite?.mastery !== undefined &&
-      prerequisite.mastery >= 0.7;
-  });
-}
-
-/* =========================================================
-   UPDATE UNLOCKS
-========================================================= */
-
-export async function refreshUnlocks(
-  graph: KnowledgeGraph
-) {
-  graph.nodes = graph.nodes.map((node) => ({
-    ...node,
-
-    unlocked: canUnlockConcept(graph, node.id),
-  }));
-
-  await saveKnowledgeGraph(graph);
-
-  return graph;
-}
-
-/* =========================================================
-   UPDATE MASTERY
-========================================================= */
-
-export async function updateConceptMastery(
-  courseId: string,
-  conceptId: string,
-  success: boolean
-) {
-  const graph = await getKnowledgeGraph(courseId);
-
-  if (!graph) return null;
-
-  const node = graph.nodes.find((n) => n.id === conceptId);
-
-  if (!node) return null;
-
-  // Tenta ler o delta dinamicamente balanceado pelo motor soberano
-  let updated = node.mastery || 0;
-  try {
-    const activeState = await get("memory", `pedagogical_state_${courseId}`);
-    if (activeState && activeState.currentConcept === conceptId) {
-      updated = activeState.mastery;
-    } else {
-      updated += success ? 0.12 : -0.08;
-    }
-  } catch (e) {
-    updated += success ? 0.12 : -0.08;
-  }
-
-  node.mastery = Math.max(0, Math.min(1, updated));
-
-  node.completed = node.mastery >= 0.95;
-
-  node.lastSeen = Date.now();
-
-  await refreshUnlocks(graph);
-
-  return node;
-}
-
-/* =========================================================
-   NEXT CONCEPT
-========================================================= */
-
-export function getNextConcept(
-  graph: KnowledgeGraph
-): ConceptNode | null {
-  const available = graph.nodes.filter(
-    (n) =>
-      n.unlocked &&
-      !n.completed
-  );
-
-  if (!available.length) return null;
-
-  available.sort((a, b) => {
-    const masteryA = a.mastery || 0;
-    const masteryB = b.mastery || 0;
-
-    return masteryA - masteryB;
-  });
-
-  return available[0];
-}
-
-/* =========================================================
-   REVIEW TARGETS
-========================================================= */
-
-export function getReviewConcepts(
-  graph: KnowledgeGraph
-): ConceptNode[] {
-  return graph.nodes
-    .filter((n) => {
-      const mastery = n.mastery || 0;
-
-      return mastery > 0.25 && mastery < 0.8;
-    })
-    .sort((a, b) => {
-      return (a.mastery || 0) - (b.mastery || 0);
-    });
-}
-
-/* =========================================================
-   DEAD-END DETECTION
-========================================================= */
-
-export function graphHasDeadEnds(
-  graph: KnowledgeGraph
-): boolean {
-  return graph.nodes.some((node) => {
-    return (
-      node.prerequisites.length > 0 &&
-      node.prerequisites.every((req) => {
-        const found = graph.nodes.find((n) => n.id === req);
-
-        return !found;
-      })
-    );
-  });
-}
-
-/* =========================================================
-   DEBUG HELPERS
-========================================================= */
-
-export function getGraphStats(
-  graph: KnowledgeGraph
-) {
-  const completed = graph.nodes.filter(
-    (n) => n.completed
-  ).length;
-
-  const unlocked = graph.nodes.filter(
-    (n) => n.unlocked
-  ).length;
-
-  const avgMastery =
-    graph.nodes.reduce(
-      (acc, n) => acc + (n.mastery || 0),
-      0
-    ) / graph.nodes.length;
-
-  return {
-    totalNodes: graph.nodes.length,
-
-    completed,
-
-    unlocked,
-
-    avgMastery:
-      Math.round(avgMastery * 100) / 100,
-  };
+export function compressContext(text: string, max = 2500): string {
+  if (!text) return "";
+  if (text.length <= max) return text;
+  return text.slice(0, max) + "\n\n[context compressed]";
 }
