@@ -7,9 +7,12 @@ import { runNeural } from "./neuralExecutor";
 import { runWasm } from "./wasmExecutor";
 import { telemetry } from "./telemetryManager"; // Importando o gerenciador
 
+
 import { Language, SandboxResult } from "./types";
 import { SandboxFile } from "@/components/SandboxEditor";
 
+
+let bundleWorker: Worker | null = null;
 /**
  * Executa o empacotamento de arquivos dentro de um Worker respeitando o cancelamento ativo
  */
@@ -25,7 +28,13 @@ export function executeInWorker(
       return reject(new DOMException("Bundling aborted.", "AbortError"));
     }
 
-    const worker = new Worker(new URL("../sandbox.worker.ts", import.meta.url));
+    if (!bundleWorker) {
+      bundleWorker = new Worker(
+        new URL("../sandbox.worker.ts", import.meta.url)
+      );
+    }
+
+    const worker = bundleWorker;
 
     const abortHandler = () => {
       worker.terminate();
@@ -46,7 +55,8 @@ export function executeInWorker(
       if (signal) {
         signal.removeEventListener("abort", abortHandler);
       }
-      worker.terminate();
+      worker.onmessage = null;
+      worker.onerror = null;
     };
 
     worker.onmessage = (e) => {

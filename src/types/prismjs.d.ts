@@ -1,0 +1,9 @@
+declare module "prismjs/components/prism-javascript";
+declare module "prismjs/components/prism-typescript";
+declare module "prismjs/components/prism-python";
+declare module "prismjs/components/prism-c";
+declare module "prismjs/components/prism-cpp";
+declare module "prismjs/components/prism-rust";
+declare module "prismjs/components/prism-sql";
+declare module "prismjs/components/prism-csharp";
+declare module "prismjs/components/prism-clike";

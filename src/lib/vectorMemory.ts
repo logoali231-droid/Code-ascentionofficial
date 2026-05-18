@@ -123,7 +123,11 @@ export async function retrieveRelevantMemories({
   concepts?: string[];
   limit?: number;
 }): Promise<VectorMemoryEntry[]> {
-  const all = (await getAll(MEMORY_STORE)) as VectorMemoryEntry[];
+  const all = (await db.memory
+  .orderBy("timestamp")
+  .reverse()
+  .limit(60)
+  .toArray()) as VectorMemoryEntry[];
   if (!all?.length) return [];
 
   const ranked = all
@@ -141,17 +145,17 @@ export async function retrieveRelevantMemories({
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
+ queueMicrotask(async () => {
   for (const item of ranked) {
-    await save(
-      MEMORY_STORE,
-      {
-        ...item.memory,
-        accessCount: item.memory.accessCount + 1,
+    try {
+      await db.memory.update(item.memory.id, {
+        accessCount:
+          item.memory.accessCount + 1,
         lastAccessed: Date.now(),
-      },
-      item.memory.id,
-    );
+      });
+    } catch {}
   }
+});
 
   return ranked.map((x) => x.memory);
 }

@@ -16,17 +16,6 @@ import { executeSandboxCode } from "@/lib/sandbox/sandboxRunner";
 import { Language } from "@/lib/sandbox/types";
 import prism from "prismjs";
 
-// Suporte estático de tokenização para o editor visual do Sandbox
-import "prismjs/components/prism-clike";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
-import "prismjs/components/prism-python";
-import "prismjs/components/prism-csharp";
-import "prismjs/components/prism-rust";
-import "prismjs/components/prism-c";
-import "prismjs/components/prism-cpp";
-import "prismjs/components/prism-sql";
-
 export interface SandboxFile {
   id: string;
   name: string;
@@ -45,6 +34,45 @@ const CLOSURE_PAIRS: Record<string, string> = {
   "[": "]",
   '"': '"',
 };
+
+async function loadPrismLanguage(language: string) {
+  switch (language) {
+    case "javascript":
+      await import("prismjs/components/prism-javascript");
+      break;
+
+    case "typescript":
+      await import("prismjs/components/prism-typescript");
+      break;
+
+    case "python":
+      await import("prismjs/components/prism-python");
+      break;
+
+    case "c":
+      await import("prismjs/components/prism-c");
+      break;
+
+    case "cpp":
+      await import("prismjs/components/prism-cpp");
+      break;
+
+    case "rust":
+      await import("prismjs/components/prism-rust");
+      break;
+
+    case "sql":
+      await import("prismjs/components/prism-sql");
+      break;
+
+    case "csharp":
+      await import("prismjs/components/prism-csharp");
+      break;
+
+    default:
+      await import("prismjs/components/prism-clike");
+  }
+}
 
 // Helper utilitário para inferir a tipagem estrita do Sandbox com base na extensão informada
 function inferLanguageFromExtension(fileName: string): Language {

@@ -2,11 +2,15 @@
 
 import { useEffect } from "react";
 
-import { initDevConsole } from "@/lib/devConsole";
-
+const loadDevConsole = async () => {
+  const mod = await import("@/lib/devConsole");
+  return mod.initDevConsole;
+};
 export default function DevConsoleBoot() {
   useEffect(() => {
-    initDevConsole();
+    loadDevConsole()
+      .then((fn) => fn())
+      .catch(console.error);
   }, []);
 
   return null;

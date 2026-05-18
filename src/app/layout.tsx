@@ -60,7 +60,7 @@ export default function RootLayout({
       <body className="bg-slate-950 text-white">
         <ClientBody>{children}</ClientBody>
 
-        <DevConsoleBoot />
+        {process.env.NODE_ENV === "development" && <DevConsoleBoot />}
       </body>
     </html>
   );

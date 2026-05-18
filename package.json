@@ -6,6 +6,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "analyze": "ANALYZE=true next build",
     "dev": "next dev -H 0.0.0.0 -p 9002",
     "build": "next build",
     "start": "next start",
@@ -28,6 +29,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.18",
     "@types/node": "^22.15.21",
     "@types/prismjs": "^1.26.6",
     "@types/react": "^18.3.23",

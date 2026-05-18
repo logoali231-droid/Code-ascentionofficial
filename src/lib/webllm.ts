@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  CreateWebWorkerMLCEngine,
-  type MLCEngineInterface,
-} from "@mlc-ai/web-llm";
+import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
 import { unloadEngine, detectSystemCapabilities } from "./modelManager";
 import { SYSTEM_CONFIG } from "@/config/system";
@@ -14,6 +11,7 @@ let loadingPromise: Promise<MLCEngineInterface> | null = null;
 let currentModel: string | null = null;
 let generationLock = false;
 let backgroundSince: number | null = null;
+let gpuRecoveryInProgress = false;
 
 /* =========================================================
    ENGINE INITIALIZATION (WITH WEB WORKER)
@@ -52,14 +50,18 @@ export async function initEngine(
         type: "module",
       });
 
-      worker.onerror = (err) => {
-        console.error("%c[WORKER:COGNITIVE:ERROR]", "color: #ff0055", err);
-        loadingPromise = null;
-        throw new Error(
-          "Falha crítica na inicialização do thread do Web Worker.",
+      worker.onerror = async (err) => {
+        console.error(
+          "%c[WORKER:COGNITIVE:ERROR]",
+          "color: #ff0055",
+          err,
         );
-      };
 
+        await localUnloadEngine();
+
+        loadingPromise = null;
+      };
+      const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
         logLevel: "INFO",
@@ -71,6 +73,7 @@ export async function initEngine(
       } as any);
 
       const gpuDevice =
+
         (engine as any)?.engine?.device || (engine as any)?._device;
       if (gpuDevice) {
         gpuDevice.lost.then(async (info: any) => {
@@ -79,7 +82,15 @@ export async function initEngine(
             "color: #ff9900",
             info,
           );
-          await localUnloadEngine();
+          if (gpuRecoveryInProgress) return;
+
+          gpuRecoveryInProgress = true;
+
+          try {
+            await localUnloadEngine();
+          } finally {
+            gpuRecoveryInProgress = false;
+          }
         });
       }
 
@@ -139,7 +150,11 @@ export async function* generate(
   onProgress?: (report: any) => void,
   signal?: AbortSignal,
 ): AsyncGenerator<string, void, unknown> {
-  if (generationLock) return;
+  if (generationLock) {
+    throw new Error(
+      "Generation already in progress."
+    );
+  }
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   generationLock = true;
@@ -189,38 +204,60 @@ export async function* generate(
 /* =========================================================
    MOBILE VISIBILITY & BACKGROUND CYCLE LIFECYCLE
 ========================================================= */
-if (typeof window !== "undefined") {
-  document.addEventListener("visibilitychange", async () => {
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+let visibilityHandlerAttached = false;
+
+function setupVisibilityHandler() {
+  if (
+    typeof window === "undefined" ||
+    visibilityHandlerAttached
+  ) {
+    return;
+  }
+
+  visibilityHandlerAttached = true;
+
+  const handler = async () => {
+    const isMobile =
+      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
     if (document.hidden) {
       backgroundSince = Date.now();
+
       console.log(
-        "%c[WEBLLM] Modo background ativado. Monitorando consumo térmico...",
+        "%c[WEBLLM] Background mode enabled.",
         "color: #ff9900",
       );
+
       return;
     }
 
     if (!document.hidden && backgroundSince) {
       const timeAway = Date.now() - backgroundSince;
-      console.log(
-        `%c[WEBLLM] Foco retomado após ${timeAway}ms.`,
-        "color: #00ffcc",
-      );
 
       if (
         isMobile &&
-        timeAway > SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS
+        timeAway >
+        SYSTEM_CONFIG.CLEANUP
+          .MOBILE_BACKGROUND_TIMEOUT_MS
       ) {
         console.warn(
-          "%c[WEBLLM] Tempo limite em background excedido no Mobile. Expulsando VRAM.",
+          "%c[WEBLLM] Mobile timeout exceeded. Releasing VRAM.",
           "color: #ff0055",
         );
+
         await localUnloadEngine();
-        await unloadEngine();
       }
+
       backgroundSince = null;
     }
-  });
+  };
+
+  document.addEventListener(
+    "visibilitychange",
+    handler,
+    { passive: true },
+  );
 }
+
+setupVisibilityHandler();

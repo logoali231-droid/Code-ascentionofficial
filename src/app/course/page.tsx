@@ -1,6 +1,9 @@
 "use client";
 
-import { initEngine } from "@/lib/webllm"; // <-- ADICIONADO
+const loadEngine = async () => {
+  const mod = await import("@/lib/webllm");
+  return mod.initEngine;
+};
 
 import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
 
@@ -8,17 +11,27 @@ import { useEffect, useState } from "react";
 
 import { updateUser, db, getErrorLogs, clearErrorLog, getUser } from "@/lib/db";
 
+
+
 import { streamLesson } from "@/lib/lessonStreamer";
 
 import { generateReinforcement } from "@/lib/reinforce";
 
-import ExerciseRenderer from "@/components/ExerciseRenderer";
+import dynamic from "next/dynamic";
+
+const ExerciseRenderer = dynamic(
+  () => import("@/components/ExerciseRenderer"),
+  {
+    ssr: false,
+  },
+);
+
 
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
 
 import { updateMemory } from "@/lib/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
-import { report } from "process";
+
 
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
@@ -113,7 +126,7 @@ export default function CoursePage() {
     /* ============================================
        STREAM GENERATION
     ============================================ */
-
+    const initEngine = await loadEngine();
     await initEngine(undefined, (report) => {
       setDownloadInfo({
         text: report.text,

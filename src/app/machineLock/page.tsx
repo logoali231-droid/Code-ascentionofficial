@@ -19,7 +19,10 @@ import {
 
 import { detectSystemCapabilities } from "@/lib/modelManager";
 import { SYSTEM_CONFIG, Model } from "@/config/system";
-import { initEngine } from "@/lib/webllm";
+const loadEngine = async () => {
+  const mod = await import("@/lib/webllm");
+  return mod.initEngine;
+};
 
 export default function MachineLockPage() {
   const router = useRouter();
@@ -68,6 +71,8 @@ export default function MachineLockPage() {
     setIsInitializing(true);
     playSound("click", 0.3);
     try {
+
+      const initEngine = await loadEngine();
       await initEngine(selectedModel, (p) => {
         setProgress({ progress: Math.round(p.progress * 100), text: p.text });
       });

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import * as LucideIcons from "lucide-react";
-import { LucideIcon } from "lucide-react";
+import { Box, Brain, Cpu, Database, FileCode, Gem, LucideIcon, ScrollText, Shield, Sword, Zap } from "lucide-react";
 
 // Tipagem para auxiliar na detecção de raridade e estilos
 type ItemRarity =
@@ -60,63 +59,73 @@ const DynamicIcon: React.FC<DynamicIconProps> = ({
   }, [rarity]);
 
   // LÓGICA DE DESCOBERTA DE ÍCONE (HEURÍSTICA)
-  const IconComponent = useMemo(() => {
-    const allIcons = LucideIcons as any;
-    const normalizedTarget = name.replace(/[^a-zA-Z]/g, "").toLowerCase();
+// LÓGICA DE DESCOBERTA DE ÍCONE (HEURÍSTICA)
+const IconComponent = useMemo(() => {
+  const normalized = name.toLowerCase();
 
-    // 1. Tentativa Direta (Case Sensitive/Insensitive)
-    if (allIcons[name]) return allIcons[name];
+  const iconMap: Record<string, LucideIcon> = {
+    sword: Sword,
+    blade: Sword,
+    weapon: Sword,
 
-    // 2. Busca por palavra-chave no nome (Heurística)
-    const keywords: Record<string, keyof typeof LucideIcons> = {
-      sword: "Sword",
-      blade: "Sword",
-      katana: "Sword",
-      shield: "Shield",
-      guard: "Shield",
-      key: "Key",
-      access: "Key",
-      data: "Database",
-      chip: "Cpu",
-      logic: "Binary",
-      heal: "HeartPulse",
-      med: "Medal",
-      boost: "Zap",
-      power: "Zap",
-      search: "Search",
-      scan: "Scan",
-      box: "Package",
-      chest: "Archive",
-      credit: "Coins",
-      money: "CircleDollarSign",
-    };
+    cpu: Cpu,
+    chip: Cpu,
+    processor: Cpu,
 
-    for (const [key, icon] of Object.entries(keywords)) {
-      if (normalizedTarget.includes(key)) return allIcons[icon];
+    database: Database,
+    memory: Database,
+    vault: Database,
+
+    code: FileCode,
+    script: FileCode,
+    terminal: FileCode,
+
+    shield: Shield,
+    defense: Shield,
+    protection: Shield,
+
+    zap: Zap,
+    energy: Zap,
+    electric: Zap,
+
+    brain: Brain,
+    neural: Brain,
+    ai: Brain,
+
+    gem: Gem,
+    crystal: Gem,
+    relic: Gem,
+
+    scroll: ScrollText,
+    knowledge: ScrollText,
+  };
+
+  for (const key of Object.keys(iconMap)) {
+    if (normalized.includes(key)) {
+      return iconMap[key];
     }
+  }
 
-    // 3. Fallback por Categoria
-    const categoryFallbacks: Record<string, keyof typeof LucideIcons> = {
-      weapon: "Crosshair",
-      module: "Cpu",
-      utility: "Wrench",
-      currency: "Bitcoin",
-      skin: "Zap",
-      default: "HelpCircle",
-    };
+  switch (category) {
+    case "weapon":
+      return Sword;
 
-    const fallbackName =
-      categoryFallbacks[category] || categoryFallbacks.default;
+    case "module":
+      return Cpu;
 
-    // Alerta de desenvolvimento para ícones não mapeados
-    if (process.env.NODE_ENV === "development" && !allIcons[name]) {
-      console.warn(
-        `[DynamicIcon] Mapeamento não encontrado para: "${name}". Usando: "${fallbackName}"`,
-      );
-    }
+    case "utility":
+      return Shield;
 
-    return allIcons[fallbackName];
-  }, [name, category]);
+    case "currency":
+      return Gem;
+
+    case "skin":
+      return Zap;
+
+    default:
+      return Box;
+  }
+}, [name, category]);
 
   return (
     <div

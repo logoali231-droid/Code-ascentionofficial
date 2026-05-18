@@ -3,6 +3,10 @@ import Dexie, { type Table } from "dexie";
 const CLOUDFLARE_WORKER_URL =
   "https://code-ascension-api.logoali231.workers.dev/save-progress";
 const syncChannel = new BroadcastChannel("code_ascension_sync");
+window.addEventListener("beforeunload", () => {
+  syncChannel.close();
+});
+const syncTimers = new Map<string, any>();
 
 /* =========================================================
    INTERFACES & TYPES (ESTRUTURA COMPLETA)
