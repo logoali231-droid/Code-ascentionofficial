@@ -125,37 +125,39 @@ async function syncToCloud(storeName: string, data: any): Promise<void> {
   }
 
   try {
-    const payload = {
-      store: storeName,
-      userId: "main",
-      payload: data,
-      timestamp: Date.now(),
-    };
+  const payload = {
+    store: storeName,
+    userId: "main",
+    payload: data,
+    timestamp: Date.now(),
+  };
 
-    fetch(CLOUDFLARE_WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => {
-        if (!res.ok)
-          console.warn(
-            `%c[SYNC:CLOUD] Worker retornou status: ${res.status}`,
-            "color: #ff0055",
-          );
-        else
-          console.log(
-            `%c[SYNC:CLOUD] Dados de '${storeName}' espelhados na nuvem.`,
-            "color: #00ffcc",
-          );
-      })
-      .catch((err) => {
-        console.error("%c[SYNC:CLOUD] Erro na requisição do Worker:", err);
-      });
-  } catch (e) {
-    console.error("[SYNC:CLOUD] Falha ao tentar sincronizar:", e);
+  const res = await fetch(CLOUDFLARE_WORKER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    console.warn(
+      `%c[SYNC:CLOUD] Worker retornou status: ${res.status}`,
+      "color: #ff0055",
+    );
+  } else {
+    console.log(
+      `%c[SYNC:CLOUD] Dados de '${storeName}' espelhados na nuvem.`,
+      "color: #00ffcc",
+    );
   }
-}
+} catch (e) {
+  console.error(
+    "%c[SYNC:CLOUD] Falha ao tentar sincronizar:",
+    "color: #ff0055",
+    e,
+  );
+  }
 
 if (syncChannel) {
   syncChannel.onmessage = async (event) => {
