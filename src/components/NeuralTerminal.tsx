@@ -1,7 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Terminal as TerminalIcon, ChevronDown, ChevronUp, Trash2, ExternalLink, Activity, Cpu, ShieldAlert, Database, Zap, Search } from "lucide-react";
+import {
+  Terminal as TerminalIcon,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  ExternalLink,
+  Activity,
+  Cpu,
+  ShieldAlert,
+  Database,
+  Zap,
+  Search,
+} from "lucide-react";
 
 export interface LogEntry {
   message: string;
@@ -27,17 +39,28 @@ const TYPE_STYLES: Record<LogEntry["type"], string> = {
   info: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
 };
 
-export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activeFile }: NeuralTerminalProps) {
+export default function NeuralTerminal({
+  logs,
+  onClear,
+  isOpen,
+  setIsOpen,
+  activeFile,
+}: NeuralTerminalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "errors" | "system">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "errors" | "system">(
+    "all",
+  );
   const [isAutoScrollEnabled, setAutoScroll] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const stats = useMemo(() => ({
-    total: logs.length,
-    errors: logs.filter((l) => l.type === "error").length,
-    warnings: logs.filter((l) => l.type === "warn").length,
-  }), [logs]);
+  const stats = useMemo(
+    () => ({
+      total: logs.length,
+      errors: logs.filter((l) => l.type === "error").length,
+      warnings: logs.filter((l) => l.type === "warn").length,
+    }),
+    [logs],
+  );
 
   useEffect(() => {
     if (isAutoScrollEnabled && scrollRef.current) {
@@ -46,9 +69,12 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
   }, [logs, isAutoScrollEnabled]);
 
   const filteredLogs = logs.filter((log) => {
-    const matches = log.message.toLowerCase().includes(searchTerm.toLowerCase());
+    const matches = log.message
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
     if (activeTab === "errors") return log.type === "error" && matches;
-    if (activeTab === "system") return ["system", "mem", "perf"].includes(log.type) && matches;
+    if (activeTab === "system")
+      return ["system", "mem", "perf"].includes(log.type) && matches;
     return matches;
   });
 
@@ -98,11 +124,17 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-white/5 transition-all duration-500 z-50 flex flex-col ${isOpen ? "h-80 shadow-[0_-20px_50px_rgba(0,0,0,0.8)]" : "h-9"}`}>
-      <div className="flex items-center justify-between px-4 min-h-9 bg-[#0a0a0a] border-b border-white/5 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+    <div
+      className={`fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-white/5 transition-all duration-500 z-50 flex flex-col ${isOpen ? "h-80 shadow-[0_-20px_50px_rgba(0,0,0,0.8)]" : "h-9"}`}
+    >
+      <div
+        className="flex items-center justify-between px-4 min-h-9 bg-[#0a0a0a] border-b border-white/5 cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 text-[10px] font-black text-cyan-500 uppercase tracking-widest">
-            <TerminalIcon size={14} className={isOpen ? "animate-pulse" : ""} /> Neural_Terminal_v2
+            <TerminalIcon size={14} className={isOpen ? "animate-pulse" : ""} />{" "}
+            Neural_Terminal_v2
           </div>
           {isOpen && (
             <div className="flex items-center gap-1 bg-black/40 rounded-full px-3 py-1 border border-white/5 text-[9px] text-slate-400 font-bold uppercase">
@@ -119,7 +151,13 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
               <span className="text-amber-500">WRN:{stats.warnings}</span>
             </div>
           )}
-          <button onClick={(e) => { e.stopPropagation(); handleOpenPopup(); }} className="p-1.5 hover:bg-white/10 rounded-md text-cyan-600 transition-colors">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenPopup();
+            }}
+            className="p-1.5 hover:bg-white/10 rounded-md text-cyan-600 transition-colors"
+          >
             <ExternalLink size={14} />
           </button>
           {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
@@ -131,42 +169,86 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
           <div className="flex items-center justify-between px-4 py-2 bg-[#080808] border-b border-white/5">
             <div className="flex gap-2">
               {(["all", "errors", "system"] as const).map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1 rounded text-[10px] font-bold transition-all uppercase ${activeTab === tab ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-slate-500 hover:text-slate-300"}`}>
-                  {tab === "all" ? "all_streams" : tab === "errors" ? "diagnostics" : "kernel"}
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all uppercase ${activeTab === tab ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-slate-500 hover:text-slate-300"}`}
+                >
+                  {tab === "all"
+                    ? "all_streams"
+                    : tab === "errors"
+                      ? "diagnostics"
+                      : "kernel"}
                 </button>
               ))}
             </div>
-            
+
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-600" />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Filter logs..." className="bg-black/50 border border-white/5 rounded px-8 py-1 text-[10px] outline-none focus:border-cyan-500/50 w-40 transition-all" />
+                <Search
+                  size={12}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-600"
+                />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Filter logs..."
+                  className="bg-black/50 border border-white/5 rounded px-8 py-1 text-[10px] outline-none focus:border-cyan-500/50 w-40 transition-all"
+                />
               </div>
               <div className="h-4 w-px bg-white/10" />
-              <Trash2 size={14} className="text-slate-600 hover:text-red-500 cursor-pointer transition-colors" onClick={onClear} />
-              <div className={`flex items-center gap-1 cursor-pointer ${isAutoScrollEnabled ? "text-cyan-500" : "text-slate-600"}`} onClick={() => setAutoScroll(!isAutoScrollEnabled)}>
-                <Zap size={12} fill={isAutoScrollEnabled ? "currentColor" : "none"} />
+              <Trash2
+                size={14}
+                className="text-slate-600 hover:text-red-500 cursor-pointer transition-colors"
+                onClick={onClear}
+              />
+              <div
+                className={`flex items-center gap-1 cursor-pointer ${isAutoScrollEnabled ? "text-cyan-500" : "text-slate-600"}`}
+                onClick={() => setAutoScroll(!isAutoScrollEnabled)}
+              >
+                <Zap
+                  size={12}
+                  fill={isAutoScrollEnabled ? "currentColor" : "none"}
+                />
                 <span className="text-[9px] font-black">AUTO_LOCK</span>
               </div>
             </div>
           </div>
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 font-mono text-[12px] bg-[#020202] custom-scrollbar">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto p-4 font-mono text-[12px] bg-[#020202] custom-scrollbar"
+          >
             {filteredLogs.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-slate-800 opacity-30 select-none">
                 <Database size={40} className="mb-2" />
-                <span className="text-[10px] font-black uppercase tracking-tighter">No Neural Data Found</span>
+                <span className="text-[10px] font-black uppercase tracking-tighter">
+                  No Neural Data Found
+                </span>
               </div>
             )}
             {filteredLogs.map((log, i) => (
-              <div key={i} className="group flex gap-4 py-1.5 border-b border-white/2 hover:bg-white/2 transition-colors">
-                <span className="text-[10px] text-slate-700 min-w-17.5 select-none">{log.timestamp}</span>
-                <div className={`px-1.5 py-0.5 rounded-xs text-[8px] font-black h-fit min-w-13.75 text-center tracking-tighter uppercase border ${TYPE_STYLES[log.type] || TYPE_STYLES.info}`}>
+              <div
+                key={i}
+                className="group flex gap-4 py-1.5 border-b border-white/2 hover:bg-white/2 transition-colors"
+              >
+                <span className="text-[10px] text-slate-700 min-w-17.5 select-none">
+                  {log.timestamp}
+                </span>
+                <div
+                  className={`px-1.5 py-0.5 rounded-xs text-[8px] font-black h-fit min-w-13.75 text-center tracking-tighter uppercase border ${TYPE_STYLES[log.type] || TYPE_STYLES.info}`}
+                >
                   {log.type}
                 </div>
                 <div className="flex-1">
-                  <span className="text-slate-300 leading-relaxed break-all whitespace-pre-wrap">{log.message}</span>
-                  {log.source && <span className="ml-2 text-[10px] text-slate-700 italic">@ {log.source}</span>}
+                  <span className="text-slate-300 leading-relaxed break-all whitespace-pre-wrap">
+                    {log.message}
+                  </span>
+                  {log.source && (
+                    <span className="ml-2 text-[10px] text-slate-700 italic">
+                      @ {log.source}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -174,10 +256,16 @@ export default function NeuralTerminal({ logs, onClear, isOpen, setIsOpen, activ
 
           <div className="h-6 bg-[#0a0a0a] border-t border-white/5 flex items-center px-4 justify-between text-[9px] font-bold text-slate-600">
             <div className="flex gap-4">
-              <span className="flex items-center gap-1"><Cpu size={10} /> BUS_LOAD: 0.02%</span>
-              <span className="flex items-center gap-1"><ShieldAlert size={10} /> SECURITY: ENCRYPTED</span>
+              <span className="flex items-center gap-1">
+                <Cpu size={10} /> BUS_LOAD: 0.02%
+              </span>
+              <span className="flex items-center gap-1">
+                <ShieldAlert size={10} /> SECURITY: ENCRYPTED
+              </span>
             </div>
-            <div className="text-cyan-900 tracking-widest">STREAMING_ACTIVE // 2048-BIT_RSA</div>
+            <div className="text-cyan-900 tracking-widest">
+              STREAMING_ACTIVE // 2048-BIT_RSA
+            </div>
           </div>
         </>
       )}

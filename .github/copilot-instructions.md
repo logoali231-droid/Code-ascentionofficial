@@ -2,6 +2,7 @@ Short summary
 This repository is a Next.js (app-router) single-page app that runs primarily in the browser. It uses client components, TailwindCSS for styling, IndexedDB for local persistence, and includes helper libraries under `src/lib/` for AI prompt construction and local data management. The UI and most state live client-side; server code is minimal/nonexistent in the tree.
 
 What I (an AI coding assistant) should know to be immediately useful
+
 - Project type and entry points
   - Next.js app-router project. Root layout: `src/app/layout.tsx`. Main pages live under `src/app/` (e.g. `page.tsx`, `course/page.tsx`, `profile/page.tsx`).
   - Many components are "use client" React components. Prefer client-side edits to UI components and follow the project pattern of small, focused components in `src/components/`.
@@ -31,6 +32,7 @@ What I (an AI coding assistant) should know to be immediately useful
   - Prompt building helpers (e.g. `getCognitiveInstruction`) encode domain rules — avoid changing prompt language unless intentionally updating course-generation behavior.
 
 Concrete examples to follow when changing code
+
 - Adding a new client page
   - Add file `src/app/<route>/page.tsx` or nested folders. If the page uses hooks/useEffect/local storage, add `"use client"` and import APIs from `@/lib/*`.
 
@@ -41,24 +43,27 @@ Concrete examples to follow when changing code
   - Use `buildCoursePrompt(config)` from `src/lib/aiPrompt.ts`. Keep the final output restrictions (JSON only) in mind; if you need to change output shape, update all callers that parse the model output.
 
 Project-specific conventions (don't assume defaults)
+
 - Client-first architecture: most state and logic run in the browser (IndexedDB + client components). There is little server-side logic in this repo.
 - Local IDs: Many stores use the key "main" as the primary record. Some stores (like `errors`) are autoIncrement. Use `getAll` for lists.
 - Prompt strictness: prompt builders instruct models to output strict JSON — callers expect parsable JSON. If you relax the prompt, update parsing error handling.
 
 Integration & external dependencies to be careful with
+
 - `@mlc-ai/web-llm` runs in-browser and may require additional build/runtime handling on target platforms. Test locally with `npm run dev`.
 - `idb` and IndexedDB behaviors vary across browsers — prefer using the wrapper in `src/lib/db.ts` rather than rolling your own.
 
 Where to look first when debugging or making changes
+
 - UI bug in a page: open `src/app/<route>/page.tsx` and its direct components in `src/components/`.
 - State/persistence bug: inspect `src/lib/db.ts` and search for `save(` or `get(` usages.
 - AI behavior: inspect `src/lib/aiPrompt.ts`, `src/lib/webllm.ts`, and any code that calls them (search for `buildCoursePrompt` or `web-llm` usage).
 
 Small do/don't checklist for edits (short)
+
 - Do: keep client/server separation clear; add `"use client"` to components using hooks.
 - Do: use `@/lib/db` helpers for persistence and preserve the 'main' key pattern when appropriate.
 - Do: preserve prompt wording if only small UI changes are required; changing prompt text has wide impact.
 - Don't: convert client-only components to server components unless you also move or adapt browser APIs (IndexedDB, window).
-
 
 Always answer concisely. Don't explain the code unless I ask. Prioritize modern TypeScript syntax. In the Code Ascension project, always use the cyberpunk color scheme (hex codes) for UI components.

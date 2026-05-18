@@ -51,7 +51,10 @@ export async function generateLessonPlan(params: {
 
   const shouldReview = reviewTargets.length >= 3;
   const reviewText = shouldReview
-    ? `\nREVIEW TARGETS:\n${reviewTargets.slice(0, 3).map((r) => `${r.title} (${r.mastery})`).join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
+    ? `\nREVIEW TARGETS:\n${reviewTargets
+        .slice(0, 3)
+        .map((r) => `${r.title} (${r.mastery})`)
+        .join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
     : "";
 
   const promptFragments = buildPromptFragments({
@@ -182,7 +185,12 @@ export async function completeLessonPlan(plan: LessonPlan): Promise<void> {
       type: EventType.EXERCISE_PASSED,
       source: "lessonGenerator.ts",
       traceId,
-      payload: { xpEarned: 0, coinsEarned: 0, conceptId: plan.conceptId, automatedSync: true }
+      payload: {
+        xpEarned: 0,
+        coinsEarned: 0,
+        conceptId: plan.conceptId,
+        automatedSync: true,
+      },
     });
   }
 }

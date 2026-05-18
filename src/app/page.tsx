@@ -6,16 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { get, save } from "@/lib/db";
 
-import {  performStorageCleanup } from "@/lib/db";
+import { performStorageCleanup } from "@/lib/db";
 
 export default function LoginPage() {
   const [id, setId] = useState("");
 
-  
-  
-
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
 
@@ -24,23 +20,13 @@ export default function LoginPage() {
   useEffect(() => {
     async function bootstrap() {
       try {
-
         await performStorageCleanup();
-        const existing = await get(
-          "user",
-          "main"
-        );
+        const existing = await get("user", "main");
 
         // Futuro auto-login pode entrar aqui
-        console.log(
-          "[LOGIN] Existing user:",
-          !!existing
-        );
+        console.log("[LOGIN] Existing user:", !!existing);
       } catch (err) {
-        console.error(
-          "[LOGIN BOOT ERROR]",
-          err
-        );
+        console.error("[LOGIN BOOT ERROR]", err);
       } finally {
         setLoading(false);
       }
@@ -53,9 +39,7 @@ export default function LoginPage() {
     const trimmed = id.trim();
 
     if (trimmed.length < 3) {
-      setError(
-        "Assinatura neural inválida."
-      );
+      setError("Assinatura neural inválida.");
 
       return;
     }
@@ -63,10 +47,7 @@ export default function LoginPage() {
     try {
       setError("");
 
-      const existing = await get(
-        "user",
-        "main"
-      );
+      const existing = await get("user", "main");
 
       // NOVO USUÁRIO
       if (!existing) {
@@ -77,9 +58,7 @@ export default function LoginPage() {
           createdAt: Date.now(),
         });
 
-        console.log(
-          "[LOGIN] New user created"
-        );
+        console.log("[LOGIN] New user created");
 
         router.push("/machineLock");
 
@@ -88,27 +67,18 @@ export default function LoginPage() {
 
       // USUÁRIO EXISTENTE
       if (existing.lock === trimmed) {
-        console.log(
-          "[LOGIN] Access granted"
-        );
+        console.log("[LOGIN] Access granted");
 
         router.push("/hub");
 
         return;
       }
 
-      setError(
-        "NEURAL_LOCK_MISMATCH"
-      );
+      setError("NEURAL_LOCK_MISMATCH");
     } catch (err) {
-      console.error(
-        "[LOGIN ERROR]",
-        err
-      );
+      console.error("[LOGIN ERROR]", err);
 
-      setError(
-        "Falha ao acessar núcleo local."
-      );
+      setError("Falha ao acessar núcleo local.");
     }
   }
 

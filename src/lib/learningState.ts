@@ -8,7 +8,7 @@ import { CognitiveProfile } from "@/types";
  */
 export interface TopicMastery {
   topic: string;
-  level: number;       // 1-100
+  level: number; // 1-100
   attempts: number;
   successes: number;
   lastDifficulty: number;
@@ -26,19 +26,19 @@ export interface TopicMastery {
 export async function updateLearningState(
   topic: string,
   success: boolean,
-  difficulty: number
+  difficulty: number,
 ) {
   const store = "memory"; // Usando a store 'memory' definida no seu db.ts
   const key = `mastery_${topic.toLowerCase()}`;
 
   // 1. Recupera o estado atual ou cria um novo
-  const currentState = await get<TopicMastery>(store, key) || {
+  const currentState = (await get<TopicMastery>(store, key)) || {
     topic,
     level: 10,
     attempts: 0,
     successes: 0,
     lastDifficulty: difficulty,
-    history: []
+    history: [],
   };
 
   // 2. Atualiza estatísticas básicas
@@ -46,14 +46,17 @@ export async function updateLearningState(
   if (success) currentState.successes += 1;
 
   // 3. Cálculo de maestria (Elo-style simplificado)
-  const adjustment = success ? (difficulty * 2) : -(difficulty * 1.5);
-  currentState.level = Math.max(1, Math.min(100, currentState.level + adjustment));
+  const adjustment = success ? difficulty * 2 : -(difficulty * 1.5);
+  currentState.level = Math.max(
+    1,
+    Math.min(100, currentState.level + adjustment),
+  );
 
   // 4. Registra no histórico (mantém apenas as últimas 20 para performance)
   currentState.history.push({
     date: Date.now(),
     success,
-    difficulty
+    difficulty,
   });
   if (currentState.history.length > 20) currentState.history.shift();
 
@@ -66,8 +69,14 @@ export async function updateLearningState(
 /**
  * Sugere a dificuldade ideal para o próximo exercício baseada na maestria
  */
-export async function suggestDifficulty(topic: string, profile: CognitiveProfile): Promise<number> {
-  const mastery = await get<TopicMastery>("memory", `mastery_${topic.toLowerCase()}`);
+export async function suggestDifficulty(
+  topic: string,
+  profile: CognitiveProfile,
+): Promise<number> {
+  const mastery = await get<TopicMastery>(
+    "memory",
+    `mastery_${topic.toLowerCase()}`,
+  );
 
   if (!mastery) return 1; // Default para iniciantes
 
@@ -97,7 +106,7 @@ export async function suggestDifficulty(topic: string, profile: CognitiveProfile
 export async function getMasteredTopics(): Promise<string[]> {
   const dbName = "codeascent_db";
   // Como getAll no seu db.ts é genérico, filtramos manualmente
-  const allMastery = await get<any>("memory", "all") as any;
+  const allMastery = (await get<any>("memory", "all")) as any;
   // Nota: dependendo da implementação do seu getAll, pode ser necessário iterar as chaves
 
   // Fallback: se não houver um getAll fácil para chaves específicas, retornamos array vazio

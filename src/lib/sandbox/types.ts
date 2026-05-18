@@ -52,11 +52,7 @@ export type Language =
   | "actionscript"
   | "wasm";
 
-export type EngineType =
-  | "local"
-  | "remote"
-  | "wasm"
-  | "neural";
+export type EngineType = "local" | "remote" | "wasm" | "neural";
 
 export interface SandboxResult {
   output: string[];

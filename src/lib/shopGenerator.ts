@@ -29,14 +29,15 @@ ${prompt}
   // 2. Coletor Neural: Transforma Stream em String única
   let res = "";
   if (rawRes) {
-    if (typeof rawRes === 'string') {
+    if (typeof rawRes === "string") {
       res = rawRes;
     } else {
       // Consome o stream pedaço por pedaço para não travar o Samsung M23
       for await (const chunk of rawRes) {
-        const content = typeof chunk === 'string' 
-          ? chunk 
-          : (chunk as any).choices?.[0]?.delta?.content || "";
+        const content =
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any).choices?.[0]?.delta?.content || "";
         res += content;
       }
     }

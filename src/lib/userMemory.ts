@@ -41,7 +41,7 @@ export async function getMemory(): Promise<Memory> {
 // Adicione esta função ao final do arquivo usermemory.ts
 export async function getUserStrengthsAndWeaknesses() {
   const mem = await getMemory();
-  
+
   // Filtra tópicos onde o usuário teve sucesso (mais de 3 acertos)
   const strengths = Object.entries(mem.topics)
     .filter(([_, count]) => count >= 3)
@@ -62,7 +62,7 @@ export async function updateMemory({
   type,
   input,
   difficulty = 1, // Novo campo opcional
-  attempts = 1    // Novo campo opcional
+  attempts = 1, // Novo campo opcional
 }: {
   topic: string;
   correct: boolean;
@@ -82,7 +82,7 @@ export async function updateMemory({
     success: correct,
     attempts,
     topic,
-    difficulty
+    difficulty,
   });
 
   if (mem.history.length > MAX_HISTORY) mem.history.shift();
@@ -107,8 +107,6 @@ export async function updateMemory({
 
   await save("memory", mem, KEY);
 }
-
-
 
 // 🔹 compatibilidade antiga (não quebra nada)
 export async function updateUser(correct: boolean) {
@@ -150,6 +148,6 @@ export async function getUserProfile() {
     explanationType: user?.style || "adaptive",
     cognitive: user?.cognitive || "Standard",
     explanationStyle: user?.explanationStyle || "", // 🟢 ADICIONADO
-    customStyle: user?.customStyle || "",           // 🟢 ADICIONADO
+    customStyle: user?.customStyle || "", // 🟢 ADICIONADO
   };
 }

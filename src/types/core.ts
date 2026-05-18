@@ -1,6 +1,10 @@
 // src/types/core.ts
 
-export type CognitiveProfile = "Standard" | "tdah" | "Visual_Logic" | "Deep_Dive";
+export type CognitiveProfile =
+  | "Standard"
+  | "tdah"
+  | "Visual_Logic"
+  | "Deep_Dive";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
 export type ItemType = "chip" | "relic" | "booster" | "cosmetic" | "custom";
 
@@ -22,9 +26,8 @@ export interface AdaptiveMetrics {
   coinMultiplier: number;
   style: string;
   focusMode: boolean;
-  durability?: number;    // Durabilidade atual do Chip (ex: 100)
+  durability?: number; // Durabilidade atual do Chip (ex: 100)
   maxDurability?: number; // Durabilidade máxima (ex: 100)
-
 }
 
 // src/types/core.ts
@@ -36,7 +39,7 @@ export interface InventoryItem {
   price: number;
   rarity: ItemRarity;
   type: ItemType;
-  icon?: string;          
+  icon?: string;
   effect?: string;
   effectValue?: number;
   quantity: number;
@@ -44,7 +47,7 @@ export interface InventoryItem {
   acquiredAt: number;
   isFake?: boolean;
   requiredLevel: number;
-  durability?: number;    // Durabilidade atual do Chip (ex: 100)
+  durability?: number; // Durabilidade atual do Chip (ex: 100)
   maxDurability?: number; // Durabilidade máxima (ex: 100)
 }
 
@@ -76,12 +79,7 @@ export interface UserStats {
     NEW PROGRESSION SYSTEM
   */
 
-  rank?:
-  | "Initiate"
-  | "Operator"
-  | "Architect"
-  | "Ghost"
-  | "Overmind";
+  rank?: "Initiate" | "Operator" | "Architect" | "Ghost" | "Overmind";
 
   mastery?: number;
 
@@ -91,8 +89,6 @@ export interface UserStats {
 
   lastXPReward?: number;
 }
-
-
 
 export interface Exercise {
   id: string;
@@ -128,5 +124,7 @@ export interface AppDatabase {
   courses: { [courseId: string]: Course };
   shop: { all: InventoryItem[] };
   memory: { [key: string]: any };
-  errors: { [id: string]: { exerciseId: string; error: string; timestamp: number } };
+  errors: {
+    [id: string]: { exerciseId: string; error: string; timestamp: number };
+  };
 }

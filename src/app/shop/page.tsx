@@ -3,17 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { get } from "@/lib/db";
 import { playSound } from "@/lib/sounds";
-import { 
-  ShoppingCart, 
-  Zap, 
-  Cpu, 
-  Box, 
-  Sparkles, 
-  Coins, 
+import {
+  ShoppingCart,
+  Zap,
+  Cpu,
+  Box,
+  Sparkles,
+  Coins,
   Lock,
   ArrowRight,
   TrendingUp,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { InventoryItem } from "@/types/core";
 
@@ -36,12 +36,13 @@ export default function ShopPage() {
       effectValue: 500,
       quantity: 1,
       acquiredAt: 0,
-      requiredLevel: 1 
+      requiredLevel: 1,
     },
     {
       id: "logic_chip_v1",
       name: "Logic Gate v1",
-      description: "Chip passivo que estabiliza conexões neurais durante exercícios.",
+      description:
+        "Chip passivo que estabiliza conexões neurais durante exercícios.",
       price: 1200,
       rarity: "Rare",
       type: "chip",
@@ -49,25 +50,25 @@ export default function ShopPage() {
       effectValue: 1.2,
       quantity: 1,
       acquiredAt: 0,
-      requiredLevel: 5 
-    }
+      requiredLevel: 5,
+    },
   ]);
 
   useEffect(() => {
     workerRef.current = new Worker(
       new URL("../../lib/workers/shop.worker", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
-    
+
     workerRef.current.onmessage = (e) => {
       const { type, payload, error } = e.data;
-      
+
       if (type === "PURCHASE_SUCCESS") {
         setUserCoins(payload.newBalance);
         playSound("success", 0.5);
         setLoading(false);
       } else if (type === "FORGE_RESULT") {
-        setShopItems(prev => [payload.newItem, ...prev]);
+        setShopItems((prev) => [payload.newItem, ...prev]);
         setIsForging(false);
         playSound("upgrade", 0.6);
       } else if (type === "PURCHASE_ERROR" || error) {
@@ -100,7 +101,7 @@ export default function ShopPage() {
     setLoading(true);
     workerRef.current?.postMessage({
       type: "PURCHASE_ITEM",
-      payload: { item }
+      payload: { item },
     });
   };
 
@@ -109,7 +110,7 @@ export default function ShopPage() {
     setIsForging(true);
     workerRef.current?.postMessage({
       type: "GENERATE_CUSTOM_ITEM",
-      payload: { prompt: input }
+      payload: { prompt: input },
     });
     setInput("");
   };
@@ -119,7 +120,8 @@ export default function ShopPage() {
     Uncommon: "border-green-900/50 text-green-400 bg-green-950/10",
     Rare: "border-blue-800/50 text-blue-400 bg-blue-950/10",
     Epic: "border-purple-700/50 text-purple-400 bg-purple-950/10",
-    Legendary: "border-yellow-600/50 text-yellow-500 bg-yellow-950/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]",
+    Legendary:
+      "border-yellow-600/50 text-yellow-500 bg-yellow-950/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]",
   };
 
   return (
@@ -128,11 +130,15 @@ export default function ShopPage() {
         <div>
           <div className="flex items-center gap-3 text-yellow-500 mb-2">
             <ShoppingCart size={28} />
-            <h1 className="text-3xl font-black tracking-tighter uppercase italic">Black_Market</h1>
+            <h1 className="text-3xl font-black tracking-tighter uppercase italic">
+              Black_Market
+            </h1>
           </div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Neural enhancements & boosters</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+            Neural enhancements & boosters
+          </p>
         </div>
-        
+
         <div className="bg-slate-900 border border-yellow-600/30 px-4 py-2 rounded-xl flex items-center gap-3">
           <Coins className="text-yellow-500" size={18} />
           <span className="text-xl font-black text-yellow-500 tracking-tighter">
@@ -145,13 +151,17 @@ export default function ShopPage() {
         <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20"></div>
         <div className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center gap-2 text-purple-400 mb-4">
-            {isForging ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            {isForging ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Sparkles size={18} />
+            )}
             <h2 className="text-xs font-black uppercase tracking-widest">
               {isForging ? "Forging_Neural_Pattern..." : "Neural_Custom_Forge"}
             </h2>
           </div>
           <div className="flex gap-3">
-            <input 
+            <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -159,7 +169,7 @@ export default function ShopPage() {
               placeholder="Request custom gear (e.g. 'Golden React Chip')..."
               className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50"
             />
-            <button 
+            <button
               onClick={handleCustomForge}
               disabled={isForging || !input.trim()}
               className="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded-xl transition-colors disabled:bg-slate-800"
@@ -172,22 +182,34 @@ export default function ShopPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {shopItems.map((item) => (
-          <div 
+          <div
             key={item.id}
             className={`relative flex flex-col p-6 rounded-2xl border-2 transition-all duration-500 ${rarityStyles[item.rarity] || rarityStyles.Common}`}
           >
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                {item.type === "booster" ? <Zap size={24} /> : <Cpu size={24} />}
+                {item.type === "booster" ? (
+                  <Zap size={24} />
+                ) : (
+                  <Cpu size={24} />
+                )}
               </div>
               <div className="text-right">
-                <span className="block text-[10px] font-black uppercase opacity-60">{item.rarity}</span>
-                <span className="block text-[10px] font-bold uppercase tracking-tighter opacity-40">{item.type}</span>
+                <span className="block text-[10px] font-black uppercase opacity-60">
+                  {item.rarity}
+                </span>
+                <span className="block text-[10px] font-bold uppercase tracking-tighter opacity-40">
+                  {item.type}
+                </span>
               </div>
             </div>
 
-            <h3 className="text-lg font-black uppercase tracking-tighter mb-2">{item.name}</h3>
-            <p className="text-xs text-slate-500 leading-relaxed mb-6 flex-1">{item.description}</p>
+            <h3 className="text-lg font-black uppercase tracking-tighter mb-2">
+              {item.name}
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6 flex-1">
+              {item.description}
+            </p>
 
             <div className="mt-auto pt-4 border-t border-slate-800/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -200,11 +222,15 @@ export default function ShopPage() {
                 disabled={loading || userCoins < item.price}
                 className={`px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
                   userCoins >= item.price && !loading
-                    ? "bg-slate-100 text-slate-950 hover:bg-white active:scale-95" 
+                    ? "bg-slate-100 text-slate-950 hover:bg-white active:scale-95"
                     : "bg-slate-900 text-slate-700 cursor-not-allowed border border-slate-800"
                 }`}
               >
-                {loading ? "Processing..." : userCoins >= item.price ? "Acquire_Link" : "Insufficient_Funds"}
+                {loading
+                  ? "Processing..."
+                  : userCoins >= item.price
+                    ? "Acquire_Link"
+                    : "Insufficient_Funds"}
               </button>
             </div>
           </div>

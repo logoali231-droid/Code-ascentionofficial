@@ -1,6 +1,5 @@
 "use client";
 
-
 import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
 
 import { useEffect, useState } from "react";
@@ -14,7 +13,7 @@ export default function ErrorsPage() {
   const [selected, setSelected] = useState<any>(null);
   const [explanation, setExplanation] = useState("");
   const [exercise, setExercise] = useState<any>(null);
-  const [activeCourse, setActiveCourse] = useState<any>(null); 
+  const [activeCourse, setActiveCourse] = useState<any>(null);
 
   useEffect(() => {
     load();
@@ -23,7 +22,9 @@ export default function ErrorsPage() {
   // Limpa o Web Worker do WebLLM se o usuário sair da página de Erros no meio de uma geração
   useEffect(() => {
     return () => {
-      unloadEngine().catch((err) => console.error("[ERRORS UNLOAD ERROR]", err));
+      unloadEngine().catch((err) =>
+        console.error("[ERRORS UNLOAD ERROR]", err),
+      );
     };
   }, []);
 
@@ -39,7 +40,8 @@ export default function ErrorsPage() {
     const user = await get("user", "main");
     let course = await get("courses", user.activeCourse);
     if (!course) {
-      const all = (await get("courses", "all")) || (await getAll("courses")) || [];
+      const all =
+        (await get("courses", "all")) || (await getAll("courses")) || [];
       const arr = Array.isArray(all) ? all : all || [];
       course = arr.find((c: any) => c.id === user.activeCourse);
     }
@@ -56,7 +58,7 @@ export default function ErrorsPage() {
 
     // 2. Consome o stream para atualizar o texto gradualmente
     let fullText = "";
-    if (expStream && typeof expStream[Symbol.asyncIterator] === 'function') {
+    if (expStream && typeof expStream[Symbol.asyncIterator] === "function") {
       for await (const chunk of expStream) {
         const content = chunk.choices[0]?.delta?.content || "";
         fullText += content;
@@ -102,12 +104,18 @@ export default function ErrorsPage() {
               rawExercise={exercise}
               onNext={async (correct: boolean) => {
                 if (!correct) {
-                  const retry = await generateReinforcement(selected, activeCourse);
+                  const retry = await generateReinforcement(
+                    selected,
+                    activeCourse,
+                  );
                   setExercise(retry);
                 } else {
                   alert("Nice. You fixed this mistake 🎯");
                 }
-              }} isStreaming={false} streamProgress={0} />
+              }}
+              isStreaming={false}
+              streamProgress={0}
+            />
           )}
         </div>
       )}

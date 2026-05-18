@@ -19,7 +19,7 @@ class RingBufferTelemetry {
 
     const fullMetric: TelemetryMetric = {
       ...metric,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     // Insere no Ring Buffer circular
@@ -70,7 +70,7 @@ class RingBufferTelemetry {
     while (this.count > 0) {
       // Se o tempo limite do frame esgotar, interrompe e joga o resto no próximo ciclo ocioso
       if (deadline && deadline.timeRemaining() <= 1) {
-        this.scheduleFlush(); 
+        this.scheduleFlush();
         break;
       }
 
@@ -78,7 +78,7 @@ class RingBufferTelemetry {
       if (item) {
         batchToPersist.push(item);
       }
-      
+
       this.tail = (this.tail + 1) % BUFFER_SIZE;
       this.count--;
     }

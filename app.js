@@ -12,13 +12,15 @@ const comandoHardening = `
     --security-opt seccomp=builtin \
     --network none \
     code-ascension
-`.trim().replace(/\s+/g, ' ');
+`
+  .trim()
+  .replace(/\s+/g, " ");
 
 async function rodarComSeguranca() {
   console.log("🔒 Aplicando Hardening e iniciando o container...");
-  
+
   const resultado = await runDocker(comandoHardening);
-  
+
   if (resultado.code === 0) {
     console.log("✅ Container iniciado com sucesso!");
     console.log("ID do Container:", resultado.output.trim());

@@ -62,7 +62,9 @@ ${weaknesses || "none"}
 
 Recent struggles:
 ${recentErrors || "none"}
-`.replace(/\n{3,}/g, "\n\n").trim();
+`
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function shouldUpdateSummary(lessonCount: number): boolean {
@@ -71,7 +73,7 @@ export function shouldUpdateSummary(lessonCount: number): boolean {
 
 export async function saveMemorySummary(
   courseId: string,
-  data: { lessons: any[]; memory: any; mastery: number }
+  data: { lessons: any[]; memory: any; mastery: number },
 ): Promise<MemorySummary> {
   const summary = buildMemorySummary(data);
 

@@ -4,10 +4,7 @@ const nextConfig = {
   reactStrictMode: false,
 
   experimental: {
-    optimizePackageImports: [
-      "@mlc-ai/web-llm",
-      "lucide-react",
-    ],
+    optimizePackageImports: ["@mlc-ai/web-llm", "lucide-react"],
   },
 
   webpack: (config) => {

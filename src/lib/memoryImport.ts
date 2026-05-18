@@ -5,12 +5,10 @@ import { save } from "./db";
 function validateMemory(data: any) {
   if (!data) return false;
 
-  if (typeof data !== "object")
-    return false;
+  if (typeof data !== "object") return false;
 
   // evita arrays gigantes
-  const size =
-    JSON.stringify(data).length;
+  const size = JSON.stringify(data).length;
 
   if (size > 2_000_000) {
     return false;
@@ -19,9 +17,7 @@ function validateMemory(data: any) {
   return true;
 }
 
-export async function importUserMind(
-  file: File
-) {
+export async function importUserMind(file: File) {
   const text = await file.text();
 
   let data: any = null;
@@ -29,26 +25,15 @@ export async function importUserMind(
   try {
     data = JSON.parse(text);
   } catch (e) {
-    console.warn(
-      "Failed to parse imported memory file",
-      e
-    );
+    console.warn("Failed to parse imported memory file", e);
 
-    throw new Error(
-      "Imported file is not valid JSON"
-    );
+    throw new Error("Imported file is not valid JSON");
   }
 
   // ✅ validation layer
   if (!validateMemory(data)) {
-    throw new Error(
-      "Invalid memory structure"
-    );
+    throw new Error("Invalid memory structure");
   }
 
-  await save(
-    "memory",
-    data,
-    "main"
-  );
+  await save("memory", data, "main");
 }

@@ -92,9 +92,7 @@ Reinforcement mode:
    COGNITIVE PROFILE
 ========================= */
 
-export function getCognitiveRules(
-  profile?: CognitiveProfile
-) {
+export function getCognitiveRules(profile?: CognitiveProfile) {
   switch (profile) {
     case "tdah":
       return `
@@ -137,9 +135,7 @@ export function getCognitiveRules(
    DIFFICULTY SCALING
 ========================= */
 
-export function getDifficultyRules(
-  difficulty: number
-) {
+export function getDifficultyRules(difficulty: number) {
   if (difficulty <= 1) {
     return `
 - Beginner level
@@ -171,9 +167,7 @@ export function getDifficultyRules(
    MASTERY RULES
 ========================= */
 
-export function getMasteryRules(
-  mastery: number
-) {
+export function getMasteryRules(mastery: number) {
   if (mastery < 30) {
     return `
 - User struggles with this topic
@@ -203,18 +197,12 @@ export function getMasteryRules(
    MEMORY COMPRESSION
 ========================= */
 
-export function compressContext(
-  text: string,
-  max = 1200
-) {
+export function compressContext(text: string, max = 1200) {
   if (text.length <= max) {
     return text;
   }
 
-  return (
-    text.slice(0, max) +
-    "\n...[context compressed]"
-  );
+  return text.slice(0, max) + "\n...[context compressed]";
 }
 
 /* =========================
@@ -262,15 +250,11 @@ ${getMasteryRules(mastery || 0)}
    Used by lessonGenerator
 ========================================================= */
 
-
-
 /* =========================================================
    COGNITIVE FRAGMENT
 ========================================================= */
 
-export function buildCognitiveFragment(
-  profile?: CognitiveProfile
-) {
+export function buildCognitiveFragment(profile?: CognitiveProfile) {
   switch (profile) {
     case "tdah":
       return `
@@ -323,9 +307,7 @@ RULES:
    DIFFICULTY FRAGMENT
 ========================================================= */
 
-export function buildDifficultyFragment(
-  difficulty: number = 1
-) {
+export function buildDifficultyFragment(difficulty: number = 1) {
   if (difficulty <= 1) {
     return `
 DIFFICULTY: BEGINNER
@@ -364,9 +346,7 @@ RULES:
    STYLE FRAGMENT
 ========================================================= */
 
-export function buildStyleFragment(
-  stylePrompt?: string
-) {
+export function buildStyleFragment(stylePrompt?: string) {
   return `
 LEARNING STYLE:
 ${stylePrompt || "Explain clearly and naturally"}
@@ -380,10 +360,7 @@ Follow the learning style STRICTLY.
    HISTORY COMPRESSION
 ========================================================= */
 
-export function compressHistory(
-  history: any[] = [],
-  maxEntries: number = 6
-) {
+export function compressHistory(history: any[] = [], maxEntries: number = 6) {
   if (!history?.length) {
     return "No previous lessons.";
   }
@@ -395,9 +372,7 @@ export function compressHistory(
 ${index + 1}. ${lesson?.title || "Untitled"}
 
 Summary:
-${String(
-  lesson?.explanation || ""
-).slice(0, 180)}
+${String(lesson?.explanation || "").slice(0, 180)}
 `;
     })
     .join("\n");

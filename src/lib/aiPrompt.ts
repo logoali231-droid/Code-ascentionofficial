@@ -7,7 +7,7 @@ import { getKnowledgeGraph } from "./knowledgeGraph";
  * e otimização de retenção para cada arquitetura neurológica de aprendizado.
  */
 export function getCognitiveInstruction(profile: CognitiveProfile): string {
-  const normalized = String(profile || 'standard').toLowerCase();
+  const normalized = String(profile || "standard").toLowerCase();
 
   switch (normalized) {
     case "tdah":
@@ -55,27 +55,27 @@ export function getCognitiveInstruction(profile: CognitiveProfile): string {
 }
 
 /**
- * Constrói o prompt final injetando o perfil cognitivo adaptativo e preservando 
+ * Constrói o prompt final injetando o perfil cognitivo adaptativo e preservando
  * integralmente as diretrizes de estilo e formato personalizadas do curso.
  */
 export async function buildCoursePrompt(
-  topic: string, 
-  learningState: string, 
-  courseId: string, 
-  userProfile: string, 
-  customStyle: string, 
-  profile: CognitiveProfile
+  topic: string,
+  learningState: string,
+  courseId: string,
+  userProfile: string,
+  customStyle: string,
+  profile: CognitiveProfile,
 ) {
   const graph = await getKnowledgeGraph(courseId);
   const cognitiveStyle = getCognitiveInstruction(profile);
 
   const priorityTopics = graph?.nodes
-    .filter(node => (node.mastery || 0) < 0.4)
-    .slice(0, 5) 
-    .map(node => node.id)
+    .filter((node) => (node.mastery || 0) < 0.4)
+    .slice(0, 5)
+    .map((node) => node.id)
     .join(", ");
 
-  const reinforcementContext = priorityTopics 
+  const reinforcementContext = priorityTopics
     ? `\n[MECANISMO_DE_REFORÇO - CORREÇÃO DE LACUNAS]: Integre na explicação ganchos e revisões breves sobre as seguintes deficiências de mastery: ${priorityTopics}.`
     : "";
 

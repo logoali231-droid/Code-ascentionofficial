@@ -14,10 +14,13 @@ import { InventoryItem } from "@/types/core";
 /**
  * Calcula o desconto baseado na facção do usuário.
  */
-export function calculateDiscount(price: number, faction: string = "neutral"): number {
-  const discounts: Record<string, number> = { 
-    "cyber_syndicate": 0.15, // 15% OFF
-    "neural_nexus": 0.10      // 10% OFF
+export function calculateDiscount(
+  price: number,
+  faction: string = "neutral",
+): number {
+  const discounts: Record<string, number> = {
+    cyber_syndicate: 0.15, // 15% OFF
+    neural_nexus: 0.1, // 10% OFF
   };
   const multiplier = 1 - (discounts[faction] || 0);
   return Math.floor(price * multiplier);
@@ -26,12 +29,18 @@ export function calculateDiscount(price: number, faction: string = "neutral"): n
 /**
  * Processa a adição de itens garantindo unicidade para chips.
  */
-export function processInventory(currentItems: InventoryItem[], newItem: InventoryItem): InventoryItem[] {
+export function processInventory(
+  currentItems: InventoryItem[],
+  newItem: InventoryItem,
+): InventoryItem[] {
   // Chips são únicos, boosters e outros podem acumular
-  if (newItem.type === "chip" && currentItems.some(i => i.id === newItem.id)) {
+  if (
+    newItem.type === "chip" &&
+    currentItems.some((i) => i.id === newItem.id)
+  ) {
     return currentItems;
   }
-  
+
   return [...currentItems, { ...newItem, acquiredAt: Date.now() }];
 }
 
@@ -43,14 +52,21 @@ export function processInventory(currentItems: InventoryItem[], newItem: Invento
  */
 const evaluateIntent = (prompt: string): number => {
   let powerLevel = 1;
-  const triggers: Record<string, number> = { 
-    "x2": 2, "x3": 3, "x5": 5, "infinite": 10, 
-    "god": 10, "hack": 8, "rich": 5, "admin": 10,
-    "instant": 4, "max": 6
+  const triggers: Record<string, number> = {
+    x2: 2,
+    x3: 3,
+    x5: 5,
+    infinite: 10,
+    god: 10,
+    hack: 8,
+    rich: 5,
+    admin: 10,
+    instant: 4,
+    max: 6,
   };
 
   const lowerPrompt = prompt.toLowerCase();
-  Object.keys(triggers).forEach(key => {
+  Object.keys(triggers).forEach((key) => {
     if (lowerPrompt.includes(key)) powerLevel += triggers[key];
   });
 
@@ -60,9 +76,11 @@ const evaluateIntent = (prompt: string): number => {
 /**
  * Gera um item customizado usando o modelo de linguagem local (WebLLM).
  */
-export async function generateAIItem(userPrompt: string): Promise<InventoryItem> {
+export async function generateAIItem(
+  userPrompt: string,
+): Promise<InventoryItem> {
   const power = evaluateIntent(userPrompt);
-  
+
   // Prompt de sistema rigoroso para garantir JSON válido e ambientação Cyberpunk
   const systemPrompt = `You are the Black Market AI. The user wants: "${userPrompt}". 
   Create a cyberpunk item in JSON format:
@@ -79,7 +97,7 @@ export async function generateAIItem(userPrompt: string): Promise<InventoryItem>
 
   // Lida com a resposta sendo String ou Stream
   if (response) {
-    if (typeof response === 'string') {
+    if (typeof response === "string") {
       rawText = response;
     } else {
       for await (const chunk of response as any) {
@@ -90,7 +108,7 @@ export async function generateAIItem(userPrompt: string): Promise<InventoryItem>
   }
 
   const parsed = safeParse(rawText);
-  
+
   // Anti-Cheat: Se o usuário pediu algo absurdo (power >= 8), o item é uma "falsificação"
   // Ele tem nome e ícone épicos, mas o efeito interno é "cosmetic" (não dá bônus real)
   const isFake = power >= 8;
@@ -98,11 +116,11 @@ export async function generateAIItem(userPrompt: string): Promise<InventoryItem>
   return {
     id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
     name: parsed?.name || "Glitched Data",
-    description: isFake 
-      ? `[MALWARE DETECTED] ${parsed?.description || "A counterfeit item."}` 
-      : (parsed?.description || "An unstable artifact from the deep web."),
+    description: isFake
+      ? `[MALWARE DETECTED] ${parsed?.description || "A counterfeit item."}`
+      : parsed?.description || "An unstable artifact from the deep web.",
     icon: parsed?.icon || "☢️",
-    effect: isFake ? "cosmetic" : (parsed?.effect || "minor_boost"),
+    effect: isFake ? "cosmetic" : parsed?.effect || "minor_boost",
     effectValue: isFake ? 0 : Math.min(power * 5, 50),
     price: Math.floor(100 * Math.pow(power, 1.5)),
     rarity: power > 9 ? "Legendary" : power > 6 ? "Epic" : "Rare",
@@ -111,6 +129,6 @@ export async function generateAIItem(userPrompt: string): Promise<InventoryItem>
     quantity: 1,
     acquiredAt: 0,
     // @ts-ignore - Propriedade extra para controle interno da UI
-    fake: isFake 
+    fake: isFake,
   };
 }

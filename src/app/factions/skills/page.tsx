@@ -43,7 +43,7 @@ export default function SkillsPage() {
 
     // Cria a nova lista de skills com o alvo desbloqueado
     const updatedSkills = skills.map((skill) =>
-      skill.id === skillId ? { ...skill, unlocked: true } : skill
+      skill.id === skillId ? { ...skill, unlocked: true } : skill,
     );
 
     // Constrói o novo objeto do usuário atualizado
@@ -62,11 +62,14 @@ export default function SkillsPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-cyan-500 font-mono">CARREGANDO_MATRIZ...</div>;
+  if (loading)
+    return (
+      <div className="p-8 text-cyan-500 font-mono">CARREGANDO_MATRIZ...</div>
+    );
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-200 p-6">
-      <button 
+      <button
         onClick={() => router.back()}
         className="flex items-center gap-2 text-cyan-400 mb-8 hover:text-cyan-300 transition-colors font-mono text-xs tracking-wider"
       >
@@ -90,26 +93,35 @@ export default function SkillsPage() {
           </div>
         ) : (
           skills.map((skill: Skill) => (
-            <div 
-              key={skill.id} 
+            <div
+              key={skill.id}
               className={`p-5 border rounded-2xl transition-all duration-300 flex items-center justify-between gap-4 ${
-                skill.unlocked 
-                  ? "border-cyan-500/30 bg-cyan-950/10 shadow-[0_0_15px_rgba(6,182,212,0.05)]" 
+                skill.unlocked
+                  ? "border-cyan-500/30 bg-cyan-950/10 shadow-[0_0_15px_rgba(6,182,212,0.05)]"
                   : "border-slate-800 bg-slate-900/40 opacity-80"
               }`}
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h3 className={`font-bold tracking-tight text-lg ${skill.unlocked ? "text-cyan-400" : "text-slate-300"}`}>
+                  <h3
+                    className={`font-bold tracking-tight text-lg ${skill.unlocked ? "text-cyan-400" : "text-slate-300"}`}
+                  >
                     {skill.name}
                   </h3>
-                  {skill.unlocked && <CheckCircle2 size={16} className="text-cyan-400" />}
+                  {skill.unlocked && (
+                    <CheckCircle2 size={16} className="text-cyan-400" />
+                  )}
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed max-w-md">
                   {skill.description}
                 </p>
                 <div className="flex items-center gap-3 pt-1 text-xs font-mono">
-                  <span className="text-slate-500">CUSTO: <span className="text-fuchsia-400 font-bold">{skill.cost} XP</span></span>
+                  <span className="text-slate-500">
+                    CUSTO:{" "}
+                    <span className="text-fuchsia-400 font-bold">
+                      {skill.cost} XP
+                    </span>
+                  </span>
                 </div>
               </div>
 

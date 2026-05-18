@@ -7,10 +7,7 @@ import { runNeural } from "./neuralExecutor";
 import { runWasm } from "./wasmExecutor";
 import { telemetry } from "./telemetryManager"; // Importando o gerenciador
 
-import {
-  Language,
-  SandboxResult
-} from "./types";
+import { Language, SandboxResult } from "./types";
 import { SandboxFile } from "@/components/SandboxEditor";
 
 /**
@@ -19,7 +16,7 @@ import { SandboxFile } from "@/components/SandboxEditor";
 export function executeInWorker(
   mainFile: SandboxFile,
   allFiles: SandboxFile[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string> {
   const startTime = performance.now(); // Início da métrica de bundle
 
@@ -28,13 +25,16 @@ export function executeInWorker(
       return reject(new DOMException("Bundling aborted.", "AbortError"));
     }
 
-    const worker = new Worker(
-      new URL("../sandbox.worker.ts", import.meta.url)
-    );
+    const worker = new Worker(new URL("../sandbox.worker.ts", import.meta.url));
 
     const abortHandler = () => {
       worker.terminate();
-      reject(new DOMException("Bundling process terminated by user or context switch.", "AbortError"));
+      reject(
+        new DOMException(
+          "Bundling process terminated by user or context switch.",
+          "AbortError",
+        ),
+      );
     };
 
     if (signal) {
@@ -57,7 +57,7 @@ export function executeInWorker(
           engine: "worker",
           language: "multiple",
           duration: performance.now() - startTime,
-          success: true
+          success: true,
         });
 
         resolve(e.data.payload.code);
@@ -71,7 +71,7 @@ export function executeInWorker(
           engine: "worker",
           language: "multiple",
           duration: performance.now() - startTime,
-          success: false
+          success: false,
         });
 
         reject(new Error(e.data.payload));
@@ -85,7 +85,7 @@ export function executeInWorker(
         engine: "worker",
         language: "multiple",
         duration: performance.now() - startTime,
-        success: false
+        success: false,
       });
 
       reject(err);
@@ -98,7 +98,7 @@ export function executeInWorker(
         engine: "worker",
         language: "multiple",
         duration: performance.now() - startTime,
-        success: false
+        success: false,
       });
 
       reject(new Error("Worker timeout"));
@@ -107,7 +107,7 @@ export function executeInWorker(
 
     worker.postMessage({
       type: "BUNDLE_FILES",
-      payload: { mainFile, allFiles }
+      payload: { mainFile, allFiles },
     });
   });
 }
@@ -121,9 +121,8 @@ export function executeInWorker(
 export async function executeSandboxCode(
   code: string,
   language: Language,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<SandboxResult> {
-  
   if (signal?.aborted) {
     throw new DOMException("Execution aborted before starting.", "AbortError");
   }
@@ -136,7 +135,12 @@ export async function executeSandboxCode(
   const abortPromise = new Promise<SandboxResult>((_, reject) => {
     if (signal) {
       signal.addEventListener("abort", () => {
-        reject(new DOMException("Execution interrupted by tab lifecycle change.", "AbortError"));
+        reject(
+          new DOMException(
+            "Execution interrupted by tab lifecycle change.",
+            "AbortError",
+          ),
+        );
       });
     }
   });
@@ -148,22 +152,30 @@ export async function executeSandboxCode(
     const executionPromise = (async () => {
       switch (engine) {
         case "local":
-          return await runLocal(code, language, signal) as SandboxResult;
+          return (await runLocal(code, language, signal)) as SandboxResult;
 
         case "remote":
           // O runRemote vai disparar o fetch() passando o signal. Se abortar, a rede corta na hora.
-          return await runRemote(code, language, signal) as SandboxResult;
+          return (await runRemote(code, language, signal)) as SandboxResult;
 
         case "wasm":
-          return await (runWasm as any)(code, language, signal) as SandboxResult;
+          return (await (runWasm as any)(
+            code,
+            language,
+            signal,
+          )) as SandboxResult;
 
         case "neural":
-          return await (runNeural as any)(code, language, signal) as SandboxResult;
+          return (await (runNeural as any)(
+            code,
+            language,
+            signal,
+          )) as SandboxResult;
 
         default:
           return {
             output: [],
-            error: `Unknown engine for language: ${language}`
+            error: `Unknown engine for language: ${language}`,
           };
       }
     })();
@@ -172,30 +184,30 @@ export async function executeSandboxCode(
     result = await Promise.race([executionPromise, abortPromise]);
 
     success = !result.error;
-    
+
     telemetry.record({
       type: "execution_time",
       engine,
       language,
       duration: performance.now() - startTime,
-      success
+      success,
     });
 
     return result;
-
   } catch (error: any) {
     telemetry.record({
       type: "engine_fault",
       engine: engine || "unknown",
       language,
       duration: performance.now() - startTime,
-      success: false
+      success: false,
     });
 
     if (error.name === "AbortError") {
       return {
         output: [],
-        error: "[SYSTEM] Processamento interrompido: A aba foi suspensa ou limpa da memória."
+        error:
+          "[SYSTEM] Processamento interrompido: A aba foi suspensa ou limpa da memória.",
       };
     }
     throw error;

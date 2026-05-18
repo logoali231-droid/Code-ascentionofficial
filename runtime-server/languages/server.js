@@ -24,7 +24,7 @@ app.get("/health", (_req, res) => {
     res.json({
       server: "online",
       docker: !error,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 });
@@ -32,7 +32,7 @@ app.get("/health", (_req, res) => {
 // --- GATEWAY WEBSAOCKET (SANDBOX CORE) ---
 app.ws("/", (ws) => {
   console.log("🔌 [WS] Nova instância de execução conectada via PWA.");
-  
+
   let currentExecution = null;
   let activeTempDir = null; // Rastreia o diretório físico da execução atual
 
@@ -59,7 +59,12 @@ app.ws("/", (ws) => {
         const { language, code } = data;
 
         if (!language || !code) {
-          return ws.send(JSON.stringify({ success: false, error: "Missing language or code" }));
+          return ws.send(
+            JSON.stringify({
+              success: false,
+              error: "Missing language or code",
+            }),
+          );
         }
 
         validateCode(code);
@@ -69,25 +74,28 @@ app.ws("/", (ws) => {
         await enqueue(async () => {
           try {
             const { command, tempDir } = buildRuntime(langKey, code);
-            
-            activeTempDir = tempDir; 
+
+            activeTempDir = tempDir;
 
             if (command) {
               // Chama o executor do docker.js integrado por CommonJS
               currentExecution = runDocker(command);
               const stdout = await currentExecution.promise;
-              
+
               ws.send(JSON.stringify({ success: true, output: [stdout] }));
             }
-
           } catch (execErr) {
-            const isAborted = execErr.signal === "SIGKILL" || (execErr.message && execErr.message.includes("null"));
-            ws.send(JSON.stringify({
-              success: false,
-              error: isAborted 
-                ? "[SYSTEM] Processamento interrompido: Container destruído pelo usuário." 
-                : execErr.message
-            }));
+            const isAborted =
+              execErr.signal === "SIGKILL" ||
+              (execErr.message && execErr.message.includes("null"));
+            ws.send(
+              JSON.stringify({
+                success: false,
+                error: isAborted
+                  ? "[SYSTEM] Processamento interrompido: Container destruído pelo usuário."
+                  : execErr.message,
+              }),
+            );
           } finally {
             cleanActiveResources();
           }
@@ -98,14 +106,20 @@ app.ws("/", (ws) => {
       if (data.type === "abort") {
         cleanActiveResources();
       }
-
     } catch (err) {
-      ws.send(JSON.stringify({ success: false, error: "Erro de parseamento do payload interno." }));
+      ws.send(
+        JSON.stringify({
+          success: false,
+          error: "Erro de parseamento do payload interno.",
+        }),
+      );
     }
   });
 
   ws.on("close", () => {
-    console.log("⚠️ [WS] Conexão encerrada pelo cliente. Limpando possíveis resíduos.");
+    console.log(
+      "⚠️ [WS] Conexão encerrada pelo cliente. Limpando possíveis resíduos.",
+    );
     cleanActiveResources();
   });
 });

@@ -2,9 +2,7 @@
 
 let socket: WebSocket | null = null;
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_SANDBOX_WS ||
-  "ws://localhost:8080";
+const WS_URL = process.env.NEXT_PUBLIC_SANDBOX_WS || "ws://localhost:8080";
 
 export function connectSandboxSocket() {
   return new Promise<WebSocket>((resolve, reject) => {

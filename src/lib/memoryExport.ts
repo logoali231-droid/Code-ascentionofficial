@@ -12,13 +12,13 @@ export async function exportUserMind() {
     db.user.get("main"),
     db.courses.toArray(),
     db.errors.toArray(),
-    db.memory.get("main")
+    db.memory.get("main"),
   ]);
 
   const backupData = {
     version: "1.1",
     timestamp: new Date().toISOString(),
-    payload: { user, courses, errors, memory }
+    payload: { user, courses, errors, memory },
   };
 
   const blob = new Blob([JSON.stringify(backupData, null, 2)], {
@@ -30,10 +30,10 @@ export async function exportUserMind() {
   const a = document.createElement("a");
   a.href = url;
   a.download = `code-ascension-backup-${Date.now()}.json`;
-  
+
   document.body.appendChild(a); // Garantia para navegadores mobile (M23)
   a.click();
-  
+
   // Cleanup
   document.body.removeChild(a);
   URL.revokeObjectURL(url);

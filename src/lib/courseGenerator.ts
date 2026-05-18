@@ -6,7 +6,7 @@ import { generate } from "./webllm";
 import { safeParse } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
-import { validateCourse } from "./courseValidator"; 
+import { validateCourse } from "./courseValidator";
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 import { CognitiveProfile } from "@/types/core";
 
@@ -18,7 +18,7 @@ export async function generateCourse({
   baseMaterial,
   stylePrompt,
   cognitive,
-  courseId
+  courseId,
 }: {
   topic: string;
   style: string;
@@ -36,7 +36,9 @@ export async function generateCourse({
     reinforcement: false,
   });
 
-  const compressedMaterial = baseMaterial ? compressContext(baseMaterial, 5000) : "";
+  const compressedMaterial = baseMaterial
+    ? compressContext(baseMaterial, 5000)
+    : "";
   const userAnalysis = await getUserStrengthsAndWeaknesses();
 
   /* 1. KNOWLEDGE GRAPH PEDAGOGICAL HISTORY */
@@ -46,7 +48,9 @@ export async function generateCourse({
     if (graph) {
       const reviewTargets = getReviewConcepts(graph);
       if (reviewTargets.length > 0) {
-        graphReviewText = reviewTargets.map(r => `${r.title} (Mastery: ${r.mastery})`).join(", ");
+        graphReviewText = reviewTargets
+          .map((r) => `${r.title} (Mastery: ${r.mastery})`)
+          .join(", ");
       }
     }
   } catch (e) {
@@ -57,7 +61,7 @@ export async function generateCourse({
   const vectorMemoryContext = await buildMemoryContext({
     query: `Course creation for topic: ${topic}. User weaknesses: ${userAnalysis.weaknesses.join(", ")}`,
     tags: [topic.toLowerCase(), level],
-    limit: 3
+    limit: 3,
   });
 
   const adaptiveContext = `
@@ -75,7 +79,7 @@ INSTRUCTION:
 2. If they master a topic (Strength), skip basic definitions in those sub-areas and move to complex implementation.
 3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
 `;
-  
+
   const prompt = `
 You are an elite curriculum architect.
 Your mission: create a coherent, progressive, adaptive programming course structure.
@@ -124,37 +128,41 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const rawRes = await runtimeQueue.enqueue(
-      async (_signal) => {
-        return generate(prompt);
-      },
-      1
-    );
+    const rawRes = await runtimeQueue.enqueue(async (_signal) => {
+      return generate(prompt);
+    }, 1);
 
     let fullResponse = "";
     if (rawRes) {
-      if (typeof rawRes === 'string') {
+      if (typeof rawRes === "string") {
         fullResponse = rawRes;
       } else {
         for await (const chunk of rawRes) {
-          const content = typeof chunk === 'string' 
-            ? chunk 
-            : (chunk as any).choices?.[0]?.delta?.content || "";
+          const content =
+            typeof chunk === "string"
+              ? chunk
+              : (chunk as any).choices?.[0]?.delta?.content || "";
           fullResponse += content;
         }
       }
     }
 
     const parsed = safeParse(fullResponse);
-    
+
     if (!parsed || !validateCourse(parsed)) {
-      console.error("Course validation failed. Redirecting to safe local fallback skeleton.");
+      console.error(
+        "Course validation failed. Redirecting to safe local fallback skeleton.",
+      );
       return {
         title: `${topic} Course`,
         description: `Foundational guide for ${topic}.`,
         tags: [topic, level],
         lessons: [
-          { title: `Introduction to ${topic}`, summary: `Foundations of ${topic}.`, difficulty: 1 }
+          {
+            title: `Introduction to ${topic}`,
+            summary: `Foundations of ${topic}.`,
+            difficulty: 1,
+          },
         ],
       };
     }

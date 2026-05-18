@@ -24,7 +24,7 @@ export default function ReviewPage() {
     if (!topic.trim()) return;
 
     setIsGenerating(true);
-    
+
     // Simulação de início de sessão de IA
     // Aqui você chamaria o seu webllm ou a lógica de prompt
     setTimeout(async () => {
@@ -33,11 +33,11 @@ export default function ReviewPage() {
         topic,
         date: new Date().toLocaleDateString(),
       };
-      
+
       const updatedHistory = [newEntry, ...history];
       await save("review_history", updatedHistory);
       setHistory(updatedHistory);
-      
+
       setIsGenerating(false);
       setTopic("");
       alert("Sessão de reforço iniciada! (Integração com LLM aqui)");
@@ -48,7 +48,7 @@ export default function ReviewPage() {
     <div className="min-h-screen bg-black text-cyan-400 p-6 font-mono">
       {/* Header */}
       <div className="max-w-4xl mx-auto flex items-center justify-between mb-12 border-b border-cyan-900 pb-4">
-        <button 
+        <button
           onClick={() => router.push("/")}
           className="flex items-center gap-2 hover:text-white transition-colors"
         >
@@ -56,7 +56,9 @@ export default function ReviewPage() {
         </button>
         <div className="flex items-center gap-3">
           <Brain className="animate-pulse" />
-          <h1 className="text-2xl font-bold tracking-tighter">MIND_PALACE_v1.0</h1>
+          <h1 className="text-2xl font-bold tracking-tighter">
+            MIND_PALACE_v1.0
+          </h1>
         </div>
       </div>
 
@@ -64,7 +66,8 @@ export default function ReviewPage() {
         {/* Input Area */}
         <section className="bg-cyan-950/20 border border-cyan-500/30 p-8 rounded-lg shadow-[0_0_20px_rgba(6,182,212,0.1)]">
           <h2 className="text-white mb-4 flex items-center gap-2">
-            <Sparkles size={18} className="text-cyan-400" /> O QUE VOCÊ DESEJA REFORÇAR?
+            <Sparkles size={18} className="text-cyan-400" /> O QUE VOCÊ DESEJA
+            REFORÇAR?
           </h2>
           <textarea
             value={topic}
@@ -77,7 +80,9 @@ export default function ReviewPage() {
             disabled={isGenerating || !topic.trim()}
             className="w-full mt-4 bg-cyan-600 hover:bg-cyan-400 text-black font-bold py-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? "SINCRONIZANDO NEURÔNIOS..." : "GERAR PRÁTICA DE REVISÃO"}
+            {isGenerating
+              ? "SINCRONIZANDO NEURÔNIOS..."
+              : "GERAR PRÁTICA DE REVISÃO"}
           </button>
         </section>
 
@@ -88,10 +93,15 @@ export default function ReviewPage() {
           </h3>
           <div className="space-y-2">
             {history.length === 0 ? (
-              <p className="text-cyan-900 italic text-sm">Nenhum dado encontrado no buffer.</p>
+              <p className="text-cyan-900 italic text-sm">
+                Nenhum dado encontrado no buffer.
+              </p>
             ) : (
               history.map((item) => (
-                <div key={item.id} className="border border-cyan-900/50 p-3 flex justify-between items-center hover:bg-cyan-900/10 transition-colors">
+                <div
+                  key={item.id}
+                  className="border border-cyan-900/50 p-3 flex justify-between items-center hover:bg-cyan-900/10 transition-colors"
+                >
                   <span className="text-cyan-200">{item.topic}</span>
                   <span className="text-cyan-700 text-xs">{item.date}</span>
                 </div>

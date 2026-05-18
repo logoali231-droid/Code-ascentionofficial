@@ -1,5 +1,3 @@
-
-
 interface GibberishResult {
   isGibberish: boolean;
   score: number;
@@ -18,15 +16,25 @@ export class GibberishHeuristics {
     const reasons: string[] = [];
 
     // 1. FAST PASS: Entradas muito curtas são ignoradas
-    if (cleanText.length < 4) return { isGibberish: false, score: 0, reasons: [] };
+    if (cleanText.length < 4)
+      return { isGibberish: false, score: 0, reasons: [] };
 
     // 2. DETECÇÃO DE SEQUÊNCIAS LINEARES (QWERTY/DVORAK-ISH)
     // Padrões de deslizar o dedo ou bater a mão no teclado
     const keyboardPatterns = [
-      "asdfgh", "sdfghj", "dfghjk", "ghjkl", "qwerty", "ytrewq",
-      "zxcvbn", "mnbvcz", "123456", "qazwsx", "plmokn"
+      "asdfgh",
+      "sdfghj",
+      "dfghjk",
+      "ghjkl",
+      "qwerty",
+      "ytrewq",
+      "zxcvbn",
+      "mnbvcz",
+      "123456",
+      "qazwsx",
+      "plmokn",
     ];
-    
+
     for (const pattern of keyboardPatterns) {
       if (cleanText.includes(pattern)) {
         score += 0.8;
@@ -62,12 +70,12 @@ export class GibberishHeuristics {
     }
 
     // Normaliza o erro das palavras pelo total de palavras
-    score += (wordIssues / Math.max(words.length, 1));
+    score += wordIssues / Math.max(words.length, 1);
 
     return {
       isGibberish: score >= this.THRESHOLD,
       score,
-      reasons
+      reasons,
     };
   }
 }

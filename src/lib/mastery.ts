@@ -62,21 +62,11 @@ const CONFIDENCE_DIVISOR = 12;
    INTERNAL
 ========================================================= */
 
-function clamp(
-  value: number,
-  min = MIN_MASTERY,
-  max = MAX_MASTERY
-) {
-  return Math.max(
-    min,
-    Math.min(max, value)
-  );
+function clamp(value: number, min = MIN_MASTERY, max = MAX_MASTERY) {
+  return Math.max(min, Math.min(max, value));
 }
 
-function daysBetween(
-  a: number,
-  b: number
-) {
+function daysBetween(a: number, b: number) {
   return Math.abs(a - b) / 86400000;
 }
 
@@ -85,23 +75,13 @@ function daysBetween(
 ========================================================= */
 
 export async function getMasteryMap(): Promise<MasteryMap> {
-  const data =
-    await get<MasteryMap>(
-      "memory",
-      STORAGE_KEY
-    );
+  const data = await get<MasteryMap>("memory", STORAGE_KEY);
 
   return data || {};
 }
 
-async function saveMasteryMap(
-  map: MasteryMap
-) {
-  await save(
-    "memory",
-    map,
-    STORAGE_KEY
-  );
+async function saveMasteryMap(map: MasteryMap) {
+  await save("memory", map, STORAGE_KEY);
 }
 
 /* =========================================================
@@ -109,10 +89,9 @@ async function saveMasteryMap(
 ========================================================= */
 
 export async function getConceptMastery(
-  conceptId: string
+  conceptId: string,
 ): Promise<ConceptMastery> {
-  const map =
-    await getMasteryMap();
+  const map = await getMasteryMap();
 
   return (
     map[conceptId] || {
@@ -150,13 +129,9 @@ export async function updateMastery({
 
   weight?: number;
 }) {
-  const map =
-    await getMasteryMap();
+  const map = await getMasteryMap();
 
-  const current =
-    await getConceptMastery(
-      conceptId
-    );
+  const current = await getConceptMastery(conceptId);
 
   const now = Date.now();
 
@@ -164,19 +139,12 @@ export async function updateMastery({
      DECAY
   ========================= */
 
-  let mastery =
-    current.mastery;
+  let mastery = current.mastery;
 
   if (current.lastReviewed) {
-    const elapsedDays =
-      daysBetween(
-        now,
-        current.lastReviewed
-      );
+    const elapsedDays = daysBetween(now, current.lastReviewed);
 
-    mastery -=
-      elapsedDays *
-      DECAY_PER_DAY;
+    mastery -= elapsedDays * DECAY_PER_DAY;
   }
 
   /* =========================
@@ -184,55 +152,43 @@ export async function updateMastery({
   ========================= */
 
   if (success) {
-    mastery +=
-      SUCCESS_GAIN * weight;
+    mastery += SUCCESS_GAIN * weight;
   } else {
-    mastery -=
-      FAILURE_PENALTY * weight;
+    mastery -= FAILURE_PENALTY * weight;
   }
 
   mastery = clamp(mastery);
 
-  const attempts =
-    current.attempts + 1;
+  const attempts = current.attempts + 1;
 
-  const successes =
-    current.successes +
-    (success ? 1 : 0);
+  const successes = current.successes + (success ? 1 : 0);
 
-  const failures =
-    current.failures +
-    (success ? 0 : 1);
+  const failures = current.failures + (success ? 0 : 1);
 
   /**
    * confidence grows slowly
    * prevents fake mastery spikes
    */
 
-  const confidence =
-    clamp(
-      attempts /
-        CONFIDENCE_DIVISOR
-    );
+  const confidence = clamp(attempts / CONFIDENCE_DIVISOR);
 
-  const updated: ConceptMastery =
-    {
-      conceptId,
+  const updated: ConceptMastery = {
+    conceptId,
 
-      mastery,
+    mastery,
 
-      attempts,
+    attempts,
 
-      successes,
+    successes,
 
-      failures,
+    failures,
 
-      confidence,
+    confidence,
 
-      lastReviewed: now,
+    lastReviewed: now,
 
-      lastUpdated: now,
-    };
+    lastUpdated: now,
+  };
 
   map[conceptId] = updated;
 
@@ -245,16 +201,10 @@ export async function updateMastery({
    REVIEW LOGIC
 ========================================================= */
 
-export function shouldReview(
-  concept: ConceptMastery
-) {
+export function shouldReview(concept: ConceptMastery) {
   const now = Date.now();
 
-  const days =
-    daysBetween(
-      now,
-      concept.lastReviewed
-    );
+  const days = daysBetween(now, concept.lastReviewed);
 
   /**
    * spaced repetition
@@ -264,17 +214,11 @@ export function shouldReview(
     return true;
   }
 
-  if (
-    concept.mastery < 0.7 &&
-    days >= 3
-  ) {
+  if (concept.mastery < 0.7 && days >= 3) {
     return true;
   }
 
-  if (
-    concept.mastery >= 0.7 &&
-    days >= 7
-  ) {
+  if (concept.mastery >= 0.7 && days >= 7) {
     return true;
   }
 
@@ -285,18 +229,11 @@ export function shouldReview(
    WEAK CONCEPTS
 ========================================================= */
 
-export async function getWeakConcepts(
-  limit = 5
-) {
-  const map =
-    await getMasteryMap();
+export async function getWeakConcepts(limit = 5) {
+  const map = await getMasteryMap();
 
   return Object.values(map)
-    .sort(
-      (a, b) =>
-        a.mastery -
-        b.mastery
-    )
+    .sort((a, b) => a.mastery - b.mastery)
     .slice(0, limit);
 }
 
@@ -304,18 +241,11 @@ export async function getWeakConcepts(
    STRONG CONCEPTS
 ========================================================= */
 
-export async function getStrongConcepts(
-  limit = 5
-) {
-  const map =
-    await getMasteryMap();
+export async function getStrongConcepts(limit = 5) {
+  const map = await getMasteryMap();
 
   return Object.values(map)
-    .sort(
-      (a, b) =>
-        b.mastery -
-        a.mastery
-    )
+    .sort((a, b) => b.mastery - a.mastery)
     .slice(0, limit);
 }
 
@@ -323,19 +253,12 @@ export async function getStrongConcepts(
    REVIEW TARGETS
 ========================================================= */
 
-export async function getReviewConcepts(
-  limit = 5
-) {
-  const map =
-    await getMasteryMap();
+export async function getReviewConcepts(limit = 5) {
+  const map = await getMasteryMap();
 
   return Object.values(map)
     .filter(shouldReview)
-    .sort(
-      (a, b) =>
-        a.mastery -
-        b.mastery
-    )
+    .sort((a, b) => a.mastery - b.mastery)
     .slice(0, limit);
 }
 
@@ -344,22 +267,15 @@ export async function getReviewConcepts(
 ========================================================= */
 
 export async function getGlobalMastery() {
-  const map =
-    await getMasteryMap();
+  const map = await getMasteryMap();
 
-  const concepts =
-    Object.values(map);
+  const concepts = Object.values(map);
 
   if (!concepts.length) {
     return 0;
   }
 
-  const total =
-    concepts.reduce(
-      (acc, concept) =>
-        acc + concept.mastery,
-      0
-    );
+  const total = concepts.reduce((acc, concept) => acc + concept.mastery, 0);
 
   return total / concepts.length;
 }
@@ -368,9 +284,7 @@ export async function getGlobalMastery() {
    MASTERY LABEL
 ========================================================= */
 
-export function getMasteryLabel(
-  mastery: number
-) {
+export function getMasteryLabel(mastery: number) {
   if (mastery < 0.2) {
     return "Unknown";
   }

@@ -44,7 +44,8 @@ function stringify(value: any): string {
 
 function extractCacheError(err: any) {
   const text = String(err?.message || err);
-  const isCacheError = text.includes("Cache") || text.includes("add on 'Cache'");
+  const isCacheError =
+    text.includes("Cache") || text.includes("add on 'Cache'");
 
   return {
     isCacheError,
@@ -69,7 +70,9 @@ function hookFetch(addLog: any) {
     const url = args?.[0]?.toString?.() || String(args[0]);
 
     const isModelDownload =
-      url.includes("shard") || url.includes("params") || url.includes("config.json");
+      url.includes("shard") ||
+      url.includes("params") ||
+      url.includes("config.json");
 
     if (isModelDownload) {
       addLog("MODEL_PIPELINE", { url, stage: "WebLLM download stream" });
@@ -110,7 +113,8 @@ function detectOrigin(error: any) {
     isWorker: stack.includes("worker") || stack.includes("WebWorker"),
     isNetwork: stack.includes("fetch") || stack.includes("Cache"),
     probableFile:
-      stack.match(/(sw\.js|webllm|worker|cache|fetch|model|engine)/i)?.[0] || "unknown",
+      stack.match(/(sw\.js|webllm|worker|cache|fetch|model|engine)/i)?.[0] ||
+      "unknown",
   };
 }
 
@@ -149,10 +153,11 @@ function updateOverlay() {
 
 function addLog(type: string, ...args: any[]) {
   if (
-    typeof window === "undefined" || 
-    window.__DEV_IS_PAUSED__ || 
+    typeof window === "undefined" ||
+    window.__DEV_IS_PAUSED__ ||
     window.__DEV_DISABLED__
-  ) return;
+  )
+    return;
 
   if (!window.__DEV_LOGS__) window.__DEV_LOGS__ = loadLogs();
 
@@ -195,7 +200,7 @@ function createUI(addLog: any) {
     zIndex: "9999999",
     border: "2px solid #00ff88",
     fontSize: "24px",
-    cursor: "pointer"
+    cursor: "pointer",
   });
   button.innerHTML = "🐞";
 
@@ -238,7 +243,11 @@ function createUI(addLog: any) {
 
   const killBtn = document.createElement("button");
   killBtn.innerText = "OFF";
-  Object.assign(killBtn.style, { color: "#ff0055", marginLeft: "8px", fontWeight: "bold" });
+  Object.assign(killBtn.style, {
+    color: "#ff0055",
+    marginLeft: "8px",
+    fontWeight: "bold",
+  });
 
   const closeBtn = document.createElement("button");
   closeBtn.innerText = "✕";
@@ -255,7 +264,7 @@ function createUI(addLog: any) {
     overflowY: "auto",
     flex: "1",
     margin: "0",
-    whiteSpace: "pre-wrap"
+    whiteSpace: "pre-wrap",
   });
 
   overlay.append(toolbar, content);
@@ -281,7 +290,9 @@ function createUI(addLog: any) {
 
   // Implementado: Lógica do Kill Switch para desligar permanentemente
   killBtn.onclick = () => {
-    const confirmKill = confirm("Desativar o terminal de desenvolvimento permanentemente nesta sessão?");
+    const confirmKill = confirm(
+      "Desativar o terminal de desenvolvimento permanentemente nesta sessão?",
+    );
     if (!confirmKill) return;
 
     window.__DEV_DISABLED__ = true;

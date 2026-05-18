@@ -21,18 +21,18 @@ self.onmessage = async (e: MessageEvent) => {
   if (type === "RUN_PYTHON") {
     try {
       await pythonPronto; // Garante que o ambiente carregou completamente
-      
+
       // Executa o script Python do usuário e captura o retorno/print
       const resultado = await pyodide.runPythonAsync(payload.code);
-      
+
       self.postMessage({
         type: "PYTHON_RESULT",
-        output: String(resultado)
+        output: String(resultado),
       });
     } catch (err: any) {
       self.postMessage({
         type: "PYTHON_ERROR",
-        error: err.message
+        error: err.message,
       });
     }
   }

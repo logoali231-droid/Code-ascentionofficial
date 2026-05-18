@@ -29,7 +29,11 @@ export async function runQuickBenchmark(engine: any): Promise<number> {
       max_tokens: 10,
     });
   } catch (err) {
-    console.error("%c[BENCHMARK] Falha ao executar teste de estresse da GPU.", "color: #ff0055", err);
+    console.error(
+      "%c[BENCHMARK] Falha ao executar teste de estresse da GPU.",
+      "color: #ff0055",
+      err,
+    );
     return 0;
   }
 
@@ -43,7 +47,10 @@ export async function runQuickBenchmark(engine: any): Promise<number> {
     tokensPerSecond,
   });
 
-  console.log(`%c[BENCHMARK] Desempenho local verificado: ${tokensPerSecond.toFixed(2)} t/s.`, "color: #00ffcc");
+  console.log(
+    `%c[BENCHMARK] Desempenho local verificado: ${tokensPerSecond.toFixed(2)} t/s.`,
+    "color: #00ffcc",
+  );
   return tokensPerSecond;
 }
 
@@ -59,11 +66,18 @@ function getModelByTier(tier: "LOW" | "MID" | "HIGH"): Model {
 export async function unloadEngine(engine?: any): Promise<void> {
   try {
     if (engine && typeof engine.unload === "function") {
-      console.log("%c[MODEL:MANAGER] Descarregando engine para liberar VRAM...", "color: #ff9900");
+      console.log(
+        "%c[MODEL:MANAGER] Descarregando engine para liberar VRAM...",
+        "color: #ff9900",
+      );
       await engine.unload();
     }
   } catch (err) {
-    console.error("%c[MODEL:MANAGER] Erro ao descarregar a engine:", "color: #ff0055", err);
+    console.error(
+      "%c[MODEL:MANAGER] Erro ao descarregar a engine:",
+      "color: #ff0055",
+      err,
+    );
   }
 }
 
@@ -100,8 +114,13 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
     const adapter = await nav.gpu.requestAdapter();
     if (!adapter) {
-      console.warn("%c[WEBGPU] Adapter gráfico indisponível.", "color: #ff0055");
-      throw new Error("HARDWARE_INCOMPATIBLE: WebGPU detectado, mas falhou ao instanciar o Adapter gráfico.");
+      console.warn(
+        "%c[WEBGPU] Adapter gráfico indisponível.",
+        "color: #ff0055",
+      );
+      throw new Error(
+        "HARDWARE_INCOMPATIBLE: WebGPU detectado, mas falhou ao instanciar o Adapter gráfico.",
+      );
     }
 
     gpuLimit = 2048;
@@ -128,20 +147,28 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       modelTier = "MID";
     }
   } catch (err) {
-    console.error("%c[WEBGPU:DETECTION] Falha na análise de hardware externo:", "color: #ff0055", err);
+    console.error(
+      "%c[WEBGPU:DETECTION] Falha na análise de hardware externo:",
+      "color: #ff0055",
+      err,
+    );
   }
 
   const recommended = getModelByTier(modelTier);
 
-  console.log("%c[SYSTEM:DETECTION] Perfil de hardware mapeado:", "color: #00ffcc", {
-    memory,
-    cores,
-    gpuLimit,
-    modelTier,
-    webgpu,
-    sharedArrayBuffer,
-    recommended: recommended.name,
-  });
+  console.log(
+    "%c[SYSTEM:DETECTION] Perfil de hardware mapeado:",
+    "color: #00ffcc",
+    {
+      memory,
+      cores,
+      gpuLimit,
+      modelTier,
+      webgpu,
+      sharedArrayBuffer,
+      recommended: recommended.name,
+    },
+  );
 
   cachedSpecs = {
     modelTier,

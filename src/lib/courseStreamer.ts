@@ -12,13 +12,14 @@ export async function streamCourseGeneration(params: any) {
 
   // 2. Coletor Neural (Balde de Stream)
   if (rawRes) {
-    if (typeof rawRes === 'string') {
+    if (typeof rawRes === "string") {
       fullResponse = rawRes;
     } else {
       for await (const chunk of rawRes) {
-        const content = typeof chunk === 'string' 
-          ? chunk 
-          : (chunk as any).choices?.[0]?.delta?.content || "";
+        const content =
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any).choices?.[0]?.delta?.content || "";
         fullResponse += content;
       }
     }
@@ -31,10 +32,15 @@ export async function streamCourseGeneration(params: any) {
     // Fallback de Emergência se o Arquiteto falhar
     return {
       title: `${params.topic} - Recovery Path`,
-      description: "Neural architecture failed. Providing emergency stability modules.",
+      description:
+        "Neural architecture failed. Providing emergency stability modules.",
       lessons: [
-        { title: `Core Concepts of ${params.topic}`, summary: "Fundamentals and essential logic.", difficulty: 1 }
-      ]
+        {
+          title: `Core Concepts of ${params.topic}`,
+          summary: "Fundamentals and essential logic.",
+          difficulty: 1,
+        },
+      ],
     };
   }
 

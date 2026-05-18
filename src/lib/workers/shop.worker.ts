@@ -13,7 +13,7 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === "PURCHASE_ITEM") {
     shopTransactionAborted = false;
-    
+
     try {
       if (shopTransactionAborted) return;
 
@@ -30,33 +30,47 @@ self.onmessage = async (e: MessageEvent) => {
       // 2. Escalonamento procedural por nível
       const levelScaling = 1 + (user.level || 1) * 0.03;
       // 3. Preço final calculado em thread isolada
-      const finalPrice = Math.floor(basePrice * levelScaling * capitalBarrierMultiplier);
+      const finalPrice = Math.floor(
+        basePrice * levelScaling * capitalBarrierMultiplier,
+      );
 
       if (shopTransactionAborted) return;
 
       if (userCoins < finalPrice) {
-        self.postMessage({ type: "PURCHASE_ERROR", error: "Moedas insuficientes para o valor inflacionado!" });
+        self.postMessage({
+          type: "PURCHASE_ERROR",
+          error: "Moedas insuficientes para o valor inflacionado!",
+        });
         return;
       }
 
       if (user.level < (item.requiredLevel || 0)) {
-        self.postMessage({ type: "PURCHASE_ERROR", error: "Nível de autorização insuficiente!" });
+        self.postMessage({
+          type: "PURCHASE_ERROR",
+          error: "Nível de autorização insuficiente!",
+        });
         return;
       }
 
       // --- GERENCIAMENTO DE PILHA DE INVENTÁRIO ---
       const inventory = [...(user.inventory || [])];
       const isChip = item.type === "chip";
-      const existingIndex = isChip ? -1 : inventory.findIndex((i: any) => i.id === item.id);
+      const existingIndex = isChip
+        ? -1
+        : inventory.findIndex((i: any) => i.id === item.id);
 
       if (existingIndex > -1) {
-        inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + 1;
+        inventory[existingIndex].quantity =
+          (inventory[existingIndex].quantity || 1) + 1;
       } else {
-        const newItem = { 
-          ...item, 
-          quantity: 1, 
+        const newItem = {
+          ...item,
+          quantity: 1,
           acquiredAt: Date.now(),
-          ...(isChip && { durability: item.maxDurability || 100, maxDurability: item.maxDurability || 100 })
+          ...(isChip && {
+            durability: item.maxDurability || 100,
+            maxDurability: item.maxDurability || 100,
+          }),
         };
         inventory.push(newItem);
       }
@@ -67,25 +81,27 @@ self.onmessage = async (e: MessageEvent) => {
       const updatedUser = {
         ...user,
         coins: userCoins - finalPrice,
-        inventory
+        inventory,
       };
 
       // Executa a função global de persistência do db.ts mapeada
       await save("user", "main", updatedUser);
 
-      self.postMessage({ 
-        type: "PURCHASE_SUCCESS", 
-        payload: { 
+      self.postMessage({
+        type: "PURCHASE_SUCCESS",
+        payload: {
           newBalance: updatedUser.coins,
-          itemName: item.name 
-        } 
+          itemName: item.name,
+        },
       });
-
     } catch (err) {
       if (shopTransactionAborted) return;
-      self.postMessage({ 
-        type: "PURCHASE_ERROR", 
-        error: err instanceof Error ? err.message : "Falha no barramento de transação." 
+      self.postMessage({
+        type: "PURCHASE_ERROR",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Falha no barramento de transação.",
       });
     }
   }

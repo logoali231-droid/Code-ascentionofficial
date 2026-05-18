@@ -9,22 +9,22 @@ export enum EventType {
   EXERCISE_SUBMITTED = "exercise.submitted",
   EXERCISE_PASSED = "exercise.passed",
   EXERCISE_FAILED = "exercise.failed",
-  
+
   // Eventos de Runtime e Workers
   RUNTIME_START = "runtime.start",
   RUNTIME_TIMEOUT = "runtime.timeout",
   RUNTIME_ERROR = "runtime.error",
   RUNTIME_SUCCESS = "runtime.success",
-  
+
   // Eventos da IA Local
   AI_ANALYSIS_START = "ai.analysis_start",
   AI_ANALYSIS_READY = "ai.analysis_ready",
   AI_ERROR = "ai.error",
-  
+
   // Eventos de Economia e Transações
   SHOP_PURCHASE_TRY = "shop.purchase_try",
   SHOP_PURCHASE_SUCCESS = "shop.purchase_success",
-  SHOP_PURCHASE_FAILED = "shop.purchase_failed"
+  SHOP_PURCHASE_FAILED = "shop.purchase_failed",
 }
 
 // 2. Assinatura de Payload Unificada e Estrita
@@ -40,7 +40,7 @@ type EventCallback<T = any> = (event: AppEvent<T>) => void | Promise<void>;
 
 class EventBus {
   private listeners: Map<EventType, Set<EventCallback>> = new Map();
-  
+
   // Histórico recente de traceIds processados para evitar loops infinitos (Graph Cyclic Guard)
   private processedTraces: Set<string> = new Set();
   private maxTraceHistory = 100;
@@ -77,13 +77,15 @@ class EventBus {
   public emit<T = any>(event: Omit<AppEvent<T>, "timestamp">): void {
     const fullEvent: AppEvent<T> = {
       ...event,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     // Mecanismo Antiloop: Se o mesmo traceID disparar o mesmo evento em cadeia rápida, corta a propagação
     const loopKey = `${fullEvent.traceId}:${fullEvent.type}`;
     if (this.processedTraces.has(loopKey)) {
-      console.warn(`[EventBus] Loop infinito evitado para o TraceId: ${fullEvent.traceId} no evento ${fullEvent.type}`);
+      console.warn(
+        `[EventBus] Loop infinito evitado para o TraceId: ${fullEvent.traceId} no evento ${fullEvent.type}`,
+      );
       return;
     }
 
@@ -104,7 +106,10 @@ class EventBus {
         try {
           await listener(fullEvent);
         } catch (error) {
-          console.error(`[EventBus] Erro ao processar listener de ${fullEvent.type}:`, error);
+          console.error(
+            `[EventBus] Erro ao processar listener de ${fullEvent.type}:`,
+            error,
+          );
         }
       }
     });
@@ -114,8 +119,8 @@ class EventBus {
    * Helper utilitário para gerar Trace IDs válidos caso a ação esteja iniciando do zero
    */
   public generateTraceId(): string {
-    return typeof crypto !== "undefined" && crypto.randomUUID 
-      ? crypto.randomUUID() 
+    return typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
       : Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
   }
 }

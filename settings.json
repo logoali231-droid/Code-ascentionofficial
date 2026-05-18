@@ -1,14 +1,14 @@
 {
-    "problems.showCurrentInStatus": true,
-    "dart.showTodos": false,
-    "files.associations": {
-        "*.css": "tailwindcss" 
-    },
-    "css.lint.unknownAtRules": "ignore",
-    "javascript.referencesCodeLens.enabled": true,
-    "javascript.referencesCodeLens.showOnAllFunctions": true,
-    "tailwindCSS.includeLanguages": {
-        "plaintext": "ts",
-        "typescriptreact": "tsx"
-    }
+  "problems.showCurrentInStatus": true,
+  "dart.showTodos": false,
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "css.lint.unknownAtRules": "ignore",
+  "javascript.referencesCodeLens.enabled": true,
+  "javascript.referencesCodeLens.showOnAllFunctions": true,
+  "tailwindCSS.includeLanguages": {
+    "plaintext": "ts",
+    "typescriptreact": "tsx"
+  }
 }

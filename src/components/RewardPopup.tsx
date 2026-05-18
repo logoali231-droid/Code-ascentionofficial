@@ -1,5 +1,11 @@
 "use client";
-export default function RewardPopup({ show, text }: { show: boolean; text: string }) {
+export default function RewardPopup({
+  show,
+  text,
+}: {
+  show: boolean;
+  text: string;
+}) {
   if (!show) return null;
   return (
     <div className="fixed top-10 left-0 right-0 z-100 flex items-center justify-center pointer-events-none px-6">

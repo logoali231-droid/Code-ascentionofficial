@@ -1,5 +1,5 @@
 // Mude para:
-import './styles/globals.css';
+import "./styles/globals.css";
 import type { Metadata } from "next";
 
 import ClientBody from "@/components/ClientBody";
@@ -13,8 +13,7 @@ export const viewport = {
 
 export const metadata: Metadata = {
   title: "Code Ascension",
-  description:
-    "Offline AI-powered cyberpunk learning roguelike.",
+  description: "Offline AI-powered cyberpunk learning roguelike.",
 
   manifest: "/manifest.json",
 
@@ -59,9 +58,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
-        <ClientBody>
-          {children}
-        </ClientBody>
+        <ClientBody>{children}</ClientBody>
 
         <DevConsoleBoot />
       </body>

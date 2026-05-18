@@ -23,7 +23,7 @@ function computeRewards({
   correct,
   adaptiveMultiplier,
   currentXp,
-  streakDays = 1
+  streakDays = 1,
 }: {
   difficulty: number;
   correct: boolean;
@@ -34,7 +34,7 @@ function computeRewards({
   if (!correct) return { xp: 5, coins: 1 };
   const playerLevel = calculateLevel(currentXp);
   const lessonXp = computeLessonXp(playerLevel, difficulty, streakDays, 1);
-  const baseCoins = 5 + (difficulty * 10);
+  const baseCoins = 5 + difficulty * 10;
 
   return {
     xp: Math.floor(lessonXp * adaptiveMultiplier),
@@ -62,8 +62,8 @@ export async function evaluateExercise({
     payload: {
       exerciseId: exercise?.id,
       question: exercise?.question,
-      language: course?.language || "unknown"
-    }
+      language: course?.language || "unknown",
+    },
   });
 
   let correct = await evaluateLogic(userAnswer, expected);
@@ -71,25 +71,33 @@ export async function evaluateExercise({
   const userStats = await getUser();
   const userFactionId = userStats?.factionId || "";
   const userXp = userStats?.xp || 0;
-  
+
   const { FactionManager } = await import("./ranking/factions");
-  const currentActiveBonuses = FactionManager.getActiveBonuses(userFactionId, userXp);
-  
-  const evaluationBonus = currentActiveBonuses.find(b => (b.type as string) === 'EVALUATION_ACCURACY_BOOST')?.value || 0;
+  const currentActiveBonuses = FactionManager.getActiveBonuses(
+    userFactionId,
+    userXp,
+  );
+
+  const evaluationBonus =
+    currentActiveBonuses.find(
+      (b) => (b.type as string) === "EVALUATION_ACCURACY_BOOST",
+    )?.value || 0;
   const diminishedBonus = evaluationBonus / (1 + evaluationBonus);
   const targetThreshold = Math.max(0.62, 0.72 - diminishedBonus);
 
   if (!correct && userAnswer.trim().length > 0) {
     const cleanExpected = expected.toLowerCase().trim();
     const cleanReceived = userAnswer.toLowerCase().trim();
-    
+
     const expectedTokens = cleanExpected.split(/[^a-z0-9_]+/gi).filter(Boolean);
     const receivedTokens = cleanReceived.split(/[^a-z0-9_]+/gi).filter(Boolean);
-    
+
     if (expectedTokens.length > 0) {
-      const overlap = expectedTokens.filter((t: string) => receivedTokens.includes(t)).length;
+      const overlap = expectedTokens.filter((t: string) =>
+        receivedTokens.includes(t),
+      ).length;
       const currentRatio = overlap / expectedTokens.length;
-      
+
       if (currentRatio >= targetThreshold) {
         correct = true;
         iaFeedback = `Neural alignment enhanced by Skill Tree bônus. Adjusted Threshold: ${targetThreshold.toFixed(2)}`;
@@ -102,27 +110,30 @@ export async function evaluateExercise({
     const normalizedExpected = expected.trim().toLowerCase();
     if (normalizedInput === normalizedExpected) correct = true;
   }
-  
+
   if (!correct && userAnswer.trim().length > 0) {
     try {
       eventBus.emit({
         type: EventType.AI_ANALYSIS_START,
         source: sourceComponent,
         traceId,
-        payload: { question: exercise?.question, inputLength: userAnswer.length }
+        payload: {
+          question: exercise?.question,
+          inputLength: userAnswer.length,
+        },
       });
 
       const aiAnalysis = await explainError({
         question: exercise.question,
         expected: expected,
-        received: userAnswer
+        received: userAnswer,
       });
 
       eventBus.emit({
         type: EventType.AI_ANALYSIS_READY,
         source: sourceComponent,
         traceId,
-        payload: { isCorrectVariation: aiAnalysis.isCorrectVariation }
+        payload: { isCorrectVariation: aiAnalysis.isCorrectVariation },
       });
 
       if (aiAnalysis.isCorrectVariation) {
@@ -133,12 +144,12 @@ export async function evaluateExercise({
       }
     } catch (e) {
       console.error("AI Fallback failed", e);
-      
+
       eventBus.emit({
         type: EventType.AI_ERROR,
         source: sourceComponent,
         traceId,
-        payload: { error: e instanceof Error ? e.message : String(e) }
+        payload: { error: e instanceof Error ? e.message : String(e) },
       });
     }
   }
@@ -147,7 +158,8 @@ export async function evaluateExercise({
   const currentXp = user?.xp || 0;
   const streakDays = user?.streak || 1;
   const difficulty = exercise?.difficulty || lesson?.difficulty || 1;
-  const resolvedConceptId = conceptId || lesson?.conceptId || "core_fundamentals";
+  const resolvedConceptId =
+    conceptId || lesson?.conceptId || "core_fundamentals";
   const metrics = await getAdaptiveMetrics(difficulty, resolvedConceptId);
 
   const rewards = computeRewards({
@@ -167,24 +179,32 @@ export async function evaluateExercise({
       type: EventType.EXERCISE_PASSED,
       source: sourceComponent,
       traceId,
-      payload: { xpEarned: rewards.xp, coinsEarned: rewards.coins, conceptId: resolvedConceptId }
+      payload: {
+        xpEarned: rewards.xp,
+        coinsEarned: rewards.coins,
+        conceptId: resolvedConceptId,
+      },
     });
   } else {
     playSound("error", 0.35);
-    await save("errors", {
-      question: exercise?.question,
-      correct: expected,
-      userAnswer,
-      conceptId: resolvedConceptId,
-      courseId: course?.id || "unknown",
-      timestamp: Date.now(),
-    }, crypto.randomUUID());
+    await save(
+      "errors",
+      {
+        question: exercise?.question,
+        correct: expected,
+        userAnswer,
+        conceptId: resolvedConceptId,
+        courseId: course?.id || "unknown",
+        timestamp: Date.now(),
+      },
+      crypto.randomUUID(),
+    );
 
     eventBus.emit({
       type: EventType.EXERCISE_FAILED,
       source: sourceComponent,
       traceId,
-      payload: { conceptId: resolvedConceptId, difficulty }
+      payload: { conceptId: resolvedConceptId, difficulty },
     });
   }
 
@@ -205,7 +225,7 @@ export async function evaluateExercise({
     difficulty,
     traceId,
     feedback: correct
-      ? (iaFeedback || "Concept assimilated.")
-      : (iaFeedback || "Neural mismatch detected."),
+      ? iaFeedback || "Concept assimilated."
+      : iaFeedback || "Neural mismatch detected.",
   };
 }

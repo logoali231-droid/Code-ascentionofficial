@@ -15,7 +15,7 @@ export function validateCourse(course: any) {
   let lastDifficulty = 0;
   for (const lesson of course.lessons) {
     if (!lesson.title || !lesson.summary) return false;
-    
+
     // Se a dificuldade pular de 1 para 5 direto, o curso está mal projetado
     if (lesson.difficulty - lastDifficulty > 3) return false;
     lastDifficulty = lesson.difficulty;

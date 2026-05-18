@@ -1,10 +1,7 @@
 const CONFIG = require("./config");
 
 function escapeCode(code) {
-  return code
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, "\\$");
+  return code.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$");
 }
 
 function createPythonCommand(code) {

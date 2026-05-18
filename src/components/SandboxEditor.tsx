@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Play, FileCode, Download, X, Menu, Folder, Plus, Terminal as TerminalIcon } from "lucide-react";
+import {
+  Play,
+  FileCode,
+  Download,
+  X,
+  Menu,
+  Folder,
+  Plus,
+  Terminal as TerminalIcon,
+} from "lucide-react";
 import NeuralTerminal, { LogEntry } from "./NeuralTerminal";
 import { executeSandboxCode } from "@/lib/sandbox/sandboxRunner";
 import { Language } from "@/lib/sandbox/types";
@@ -31,37 +40,58 @@ interface ExecutionResult {
 }
 
 const CLOSURE_PAIRS: Record<string, string> = {
-  "{": "}", "(": ")", "[": "]", '"': '"'
+  "{": "}",
+  "(": ")",
+  "[": "]",
+  '"': '"',
 };
 
 // Helper utilitário para inferir a tipagem estrita do Sandbox com base na extensão informada
 function inferLanguageFromExtension(fileName: string): Language {
-  const ext = fileName.split('.').pop()?.toLowerCase();
+  const ext = fileName.split(".").pop()?.toLowerCase();
   switch (ext) {
-    case "py": return "python";
-    case "js": return "javascript";
-    case "ts": return "typescript";
-    case "cs": return "csharp";
-    case "html": return "html";
-    case "cpp": case "cc": return "cpp";
-    case "go": return "go";
-    case "rs": return "rust";
-    case "php": return "php";
-    case "lua": return "lua";
-    case "rb": return "ruby";
-    case "kt": return "kotlin";
-    case "sh": return "shell";
-    case "sol": return "solidity";
-    case "sql": return "sql";
-    case "wasm": return "wasm";
-    default: return "javascript";
+    case "py":
+      return "python";
+    case "js":
+      return "javascript";
+    case "ts":
+      return "typescript";
+    case "cs":
+      return "csharp";
+    case "html":
+      return "html";
+    case "cpp":
+    case "cc":
+      return "cpp";
+    case "go":
+      return "go";
+    case "rs":
+      return "rust";
+    case "php":
+      return "php";
+    case "lua":
+      return "lua";
+    case "rb":
+      return "ruby";
+    case "kt":
+      return "kotlin";
+    case "sh":
+      return "shell";
+    case "sol":
+      return "solidity";
+    case "sql":
+      return "sql";
+    case "wasm":
+      return "wasm";
+    default:
+      return "javascript";
   }
 }
 
 function NeuralRuntime({
   file,
   onExecute,
-  onContentChange
+  onContentChange,
 }: {
   file: SandboxFile;
   onExecute: (code: string, lang: Language) => Promise<ExecutionResult>;
@@ -70,7 +100,7 @@ function NeuralRuntime({
   const [localContent, setLocalContent] = useState(file.content);
   const [localOutput, setLocalOutput] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
 
@@ -87,15 +117,24 @@ function NeuralRuntime({
 
   const prismLang = useMemo(() => {
     switch (file.language) {
-      case "python": return "python";
-      case "javascript": return "javascript";
-      case "typescript": return "typescript";
-      case "csharp": return "csharp";
-      case "rust": return "rust";
-      case "cpp": return "cpp";
-      case "html": return "html";
-      case "sql": return "sql";
-      default: return "clike";
+      case "python":
+        return "python";
+      case "javascript":
+        return "javascript";
+      case "typescript":
+        return "typescript";
+      case "csharp":
+        return "csharp";
+      case "rust":
+        return "rust";
+      case "cpp":
+        return "cpp";
+      case "html":
+        return "html";
+      case "sql":
+        return "sql";
+      default:
+        return "clike";
     }
   }, [file.language]);
 
@@ -108,7 +147,8 @@ function NeuralRuntime({
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const inserted = open + close;
-    const updated = localContent.substring(0, start) + inserted + localContent.substring(end);
+    const updated =
+      localContent.substring(0, start) + inserted + localContent.substring(end);
 
     setLocalContent(updated);
     onContentChange(file.id, updated);
@@ -134,13 +174,22 @@ function NeuralRuntime({
 
   const handleRun = async () => {
     setIsRunning(true);
-    setLocalOutput(["[SYSTEM] Kernel inicializado...", `[LANG] ${file.language.toUpperCase()} ENGINE READY`]);
+    setLocalOutput([
+      "[SYSTEM] Kernel inicializado...",
+      `[LANG] ${file.language.toUpperCase()} ENGINE READY`,
+    ]);
     try {
       const result = await onExecute(localContent, file.language);
-      const formatted = (result.output || []).map(l => typeof l === 'object' ? JSON.stringify(l) : String(l));
-      setLocalOutput(prev => [...prev, ...formatted, ...(result.error ? [`[ERR] ${result.error}`] : [])]);
+      const formatted = (result.output || []).map((l) =>
+        typeof l === "object" ? JSON.stringify(l) : String(l),
+      );
+      setLocalOutput((prev) => [
+        ...prev,
+        ...formatted,
+        ...(result.error ? [`[ERR] ${result.error}`] : []),
+      ]);
     } catch (err: any) {
-      setLocalOutput(prev => [...prev, `[FATAL] ${err.message}`]);
+      setLocalOutput((prev) => [...prev, `[FATAL] ${err.message}`]);
     } finally {
       setIsRunning(false);
     }
@@ -153,9 +202,13 @@ function NeuralRuntime({
       <div className="flex-1 flex overflow-hidden font-mono relative">
         {/* Gutter / Contador de linhas robusto */}
         <div className="w-12 bg-[#080808] text-slate-600 text-right pr-3 pt-4 select-none border-r border-white/5 text-[12px] z-20">
-          {lines.map((_, i) => <div key={i} className="leading-6">{i + 1}</div>)}
+          {lines.map((_, i) => (
+            <div key={i} className="leading-6">
+              {i + 1}
+            </div>
+          ))}
         </div>
-        
+
         <div className="flex-1 relative bg-[#050505]">
           {/* Camada Visual de Realce (Prism) */}
           <pre
@@ -180,7 +233,7 @@ function NeuralRuntime({
           />
         </div>
       </div>
-      
+
       {/* Barra de Execução */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0a] border-y border-white/5 z-20">
         <div className="flex gap-4 items-center">
@@ -188,13 +241,18 @@ function NeuralRuntime({
             onClick={handleRun}
             disabled={isRunning}
             className={`flex items-center gap-2 px-6 py-1.5 rounded-sm text-[10px] font-bold tracking-widest transition-all ${
-              isRunning ? "bg-amber-500/10 text-amber-500 border border-amber-500/30 animate-pulse" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/20 active:scale-95"
+              isRunning
+                ? "bg-amber-500/10 text-amber-500 border border-amber-500/30 animate-pulse"
+                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/20 active:scale-95"
             }`}
           >
             <Play size={12} fill={isRunning ? "none" : "currentColor"} />
             {isRunning ? "PROCESSING..." : "EXECUTE_SCRIPT"}
           </button>
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest">Runtime: <span className="text-cyan-400 font-bold">{file.language}</span></span>
+          <span className="text-[10px] text-slate-500 uppercase tracking-widest">
+            Runtime:{" "}
+            <span className="text-cyan-400 font-bold">{file.language}</span>
+          </span>
         </div>
       </div>
 
@@ -206,19 +264,43 @@ function NeuralRuntime({
         {localOutput.map((line, i) => (
           <div key={i} className="text-[11px] py-0.5 flex gap-3">
             <span className="text-slate-700 w-8 select-none">[{i}]</span>
-            <span className={line.includes('[ERR]') || line.includes('[FATAL]') ? 'text-red-500' : 'text-cyan-400/80'}>{line}</span>
+            <span
+              className={
+                line.includes("[ERR]") || line.includes("[FATAL]")
+                  ? "text-red-500"
+                  : "text-cyan-400/80"
+              }
+            >
+              {line}
+            </span>
           </div>
         ))}
       </div>
 
       <style jsx global>{`
-        .token-cyberpunk .token.keyword { color: #ff0055; font-weight: bold; }
-        .token-cyberpunk .token.string { color: #00ff88; }
-        .token-cyberpunk .token.function { color: #00f2ff; }
-        .token-cyberpunk .token.number { color: #facc15; }
-        .token-cyberpunk .token.comment { color: #475569; font-style: italic; }
-        .token-cyberpunk .token.operator { color: #c026d3; }
-        .token-cyberpunk .token.class-name { color: #a78bfa; }
+        .token-cyberpunk .token.keyword {
+          color: #ff0055;
+          font-weight: bold;
+        }
+        .token-cyberpunk .token.string {
+          color: #00ff88;
+        }
+        .token-cyberpunk .token.function {
+          color: #00f2ff;
+        }
+        .token-cyberpunk .token.number {
+          color: #facc15;
+        }
+        .token-cyberpunk .token.comment {
+          color: #475569;
+          font-style: italic;
+        }
+        .token-cyberpunk .token.operator {
+          color: #c026d3;
+        }
+        .token-cyberpunk .token.class-name {
+          color: #a78bfa;
+        }
       `}</style>
     </div>
   );
@@ -226,8 +308,18 @@ function NeuralRuntime({
 
 export default function SandboxEditor() {
   const [files, setFiles] = useState<SandboxFile[]>([
-    { id: "1", name: "main.ts", content: "console.log('Neural Interface Active');", language: "typescript" },
-    { id: "2", name: "logic.py", content: "print('Python Core Online')", language: "python" }
+    {
+      id: "1",
+      name: "main.ts",
+      content: "console.log('Neural Interface Active');",
+      language: "typescript",
+    },
+    {
+      id: "2",
+      name: "logic.py",
+      content: "print('Python Core Online')",
+      language: "python",
+    },
   ]);
   const [activeFileId, setActiveFileId] = useState("1");
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -235,23 +327,28 @@ export default function SandboxEditor() {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
   const activeFile = useMemo(() => {
-    return files.find(f => f.id === activeFileId) || files[0];
+    return files.find((f) => f.id === activeFileId) || files[0];
   }, [files, activeFileId]);
 
-  const pushLog = (msg: any, type: LogEntry['type']) => {
-    setTerminalLogs(prev => [...prev, {
-      message: String(msg),
-      type,
-      timestamp: new Date().toLocaleTimeString().split(' ')[0]
-    }]);
+  const pushLog = (msg: any, type: LogEntry["type"]) => {
+    setTerminalLogs((prev) => [
+      ...prev,
+      {
+        message: String(msg),
+        type,
+        timestamp: new Date().toLocaleTimeString().split(" ")[0],
+      },
+    ]);
   };
 
   // Criação dinâmica de arquivos com inferência inteligente de extensão/linguagem
   const handleCreateFile = () => {
-    const name = prompt("Insira o nome do arquivo com a extensão (ex: main.rs, kernel.sol):");
+    const name = prompt(
+      "Insira o nome do arquivo com a extensão (ex: main.rs, kernel.sol):",
+    );
     if (!name) return;
-    
-    if (files.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+
+    if (files.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
       alert("Erro: Arquivo com este nome já mapeado no buffer.");
       return;
     }
@@ -260,13 +357,16 @@ export default function SandboxEditor() {
     const newFile: SandboxFile = {
       id: crypto.randomUUID(),
       name,
-      content: detectedLang === "rust" ? "fn main() {\n    println!(\"Rust Kernel online\");\n}" : "",
-      language: detectedLang
+      content:
+        detectedLang === "rust"
+          ? 'fn main() {\n    println!("Rust Kernel online");\n}'
+          : "",
+      language: detectedLang,
     };
 
-    setFiles(prev => [...prev, newFile]);
+    setFiles((prev) => [...prev, newFile]);
     setActiveFileId(newFile.id);
-    pushLog(`Novo buffer criado: ${name} (${detectedLang})`, 'system');
+    pushLog(`Novo buffer criado: ${name} (${detectedLang})`, "system");
   };
 
   return (
@@ -274,18 +374,25 @@ export default function SandboxEditor() {
       {/* Header Superior */}
       <div className="h-12 flex items-center justify-between px-4 bg-[#0a0a0a] border-b border-white/5 z-30">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-1.5 hover:bg-white/5 rounded text-cyan-500 border border-transparent hover:border-cyan-500/20">
+          <button
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 hover:bg-white/5 rounded text-cyan-500 border border-transparent hover:border-cyan-500/20"
+          >
             <Menu size={18} />
           </button>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_#06b6d4]" />
-            <span className="text-[11px] font-black tracking-[0.2em] text-white">NEURAL_EDITOR [SANDBOX]</span>
+            <span className="text-[11px] font-black tracking-[0.2em] text-white">
+              NEURAL_EDITOR [SANDBOX]
+            </span>
           </div>
         </div>
         <button
           onClick={() => {
             const a = document.createElement("a");
-            a.href = URL.createObjectURL(new Blob([activeFile.content], { type: "text/plain" }));
+            a.href = URL.createObjectURL(
+              new Blob([activeFile.content], { type: "text/plain" }),
+            );
             a.download = activeFile.name;
             a.click();
           }}
@@ -300,8 +407,10 @@ export default function SandboxEditor() {
         {isSidebarOpen && (
           <div className="w-56 bg-[#080808] border-r border-white/5 flex flex-col shrink-0 z-20 animate-in slide-in-from-left duration-200">
             <div className="p-4 border-b border-white/5 text-[10px] uppercase font-black text-slate-500 tracking-widest flex items-center justify-between">
-              <span className="flex items-center gap-2"><Folder size={12} /> Project_Files</span>
-              <button 
+              <span className="flex items-center gap-2">
+                <Folder size={12} /> Project_Files
+              </span>
+              <button
                 onClick={handleCreateFile}
                 className="p-1 hover:bg-cyan-500/10 text-cyan-400 rounded border border-cyan-500/20 transition-all"
                 title="Criar novo arquivo"
@@ -310,21 +419,31 @@ export default function SandboxEditor() {
               </button>
             </div>
             <div className="flex-1 py-2 overflow-y-auto custom-scrollbar">
-              {files.map(f => (
+              {files.map((f) => (
                 <div
                   key={f.id}
                   onClick={() => setActiveFileId(f.id)}
-                  className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-all ${activeFileId === f.id ? 'bg-cyan-500/5 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-500 hover:bg-white/5'}`}
+                  className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-all ${activeFileId === f.id ? "bg-cyan-500/5 text-cyan-400 border-r-2 border-cyan-500" : "text-slate-500 hover:bg-white/5"}`}
                 >
-                  <FileCode size={14} className={activeFileId === f.id ? "text-cyan-400" : "text-slate-600"} />
+                  <FileCode
+                    size={14}
+                    className={
+                      activeFileId === f.id ? "text-cyan-400" : "text-slate-600"
+                    }
+                  />
                   <span className="text-xs truncate flex-1">{f.name}</span>
                   {files.length > 1 && (
-                    <X size={12} className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all" onClick={(e) => {
-                      e.stopPropagation();
-                      const filtered = files.filter(x => x.id !== f.id);
-                      setFiles(filtered);
-                      if (activeFileId === f.id) setActiveFileId(filtered[0].id);
-                    }} />
+                    <X
+                      size={12}
+                      className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const filtered = files.filter((x) => x.id !== f.id);
+                        setFiles(filtered);
+                        if (activeFileId === f.id)
+                          setActiveFileId(filtered[0].id);
+                      }}
+                    />
                   )}
                 </div>
               ))}
@@ -335,13 +454,15 @@ export default function SandboxEditor() {
         {/* Área Central / Tabs */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <div className="flex bg-[#0a0a0a] border-b border-white/5 overflow-x-auto no-scrollbar z-20">
-            {files.map(f => (
+            {files.map((f) => (
               <div
                 key={f.id}
                 onClick={() => setActiveFileId(f.id)}
-                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-35 border-r border-white/5 transition-all ${activeFileId === f.id ? 'bg-[#050505] text-cyan-400 border-t-2 border-t-cyan-500' : 'opacity-50 bg-[#0c0c0c]'}`}
+                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-35 border-r border-white/5 transition-all ${activeFileId === f.id ? "bg-[#050505] text-cyan-400 border-t-2 border-t-cyan-500" : "opacity-50 bg-[#0c0c0c]"}`}
               >
-                <span className="font-bold tracking-tight">{f.name.toUpperCase()}</span>
+                <span className="font-bold tracking-tight">
+                  {f.name.toUpperCase()}
+                </span>
               </div>
             ))}
           </div>
@@ -350,17 +471,33 @@ export default function SandboxEditor() {
             key={activeFileId}
             file={activeFile}
             onExecute={async (code, lang) => {
-              pushLog(`Invocando kernel de execução para: ${activeFile.name}`, 'system');
-              const result = await executeSandboxCode(code, lang) as ExecutionResult;
-              if (result.error) pushLog(result.error, 'error');
+              pushLog(
+                `Invocando kernel de execução para: ${activeFile.name}`,
+                "system",
+              );
+              const result = (await executeSandboxCode(
+                code,
+                lang,
+              )) as ExecutionResult;
+              if (result.error) pushLog(result.error, "error");
               return result;
             }}
-            onContentChange={(id, val) => setFiles(prev => prev.map(f => f.id === id ? { ...f, content: val } : f))}
+            onContentChange={(id, val) =>
+              setFiles((prev) =>
+                prev.map((f) => (f.id === id ? { ...f, content: val } : f)),
+              )
+            }
           />
         </div>
       </div>
 
-      <NeuralTerminal logs={terminalLogs} onClear={() => setTerminalLogs([])} isOpen={isTerminalOpen} setIsOpen={setIsTerminalOpen} activeFile={activeFile} />
+      <NeuralTerminal
+        logs={terminalLogs}
+        onClear={() => setTerminalLogs([])}
+        isOpen={isTerminalOpen}
+        setIsOpen={setIsTerminalOpen}
+        activeFile={activeFile}
+      />
     </div>
   );
 }

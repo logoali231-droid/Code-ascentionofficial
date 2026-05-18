@@ -8,18 +8,29 @@ interface PythonRunConfig {
   timeoutMs?: number;
 }
 
-export function executarPythonIsolado({ code, timeoutMs = 4000 }: PythonRunConfig): Promise<any> {
+export function executarPythonIsolado({
+  code,
+  timeoutMs = 4000,
+}: PythonRunConfig): Promise<any> {
   return new Promise((resolve, reject) => {
     // 1. Instancia o Worker de Python de forma efêmera
-    let worker: Worker | null = new Worker(new URL("./pythonWorker.ts", import.meta.url));
+    let worker: Worker | null = new Worker(
+      new URL("./pythonWorker.ts", import.meta.url),
+    );
 
     // 2. Cria o timer gerenciador externo na thread de interface
     const timerId = setTimeout(() => {
       if (worker) {
-        console.warn("[Sandbox Manager] CPU Lockup detectado no script Python. Invocando worker.terminate()...");
+        console.warn(
+          "[Sandbox Manager] CPU Lockup detectado no script Python. Invocando worker.terminate()...",
+        );
         worker.terminate(); // Mata o worker e libera a CPU do cliente imediatamente
         worker = null;
-        reject(new Error(`EXECUTION_TIMEOUT: Código excedeu o limite de segurança de ${timeoutMs}ms.`));
+        reject(
+          new Error(
+            `EXECUTION_TIMEOUT: Código excedeu o limite de segurança de ${timeoutMs}ms.`,
+          ),
+        );
       }
     }, timeoutMs);
 

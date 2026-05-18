@@ -11,7 +11,7 @@ export interface Model {
 
 const SYSTEM_CONFIG = {
   PORT: 4000,
-  
+
   // PARÂMETROS DE RUNTIME (Docker / Sandbox de Execução)
   LIMITS: {
     memory_light: "256m",
@@ -19,13 +19,13 @@ const SYSTEM_CONFIG = {
     cpus: "0.5",
     pidsLimit: 64,
     timeout: 15000, // Timeout geral em ms
-    
+
     // Limites de memória específicos por linguagem
     LANGUAGES: {
       javascript: "128m",
       python: "192m",
       csharp: "384m",
-    }
+    },
   },
 
   // PARÂMETROS DA LLM (Inferência Local / WebLLM)
@@ -33,15 +33,15 @@ const SYSTEM_CONFIG = {
     context_window_size: 1536,
     sliding_window_size: 1024,
     attention_sink_size: 4,
-    max_tokens: 10,               // Usado no Quick Benchmark
-    generation_max_tokens: 512,   // Limite padrão para respostas de código
-    entropy_threshold: 0.85,      // Threshold de entropia para amostragem/criatividade
+    max_tokens: 10, // Usado no Quick Benchmark
+    generation_max_tokens: 512, // Limite padrão para respostas de código
+    entropy_threshold: 0.85, // Threshold de entropia para amostragem/criatividade
   },
 
   // PARÂMETROS DE CLEANUP (Limites físicos e controle de estado do app)
   CLEANUP: {
-    MAX_EXPLANATIONS_TOTAL: 50,   // Limite de explicações salvas/em cache por sessão
-    MAX_ERRORS_TOTAL: 10,         // Limite máximo de erros antes do soft-reset do container/worker
+    MAX_EXPLANATIONS_TOTAL: 50, // Limite de explicações salvas/em cache por sessão
+    MAX_ERRORS_TOTAL: 10, // Limite máximo de erros antes do soft-reset do container/worker
     MOBILE_BACKGROUND_TIMEOUT_MS: 120000, // 2 minutos para descarregar a VRAM no mobile
   },
 

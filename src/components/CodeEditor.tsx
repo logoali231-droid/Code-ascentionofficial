@@ -24,7 +24,10 @@ interface Props {
 }
 
 const CLOSURE_PAIRS: Record<string, string> = {
-  "{": "}", "(": ")", "[": "]", '"': '"'
+  "{": "}",
+  "(": ")",
+  "[": "]",
+  '"': '"',
 };
 
 export default function CodeEditor({
@@ -32,7 +35,7 @@ export default function CodeEditor({
   initialValue = "",
   readOnly = false,
   placeholder = "Write your code...",
-  onChange
+  onChange,
 }: Props) {
   const [code, setCode] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -51,30 +54,85 @@ export default function CodeEditor({
   };
 
   const langInfo = useMemo(() => {
-    if (language === "plaintext") return { label: "PLAINTEXT", ext: ".txt", prismLang: "plaintext" };
-    
+    if (language === "plaintext")
+      return { label: "PLAINTEXT", ext: ".txt", prismLang: "plaintext" };
+
     const label = language.toUpperCase();
     let ext = ".txt";
     let prismLang = "clike";
 
     switch (language) {
-      case "python": ext = ".py"; prismLang = "python"; break;
-      case "javascript": ext = ".js"; prismLang = "javascript"; break;
-      case "java": ext = ".java"; prismLang = "java"; break;
-      case "typescript": ext = ".ts"; prismLang = "typescript"; break;
-      case "csharp": ext = ".cs"; prismLang = "csharp"; break;
-      case "html": ext = ".html"; prismLang = "html"; break;
-      case "cpp": ext = ".cpp"; prismLang = "cpp"; break;
-      case "go": ext = ".go"; prismLang = "go"; break;
-      case "rust": ext = ".rs"; prismLang = "rust"; break;
-      case "php": ext = ".php"; prismLang = "php"; break;
-      case "lua": ext = ".lua"; prismLang = "lua"; break;
-      case "ruby": ext = ".rb"; prismLang = "ruby"; break;
-      case "kotlin": case "kotlin-native": ext = ".kt"; prismLang = "kotlin"; break;
-      case "scala": ext = ".sc"; prismLang = "scala"; break;
-      case "shell": case "powershell": ext = ".sh"; prismLang = "bash"; break;
-      case "solidity": ext = ".sol"; prismLang = "clike"; break;
-      case "sql": case "plsql": ext = ".sql"; prismLang = "sql"; break;
+      case "python":
+        ext = ".py";
+        prismLang = "python";
+        break;
+      case "javascript":
+        ext = ".js";
+        prismLang = "javascript";
+        break;
+      case "java":
+        ext = ".java";
+        prismLang = "java";
+        break;
+      case "typescript":
+        ext = ".ts";
+        prismLang = "typescript";
+        break;
+      case "csharp":
+        ext = ".cs";
+        prismLang = "csharp";
+        break;
+      case "html":
+        ext = ".html";
+        prismLang = "html";
+        break;
+      case "cpp":
+        ext = ".cpp";
+        prismLang = "cpp";
+        break;
+      case "go":
+        ext = ".go";
+        prismLang = "go";
+        break;
+      case "rust":
+        ext = ".rs";
+        prismLang = "rust";
+        break;
+      case "php":
+        ext = ".php";
+        prismLang = "php";
+        break;
+      case "lua":
+        ext = ".lua";
+        prismLang = "lua";
+        break;
+      case "ruby":
+        ext = ".rb";
+        prismLang = "ruby";
+        break;
+      case "kotlin":
+      case "kotlin-native":
+        ext = ".kt";
+        prismLang = "kotlin";
+        break;
+      case "scala":
+        ext = ".sc";
+        prismLang = "scala";
+        break;
+      case "shell":
+      case "powershell":
+        ext = ".sh";
+        prismLang = "bash";
+        break;
+      case "solidity":
+        ext = ".sol";
+        prismLang = "clike";
+        break;
+      case "sql":
+      case "plsql":
+        ext = ".sql";
+        prismLang = "sql";
+        break;
       default: {
         const langStr = language as string;
         ext = `.${langStr.split("-")[0].slice(0, 3)}`;
@@ -87,7 +145,8 @@ export default function CodeEditor({
 
   // Tokenização estática imediata sem checagem de erros do compilador
   const highlightedCode = useMemo(() => {
-    const grammars = prism.languages[langInfo.prismLang] || prism.languages.clike;
+    const grammars =
+      prism.languages[langInfo.prismLang] || prism.languages.clike;
     if (langInfo.prismLang === "plaintext" || !grammars) {
       return code;
     }
@@ -131,7 +190,9 @@ export default function CodeEditor({
       <div className="flex items-center justify-between px-4 py-2 bg-[#0b0b0b] border-b border-white/5">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-xs text-cyan-300 font-bold tracking-wider uppercase">{langInfo.label}</span>
+          <span className="text-xs text-cyan-300 font-bold tracking-wider uppercase">
+            {langInfo.label}
+          </span>
         </div>
         <span className="text-[10px] text-slate-500">{langInfo.ext}</span>
       </div>
@@ -140,7 +201,9 @@ export default function CodeEditor({
         {/* Linhas indicadoras laterais */}
         <div className="select-none text-right px-3 py-4 text-[13px] text-slate-600 bg-[#080808] border-r border-white/5 min-w-12 z-20">
           {lines.map((_, i) => (
-            <div key={i} className="leading-6">{i + 1}</div>
+            <div key={i} className="leading-6">
+              {i + 1}
+            </div>
           ))}
         </div>
 
@@ -174,14 +237,32 @@ export default function CodeEditor({
 
       {/* CSS embutido para tokens estéticos cyberpunk sem poluir arquivos externos */}
       <style jsx global>{`
-        .token-cyberpunk .token.keyword { color: #ff0055; font-weight: bold; }
-        .token-cyberpunk .token.string { color: #00ff88; }
-        .token-cyberpunk .token.function { color: #00f2ff; }
-        .token-cyberpunk .token.number { color: #facc15; }
-        .token-cyberpunk .token.comment { color: #475569; font-style: italic; }
-        .token-cyberpunk .token.operator { color: #c026d3; }
-        .token-cyberpunk .token.class-name { color: #a78bfa; }
-        .token-cyberpunk .token.boolean { color: #facc15; }
+        .token-cyberpunk .token.keyword {
+          color: #ff0055;
+          font-weight: bold;
+        }
+        .token-cyberpunk .token.string {
+          color: #00ff88;
+        }
+        .token-cyberpunk .token.function {
+          color: #00f2ff;
+        }
+        .token-cyberpunk .token.number {
+          color: #facc15;
+        }
+        .token-cyberpunk .token.comment {
+          color: #475569;
+          font-style: italic;
+        }
+        .token-cyberpunk .token.operator {
+          color: #c026d3;
+        }
+        .token-cyberpunk .token.class-name {
+          color: #a78bfa;
+        }
+        .token-cyberpunk .token.boolean {
+          color: #facc15;
+        }
       `}</style>
     </div>
   );

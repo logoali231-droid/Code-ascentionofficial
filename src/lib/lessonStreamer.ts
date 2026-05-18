@@ -1,4 +1,3 @@
-
 // src/lib/lessonStreamer.ts
 
 "use client";
@@ -7,11 +6,7 @@ import { generate } from "./webllm";
 
 import { safeParse } from "./safeParse";
 
-import {
-  buildPromptFragments,
-} from "./promptFragments";
-
-
+import { buildPromptFragments } from "./promptFragments";
 
 import { buildMemoryContext } from "./vectorMemory";
 
@@ -25,11 +20,7 @@ import {
   buildConstraintPrompt,
 } from "./conceptConstraints";
 
-import {
-  validateLesson,
-} from "./lessonValidator";
-
-
+import { validateLesson } from "./lessonValidator";
 
 export interface StreamedLesson {
   title: string;
@@ -45,17 +36,13 @@ export interface StreamedLesson {
    FALLBACK LESSON
 ========================================================= */
 
-function buildFallbackLesson(
-  concept: string
-) {
+function buildFallbackLesson(concept: string) {
   return {
     title: concept,
 
-    explanation:
-      "Review the core logic carefully.",
+    explanation: "Review the core logic carefully.",
 
-    content:
-      "Practice the concept progressively.",
+    content: "Practice the concept progressively.",
   };
 }
 
@@ -63,29 +50,19 @@ function buildFallbackLesson(
    FALLBACK EXERCISE
 ========================================================= */
 
-function buildFallbackExercise(
-  concept: string
-) {
+function buildFallbackExercise(concept: string) {
   return {
     id: crypto.randomUUID(),
 
     type: "mcq",
 
-    question:
-      `What best describes ${concept}?`,
+    question: `What best describes ${concept}?`,
 
-    options: [
-      "A programming concept",
-      "A browser",
-      "A database",
-      "A compiler",
-    ],
+    options: ["A programming concept", "A browser", "A database", "A compiler"],
 
-    answer:
-      "A programming concept",
+    answer: "A programming concept",
 
-    explanation:
-      "This concept belongs to programming fundamentals.",
+    explanation: "This concept belongs to programming fundamentals.",
   };
 }
 
@@ -93,38 +70,30 @@ function buildFallbackExercise(
    GENERATE EXPLANATION FIRST
 ========================================================= */
 
-export async function generateLessonCore({
-  course,
-  concept,
-  difficulty,
-}: any) {
-  const profile =
-    await getUserProfile();
+export async function generateLessonCore({ course, concept, difficulty }: any) {
+  const profile = await getUserProfile();
 
-  const promptFragments =
-    buildPromptFragments({
-      cognitive:
-        profile?.cognitive,
+  const promptFragments = buildPromptFragments({
+    cognitive: profile?.cognitive,
 
-      difficulty,
+    difficulty,
 
-      mastery: 50,
+    mastery: 50,
 
-      reinforcement: false,
-    });
+    reinforcement: false,
+  });
 
-  const memory =
-    await buildMemoryContext({
-      query: `
+  const memory = await buildMemoryContext({
+    query: `
 ${course.topic}
 ${concept}
 `,
-      tags: [course.topic],
+    tags: [course.topic],
 
-      concepts: [concept],
+    concepts: [concept],
 
-      limit: 3,
-    });
+    limit: 3,
+  });
 
   const prompt = `
 You are generating the CORE of a programming lesson.
@@ -139,14 +108,11 @@ LEVEL:
 ${course.level}
 
 LEARNING STYLE:
-${course?.stylePrompt ||
-"Explain clearly and progressively"}
+${course?.stylePrompt || "Explain clearly and progressively"}
 
 ${promptFragments}
 
-${buildConstraintPrompt(
-  concept
-)}
+${buildConstraintPrompt(concept)}
 
 RELEVANT MEMORY:
 ${memory || "None"}
@@ -173,67 +139,55 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno (que pode ser string, stream ou undefined)
-const rawRes = await runtimeQueue.enqueue(
-  async (_signal) => {
-    return generate(prompt);
-  },
-  1 // prioridade
-);
-// 2. Coletor Neural: Converte para string
-let raw = "";
-if (rawRes) {
-  if (typeof rawRes === 'string') {
-    raw = rawRes;
-  } else {
-    for await (const chunk of rawRes) {
-      const content = typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
-      raw += content;
+    const rawRes = await runtimeQueue.enqueue(
+      async (_signal) => {
+        return generate(prompt);
+      },
+      1, // prioridade
+    );
+    // 2. Coletor Neural: Converte para string
+    let raw = "";
+    if (rawRes) {
+      if (typeof rawRes === "string") {
+        raw = rawRes;
+      } else {
+        for await (const chunk of rawRes) {
+          const content =
+            typeof chunk === "string"
+              ? chunk
+              : (chunk as any).choices?.[0]?.delta?.content || "";
+          raw += content;
+        }
+      }
     }
-  }
-}
 
-// 3. Agora o safeParse recebe string
-const parsed = safeParse(raw);
+    // 3. Agora o safeParse recebe string
+    const parsed = safeParse(raw);
 
     if (!parsed) {
-      return buildFallbackLesson(
-        concept
-      );
+      return buildFallbackLesson(concept);
     }
 
-    if (
-      !validateLesson(parsed)
-    ) {
-      return buildFallbackLesson(
-        concept
-      );
+    if (!validateLesson(parsed)) {
+      return buildFallbackLesson(concept);
     }
 
     /* -----------------------------------------
        REGISTER CONCEPT STABILITY
     ----------------------------------------- */
 
-    const constraint =
-      buildDynamicConstraint(
-        course.topic,
-        concept,
-        parsed.explanation || ""
-      );
-
-    registerConstraint(
-      constraint
+    const constraint = buildDynamicConstraint(
+      course.topic,
+      concept,
+      parsed.explanation || "",
     );
+
+    registerConstraint(constraint);
 
     return parsed;
   } catch (error) {
-    console.warn(
-      "Exercise generation failed",
-      error);
-      throw new Error("AI generation failed");
-
-      
-
-    
+    console.warn("Exercise generation failed", error);
+    throw new Error("AI generation failed");
   }
 }
 
@@ -309,23 +263,24 @@ RETURN JSON:
 
   try {
     // 1. Pega o retorno bruto (pode ser Stream)
-   const rawRes = await runtimeQueue.enqueue(
-  async (_signal) => {
-    return generate(prompt);
-  },
-  1 // prioridade
-);
+    const rawRes = await runtimeQueue.enqueue(
+      async (_signal) => {
+        return generate(prompt);
+      },
+      1, // prioridade
+    );
 
     // 2. Coletor Neural: Converte Stream em String
     let raw = "";
     if (rawRes) {
-      if (typeof rawRes === 'string') {
+      if (typeof rawRes === "string") {
         raw = rawRes;
       } else {
         for await (const chunk of rawRes) {
-          const content = typeof chunk === 'string' 
-            ? chunk 
-            : (chunk as any).choices?.[0]?.delta?.content || "";
+          const content =
+            typeof chunk === "string"
+              ? chunk
+              : (chunk as any).choices?.[0]?.delta?.content || "";
           raw += content;
         }
       }
@@ -349,8 +304,6 @@ RETURN JSON:
   }
 } // <--- CHAVE DE FECHAMENTO DA FUNÇÃO
 
- 
-
 /* =========================================================
    FULL STREAMED LESSON
 ========================================================= */
@@ -370,22 +323,18 @@ export async function streamLesson({
 
   exerciseCount?: number;
 
-  onExercise?: (
-    exercise: any,
-    index: number
-  ) => void;
+  onExercise?: (exercise: any, index: number) => void;
 }) {
   /* -----------------------------------------
      STEP 1:
      Generate lesson core
   ----------------------------------------- */
 
-  const lesson =
-    await generateLessonCore({
-      course,
-      concept,
-      difficulty,
-    });
+  const lesson = await generateLessonCore({
+    course,
+    concept,
+    difficulty,
+  });
 
   const exercises: any[] = [];
 
@@ -394,23 +343,16 @@ export async function streamLesson({
      Generate exercises progressively
   ----------------------------------------- */
 
-  for (
-    let i = 0;
-    i < exerciseCount;
-    i++
-  ) {
-    const exercise =
-      await generateExercise({
-        lesson,
-        course,
-        concept,
-        index: i,
-        difficulty,
-      });
+  for (let i = 0; i < exerciseCount; i++) {
+    const exercise = await generateExercise({
+      lesson,
+      course,
+      concept,
+      index: i,
+      difficulty,
+    });
 
-    exercises.push(
-      exercise
-    );
+    exercises.push(exercise);
 
     /* -------------------------------------
        LIVE CALLBACK
@@ -418,10 +360,7 @@ export async function streamLesson({
     ------------------------------------- */
 
     if (onExercise) {
-      onExercise(
-        exercise,
-        i
-      );
+      onExercise(exercise, i);
     }
 
     /* -------------------------------------
@@ -444,11 +383,5 @@ export async function streamLesson({
 ========================================================= */
 
 function sleep(ms: number) {
-  return new Promise(
-    (resolve) =>
-      setTimeout(
-        resolve,
-        ms
-      )
-  );
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

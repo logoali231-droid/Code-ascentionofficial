@@ -24,20 +24,63 @@ export interface KnowledgeGraph {
 const fallbackGraphs: Record<string, ConceptNode[]> = {
   javascript: [
     { id: "variables", title: "Variables", prerequisites: [], difficulty: 1 },
-    { id: "functions", title: "Functions", prerequisites: ["variables"], difficulty: 2 },
-    { id: "loops", title: "Loops", prerequisites: ["variables"], difficulty: 2 },
-    { id: "arrays", title: "Arrays", prerequisites: ["variables"], difficulty: 2 },
-    { id: "objects", title: "Objects", prerequisites: ["arrays"], difficulty: 3 },
-    { id: "closures", title: "Closures", prerequisites: ["functions"], difficulty: 5 },
-    { id: "async-await", title: "Async/Await", prerequisites: ["functions"], difficulty: 5 },
-    { id: "react-hooks", title: "React Hooks", prerequisites: ["functions", "closures"], difficulty: 7 },
+    {
+      id: "functions",
+      title: "Functions",
+      prerequisites: ["variables"],
+      difficulty: 2,
+    },
+    {
+      id: "loops",
+      title: "Loops",
+      prerequisites: ["variables"],
+      difficulty: 2,
+    },
+    {
+      id: "arrays",
+      title: "Arrays",
+      prerequisites: ["variables"],
+      difficulty: 2,
+    },
+    {
+      id: "objects",
+      title: "Objects",
+      prerequisites: ["arrays"],
+      difficulty: 3,
+    },
+    {
+      id: "closures",
+      title: "Closures",
+      prerequisites: ["functions"],
+      difficulty: 5,
+    },
+    {
+      id: "async-await",
+      title: "Async/Await",
+      prerequisites: ["functions"],
+      difficulty: 5,
+    },
+    {
+      id: "react-hooks",
+      title: "React Hooks",
+      prerequisites: ["functions", "closures"],
+      difficulty: 7,
+    },
   ],
 };
 
-export async function createKnowledgeGraph(courseId: string, topic: string): Promise<KnowledgeGraph> {
+export async function createKnowledgeGraph(
+  courseId: string,
+  topic: string,
+): Promise<KnowledgeGraph> {
   const normalized = topic.toLowerCase().trim();
   const nodes = fallbackGraphs[normalized] || [
-    { id: "intro", title: `${topic} Fundamentals`, prerequisites: [], difficulty: 1 },
+    {
+      id: "intro",
+      title: `${topic} Fundamentals`,
+      prerequisites: [],
+      difficulty: 1,
+    },
   ];
 
   const graph: KnowledgeGraph = {
@@ -57,7 +100,9 @@ export async function createKnowledgeGraph(courseId: string, topic: string): Pro
   return graph;
 }
 
-export async function getKnowledgeGraph(courseId: string): Promise<KnowledgeGraph | null> {
+export async function getKnowledgeGraph(
+  courseId: string,
+): Promise<KnowledgeGraph | null> {
   return await get("memory", `graph_${courseId}`);
 }
 
@@ -66,7 +111,9 @@ export async function saveKnowledgeGraph(graph: KnowledgeGraph): Promise<void> {
   await save("memory", graph, `graph_${graph.courseId}`);
 }
 
-export async function refreshUnlocks(graph: KnowledgeGraph): Promise<KnowledgeGraph> {
+export async function refreshUnlocks(
+  graph: KnowledgeGraph,
+): Promise<KnowledgeGraph> {
   graph.nodes = graph.nodes.map((node) => {
     if (node.unlocked) return node;
     const allMet = node.prerequisites.every((req) => {
@@ -93,16 +140,19 @@ export function getReviewConcepts(graph: KnowledgeGraph): ConceptNode[] {
 }
 
 export function graphHasDeadEnds(graph: KnowledgeGraph): boolean {
-  return graph.nodes.some((node) => 
-    node.prerequisites.length > 0 && 
-    node.prerequisites.every((req) => !graph.nodes.some((n) => n.id === req))
+  return graph.nodes.some(
+    (node) =>
+      node.prerequisites.length > 0 &&
+      node.prerequisites.every((req) => !graph.nodes.some((n) => n.id === req)),
   );
 }
 
 export function getGraphStats(graph: KnowledgeGraph) {
   const completed = graph.nodes.filter((n) => n.completed).length;
   const unlocked = graph.nodes.filter((n) => n.unlocked).length;
-  const avgMastery = graph.nodes.reduce((acc, n) => acc + (n.mastery || 0), 0) / graph.nodes.length;
+  const avgMastery =
+    graph.nodes.reduce((acc, n) => acc + (n.mastery || 0), 0) /
+    graph.nodes.length;
 
   return {
     totalNodes: graph.nodes.length,

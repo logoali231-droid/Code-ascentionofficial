@@ -19,10 +19,7 @@ export function isSoundEnabled() {
   return enabled;
 }
 
-export function playSound(
-  name: keyof typeof soundMap,
-  volume = 0.5
-) {
+export function playSound(name: keyof typeof soundMap, volume = 0.5) {
   if (!enabled) return;
 
   try {

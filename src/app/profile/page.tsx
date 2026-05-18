@@ -1,11 +1,10 @@
 "use client";
 
-import { exportUserMind } from "@/lib/memoryExport"; 
-import { importUserMind } from "@/lib/memoryImport"; 
+import { exportUserMind } from "@/lib/memoryExport";
+import { importUserMind } from "@/lib/memoryImport";
 import { save, db, performStorageCleanup } from "@/lib/db";
 
 export default function ProfilePage() {
-
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
@@ -21,20 +20,23 @@ export default function ProfilePage() {
   }
 
   async function handleReset() {
-    if (!confirm("AVISO: ESTA AÇÃO IRÁ APAGAR SUA CONSCIÊNCIA ATUAL. CONTINUAR?")) return;
+    if (
+      !confirm("AVISO: ESTA AÇÃO IRÁ APAGAR SUA CONSCIÊNCIA ATUAL. CONTINUAR?")
+    )
+      return;
 
     try {
       // ⚠️ CRÍTICO: Limpeza de cache para evitar erros de cota (Samsung M23)
-      await performStorageCleanup(); 
-      
+      await performStorageCleanup();
+
       // Reset do usuário usando o helper 'save' para preservar a estrutura do banco
-      await save("main", { xp: 0, coins: 0, level: 1 }); 
-      
+      await save("main", { xp: 0, coins: 0, level: 1 });
+
       // Limpeza completa das tabelas de progresso e memória
       await Promise.all([
         db.courses.clear(),
         db.errors.clear(),
-        db.memory.clear()
+        db.memory.clear(),
       ]);
 
       window.location.reload();
@@ -50,8 +52,10 @@ export default function ProfilePage() {
       </h1>
 
       <div className="space-y-4">
-        <h2 className="text-sm uppercase opacity-70">Backup de Consciência (External Save)</h2>
-        
+        <h2 className="text-sm uppercase opacity-70">
+          Backup de Consciência (External Save)
+        </h2>
+
         {/* EXPORT */}
         <button
           onClick={() => exportUserMind()}
@@ -62,7 +66,9 @@ export default function ProfilePage() {
 
         {/* IMPORT */}
         <div className="relative border border-dashed border-slate-800 p-4 rounded bg-slate-900/30">
-          <label className="block text-[10px] text-slate-500 mb-2 uppercase">Restaurar Neural Link</label>
+          <label className="block text-[10px] text-slate-500 mb-2 uppercase">
+            Restaurar Neural Link
+          </label>
           <input
             type="file"
             accept=".json"

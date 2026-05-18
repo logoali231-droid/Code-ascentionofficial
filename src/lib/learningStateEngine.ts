@@ -2,8 +2,8 @@
 
 import { getUser, db, save, get } from "./db";
 import { getKnowledgeGraph, saveKnowledgeGraph, KnowledgeGraph, ConceptNode } from "./knowledgeGraph";
-import { getMemory, Memory } from "./usermemory";
-import { saveMemorySummary } from "./contextmemory";
+import { getMemory, Memory } from "./userMemory";
+import { saveMemorySummary } from "./contextMemory";
 import { getAdaptiveMetrics } from "./adaptive";
 
 /**
@@ -39,7 +39,7 @@ const ENGINE_STATE_PREFIX = "pedagogical_state_";
 export async function getOrCreatePedagogicalState(courseId: string, currentTopicId: string): Promise<PedagogicalState> {
   const stateKey = `${ENGINE_STATE_PREFIX}${courseId}`;
   const existing = await get("memory", stateKey);
-  
+
   if (existing) return existing;
 
   const graph = await getKnowledgeGraph(courseId);
@@ -65,14 +65,22 @@ export async function getOrCreatePedagogicalState(courseId: string, currentTopic
  * Modifica Grafo, Memória Histórica e Métricas Adaptativas em uma única transação atômica.
  */
 // No início da função processPedagogicalEvent:
+export interface PedagogicalPayload {
+  success: boolean;
+  attempts: number;
+  errorType?: "conceptual" | "syntax" | "accidental" | string;
+  executionTimeMs?: number;
+  userOutput?: string;
+}
+
 export async function processPedagogicalEvent(
   courseId: string,
   conceptId: string,
-  payload: { ... }
+  payload: PedagogicalPayload
 ): Promise<EngineExecutionResult> {
   const normalizedCourseId = courseId.toLowerCase().trim(); // Garante consistência de chaves
   const stateKey = `${ENGINE_STATE_PREFIX}${normalizedCourseId}`;
-  
+
   // 1. Carrega todas as dependências em paralelo de forma limpa
   const [graph, rawMemory, currentState] = await Promise.all([
     getKnowledgeGraph(courseId),
@@ -102,7 +110,7 @@ export async function processPedagogicalEvent(
     // Erros operacionais/acidentais penalizam menos que lacunas conceituais profundas
     if (errorType === "conceptual") masteryDelta = -0.08;
     else if (errorType === "syntax") masteryDelta = -0.03;
-    else masteryDelta = -0.01; 
+    else masteryDelta = -0.01;
   }
 
   node.mastery = Math.max(0, Math.min(1, previousMastery + masteryDelta));
@@ -117,14 +125,14 @@ export async function processPedagogicalEvent(
       ...n,
       unlocked: n.prerequisites.length === 0 || n.prerequisites.every(req => {
         const reqNode = graph.nodes.find(f => f.id === req);
-        return reqNode ? (reqNode.id === node.id ? node.mastery >= 0.7 : (reqNode.mastery || 0) >= 0.7) : false;
+        return reqNode ? (reqNode.id === node.id ? (node.mastery ?? 0) >= 0.7 : (reqNode.mastery ?? 0) >= 0.7) : false;
       })
     };
   });
 
   // 4. Mutação Limpa da Memória Histórica de Usuário (Evitando Pântano Neural)
   const timestamp = Date.now();
-  
+
   if (payload.success) {
     rawMemory.topics[conceptId] = (rawMemory.topics[conceptId] || 0) + 1;
     // Atenua a fraqueza de forma gradual se houver recuperação real
@@ -151,7 +159,7 @@ export async function processPedagogicalEvent(
     topic: conceptId,
     difficulty: node.difficulty,
     courseId: normalizedCourseId
-  });
+  }as any);
   if (rawMemory.history.length > 40) rawMemory.history.shift();
 
   // 5. Dedução e convergência do Estado Pedagógico Unificado
@@ -202,8 +210,7 @@ export async function processPedagogicalEvent(
     .map(n => n.id);
 
   // 6. Sincronização Dinâmica das Métricas Adaptativas Operacionais
-  const adaptiveData = await getAdaptiveMetrics(node.difficulty, conceptId);
-  
+const adaptiveData = (await getAdaptiveMetrics(node.difficulty, conceptId)) as any;
   // Amortece e reajusta a dificuldade gerada baseando-se estritamente no estado pedagógico centralizador
   let adjustedDifficulty = adaptiveData.difficulty;
   if (currentState.pacing === "slow") {
@@ -224,5 +231,5 @@ export async function processPedagogicalEvent(
     xpAwarded: Math.round(payload.success ? 20 * adaptiveData.xpMultiplier : 5),
     coinsAwarded: payload.success ? adaptiveData.coinsAwarded : 2,
     updatedNode: node
-  };
+  }
 }

@@ -3,12 +3,12 @@ let _config: any = {};
 try {
   // vitest is a dev dependency; be defensive if it's not installed in this environment
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { defineConfig } = require('vitest/config');
+  const { defineConfig } = require("vitest/config");
   _config = defineConfig({
     test: {
       globals: true,
-      environment: 'jsdom',
-      setupFiles: './vitest.setup.ts',
+      environment: "jsdom",
+      setupFiles: "./vitest.setup.ts",
     },
   });
 } catch (e) {

@@ -14,9 +14,14 @@ import { syncScoreToCloud } from "./leaderboardService"; // Importação do work
  * =========================================
  */
 
-export type RankTier = "Initiate" | "Operator" | "Architect" | "Ghost" | "Overmind";
+export type RankTier =
+  | "Initiate"
+  | "Operator"
+  | "Architect"
+  | "Ghost"
+  | "Overmind";
 
-export const RANKS: { name: RankTier; minLevel: number; color: string; }[] = [
+export const RANKS: { name: RankTier; minLevel: number; color: string }[] = [
   { name: "Initiate", minLevel: 1, color: "#94a3b8" },
   { name: "Operator", minLevel: 5, color: "#22c55e" },
   { name: "Architect", minLevel: 12, color: "#3b82f6" },
@@ -30,7 +35,11 @@ export const RANKS: { name: RankTier; minLevel: number; color: string; }[] = [
  * =========================================
  */
 
-function computeXPReward(base: number, level: number, factionBonus: number = 0) {
+function computeXPReward(
+  base: number,
+  level: number,
+  factionBonus: number = 0,
+) {
   const scaling = 1 / (1 + level * 0.015);
   const reward = Math.floor(base * scaling);
   const diminishingFactionBonus = factionBonus / (1 + factionBonus);
@@ -73,12 +82,15 @@ export function computeMastery(xp: number, streak: number) {
  */
 
 export async function addXP(amount: number) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user) return null;
 
-    const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
-    const xpBoost = bonuses.find(b => b.type === 'XP_BOOST')?.value || 0;
+    const bonuses = FactionManager.getActiveBonuses(
+      user.factionId || "",
+      user.xp || 0,
+    );
+    const xpBoost = bonuses.find((b) => b.type === "XP_BOOST")?.value || 0;
 
     const currentLevel = user.level || 1;
     const finalXP = computeXPReward(amount, currentLevel, xpBoost);
@@ -103,16 +115,17 @@ export async function addXP(amount: number) {
     };
 
     await db.user.update("main", updates);
-    
+
     // Dispara a sincronização em segundo plano sem bloquear a UI do usuário
     setTimeout(() => {
-      syncScoreToCloud().catch(err => console.warn("[CLOUD_SYNC_MUTED]", err));
+      syncScoreToCloud().catch((err) =>
+        console.warn("[CLOUD_SYNC_MUTED]", err),
+      );
     }, 800);
-    
+
     return { ...user, ...updates, rankUp, leveledUp, gainedXP: finalXP };
   });
 }
-
 
 /**
  * =========================================
@@ -121,15 +134,15 @@ export async function addXP(amount: number) {
  */
 
 export async function addCoins(amount: number) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user) return null;
 
     const finalCoins = computeCoinReward(amount, user.level || 1);
     const newTotal = (user.coins || 0) + finalCoins;
 
     await db.user.update("main", { coins: newTotal });
-    
+
     return { ...user, coins: newTotal };
   });
 }
@@ -147,12 +160,16 @@ export async function addCoins(amount: number) {
  */
 
 export async function buyItem(item: InventoryItem) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user) throw new Error("USER_NOT_FOUND");
 
-    const bonuses = FactionManager.getActiveBonuses(user.factionId || "", user.xp || 0);
-    const efficiency = bonuses.find(b => b.type === 'RESOURCE_EFFICIENCY')?.value || 0;
+    const bonuses = FactionManager.getActiveBonuses(
+      user.factionId || "",
+      user.xp || 0,
+    );
+    const efficiency =
+      bonuses.find((b) => b.type === "RESOURCE_EFFICIENCY")?.value || 0;
 
     const userCoins = user.coins || 0;
     const basePrice = item.price || 0;
@@ -162,8 +179,10 @@ export async function buyItem(item: InventoryItem) {
 
     // 2. Precificação Procedural combinando Nível do Usuário + Barreira de Capital
     const levelScaling = 1 + (user.level || 1) * 0.03;
-    const baseDynamicPrice = Math.floor(basePrice * levelScaling * capitalBarrierMultiplier);
-    
+    const baseDynamicPrice = Math.floor(
+      basePrice * levelScaling * capitalBarrierMultiplier,
+    );
+
     // 3. Aplica descontos de facção por último
     const finalPrice = Math.floor(baseDynamicPrice * (1 - efficiency));
 
@@ -173,20 +192,26 @@ export async function buyItem(item: InventoryItem) {
     }
 
     const inventory = [...(user.inventory || [])];
-    
+
     // Chips são itens únicos por causa da durabilidade individual, outros acumulam quantidade
     const isChip = item.type === "chip";
-    const existingIndex = isChip ? -1 : inventory.findIndex((i) => i.id === item.id);
+    const existingIndex = isChip
+      ? -1
+      : inventory.findIndex((i) => i.id === item.id);
 
     if (existingIndex > -1) {
-      inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + 1;
+      inventory[existingIndex].quantity =
+        (inventory[existingIndex].quantity || 1) + 1;
     } else {
       // Se for um chip, inicializa as propriedades de durabilidade
-      const newItem = { 
-        ...item, 
-        quantity: 1, 
+      const newItem = {
+        ...item,
+        quantity: 1,
         acquiredAt: Date.now(),
-        ...(isChip && { durability: item.maxDurability || 100, maxDurability: item.maxDurability || 100 })
+        ...(isChip && {
+          durability: item.maxDurability || 100,
+          maxDurability: item.maxDurability || 100,
+        }),
       };
       inventory.push(newItem);
     }
@@ -206,8 +231,8 @@ export async function buyItem(item: InventoryItem) {
  */
 
 export async function useItem(itemId: string) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user) return;
 
     const inventory = [...(user.inventory || [])];
@@ -230,20 +255,21 @@ export async function useItem(itemId: string) {
         inventory.splice(itemIndex, 1);
       }
     } else if (item.type === "chip") {
-      inventory.forEach((i) => { if (i.type === "chip") i.equipped = false; });
+      inventory.forEach((i) => {
+        if (i.type === "chip") i.equipped = false;
+      });
       inventory[itemIndex].equipped = !item.equipped;
     }
 
     await db.user.update("main", {
       inventory,
       xp: user.xp,
-      level: user.level
+      level: user.level,
     });
 
     playSound("click", 0.3);
   });
 }
-
 
 /**
  * =========================================
@@ -256,13 +282,17 @@ export async function useItem(itemId: string) {
  * Deve ser chamada após o usuário concluir lições, exercícios ou ações cruciais.
  */
 export async function degradeEquippedChips(amount: number = 5) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user || !user.inventory) return null;
 
     let affected = false;
     const updatedInventory = user.inventory.map((item) => {
-      if (item.type === "chip" && item.equipped && item.durability !== undefined) {
+      if (
+        item.type === "chip" &&
+        item.equipped &&
+        item.durability !== undefined
+      ) {
         affected = true;
         const newDurability = Math.max(0, item.durability - amount);
         return { ...item, durability: newDurability };
@@ -281,22 +311,28 @@ export async function degradeEquippedChips(amount: number = 5) {
  * Cobra moedas para restaurar totalmente a durabilidade de um chip específico
  */
 export async function repairChip(itemId: string) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get("main") as UserStats;
+  return await db.transaction("rw", db.user, async () => {
+    const user = (await db.user.get("main")) as UserStats;
     if (!user) throw new Error("USER_NOT_FOUND");
 
     const inventory = [...(user.inventory || [])];
-    const itemIndex = inventory.findIndex((i) => i.id === itemId && i.type === "chip");
-    
+    const itemIndex = inventory.findIndex(
+      (i) => i.id === itemId && i.type === "chip",
+    );
+
     if (itemIndex === -1) throw new Error("CHIP_NOT_FOUND");
     const chip = inventory[itemIndex];
 
-    if (chip.durability === chip.maxDurability) throw new Error("CHIP_ALREADY_MAX_DURABILITY");
+    if (chip.durability === chip.maxDurability)
+      throw new Error("CHIP_ALREADY_MAX_DURABILITY");
 
-    const missingDurability = (chip.maxDurability || 100) - (chip.durability || 0);
-    
+    const missingDurability =
+      (chip.maxDurability || 100) - (chip.durability || 0);
+
     // O custo de reparo escala proporcionalmente ao preço base do chip e ao desgaste
-    const repairCost = Math.floor((chip.price * 0.2) * (missingDurability / (chip.maxDurability || 100)));
+    const repairCost = Math.floor(
+      chip.price * 0.2 * (missingDurability / (chip.maxDurability || 100)),
+    );
 
     if (user.coins < repairCost) {
       playSound("error", 0.4);

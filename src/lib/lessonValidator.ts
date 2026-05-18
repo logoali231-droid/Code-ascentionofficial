@@ -1,16 +1,11 @@
 "use client";
 
-export function validateLesson(
-  lesson: any
-) {
+export function validateLesson(lesson: any) {
   if (!lesson) {
     return false;
   }
 
-  if (
-    !lesson.title ||
-    !lesson.explanation
-  ) {
+  if (!lesson.title || !lesson.explanation) {
     return false;
   }
 
@@ -21,9 +16,7 @@ ${lesson.content}
 `.toLowerCase();
 
   // prevents garbage generations
-  if (
-    text.length < 40
-  ) {
+  if (text.length < 40) {
     return false;
   }
 

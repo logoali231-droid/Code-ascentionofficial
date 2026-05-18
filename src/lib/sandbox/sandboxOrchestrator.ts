@@ -10,18 +10,26 @@ export class SandboxOrchestrator {
   constructor() {
     // Escuta eventos nativos de ciclo de vida da aba do navegador
     if (typeof window !== "undefined") {
-      window.addEventListener("visibilitychange", () => this.handleVisibilityChange());
-      window.addEventListener("pagehide", () => this.cleanUpMemoryAggressively());
+      window.addEventListener("visibilitychange", () =>
+        this.handleVisibilityChange(),
+      );
+      window.addEventListener("pagehide", () =>
+        this.cleanUpMemoryAggressively(),
+      );
     }
   }
 
   // Se o usuário mudou de aba no Safari, nós liberamos a memória IMEDIATAMENTE
   private handleVisibilityChange() {
     if (document.visibilityState === "hidden") {
-      console.log("[Safari Guard] Aba oculta detectada. Salvando estado e purgando runtimes...");
+      console.log(
+        "[Safari Guard] Aba oculta detectada. Salvando estado e purgando runtimes...",
+      );
       this.cleanUpMemoryAggressively();
     } else {
-      console.log("[Safari Guard] Aba reativada. Pronto para reidratar os motores sob demanda.");
+      console.log(
+        "[Safari Guard] Aba reativada. Pronto para reidratar os motores sob demanda.",
+      );
       // Não recarrega nada automático aqui. Espera o usuário dar "Play" para poupar bateria e RAM
     }
   }
@@ -31,7 +39,7 @@ export class SandboxOrchestrator {
    */
   public async bootLanguageRuntime(language: string): Promise<Worker> {
     this.cleanUpMemoryAggressively(); // Garante que a linguagem anterior foi expurgada da RAM
-    
+
     this.currentLanguage = language;
     let workerURL = "";
 
@@ -51,7 +59,9 @@ export class SandboxOrchestrator {
         workerURL = "./simulatedEngineWorker.ts"; // Categoria D
     }
 
-    this.activeWorker = new Worker(new URL(workerURL, import.meta.url), { type: "module" });
+    this.activeWorker = new Worker(new URL(workerURL, import.meta.url), {
+      type: "module",
+    });
     return this.activeWorker;
   }
 
@@ -60,11 +70,13 @@ export class SandboxOrchestrator {
    */
   public cleanUpMemoryAggressively() {
     if (this.activeWorker) {
-      console.log(`[Memory Purge] Destruindo Worker da linguagem: ${this.currentLanguage}`);
+      console.log(
+        `[Memory Purge] Destruindo Worker da linguagem: ${this.currentLanguage}`,
+      );
       this.activeWorker.terminate();
       this.activeWorker = null;
     }
-    
+
     // Força o Garbage Collector do JavaScript a coletar referências soltas
     this.currentLanguage = "";
   }

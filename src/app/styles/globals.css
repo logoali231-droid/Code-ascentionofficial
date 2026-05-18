@@ -2,8 +2,8 @@
 
 /* Suas outras regras de @apply e variáveis cyberpunk podem continuar abaixo */
 
-
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
 }
@@ -79,6 +79,7 @@ body[data-profile="Standard"] {
   font-size: 16px;
 }
 
-input, textarea {
+input,
+textarea {
   @apply bg-slate-700 text-white placeholder-gray-400;
 }

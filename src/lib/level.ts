@@ -32,19 +32,19 @@ export function totalXpForLevel(level: number): number {
  */
 export interface XpProgress {
   level: number;
-  currentLevelXp: number;   // XP ganho desde o início do nível atual
-  xpForNextLevel: number;    // XP total necessária para o próximo nível (relativo)
-  progress: number;          // 0..1 para a barra
+  currentLevelXp: number; // XP ganho desde o início do nível atual
+  xpForNextLevel: number; // XP total necessária para o próximo nível (relativo)
+  progress: number; // 0..1 para a barra
 }
 
 export function getXpProgress(totalXp: number = 0): XpProgress {
   const level = calculateLevel(totalXp);
   const xpAtStartOfCurrent = totalXpForLevel(level);
   const xpAtStartOfNext = totalXpForLevel(level + 1);
-  
+
   const xpRequiredForThisLevelRange = xpAtStartOfNext - xpAtStartOfCurrent;
   const currentLevelXp = totalXp - xpAtStartOfCurrent;
-  
+
   const progress = Math.min(currentLevelXp / xpRequiredForThisLevelRange, 1);
 
   return {
@@ -64,18 +64,18 @@ export function computeLessonXp(
   playerLevel: number,
   difficulty: number, // 0.1 a 1.0
   streakDays: number = 0,
-  completion: number = 1.0
+  completion: number = 1.0,
 ): number {
   // Base de XP que escala levemente com o nível para não tornar o jogo impossível
   // mas a curva de custo cresce mais rápido que essa base.
-  const baseReward = 100 + (playerLevel * 5);
-  
+  const baseReward = 100 + playerLevel * 5;
+
   // Bônus de Dificuldade: Exercícios difíceis dão até 100% a mais de XP
-  const difficultyBonus = 1 + difficulty; 
-  
+  const difficultyBonus = 1 + difficulty;
+
   // Bônus de Streak: +5% por dia (capado em 50%)
   const streakBonus = 1 + Math.min(streakDays * 0.05, 0.5);
-  
+
   // Penalidade de conclusão parcial
   const totalReward = baseReward * difficultyBonus * streakBonus * completion;
 

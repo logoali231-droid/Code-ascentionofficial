@@ -10,8 +10,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install
         run: npm install
@@ -26,15 +26,14 @@ jobs:
         run: npx next lint
 
       - name: Production Build
-        # O teste final. Se o WebLLM ou os modelos criarem conflitos no pacote final, 
+        # O teste final. Se o WebLLM ou os modelos criarem conflitos no pacote final,
         # o build vai falhar e o robô te avisa com o "X" vermelho.
         run: npm run build
         # ... (início igual)
       - name: TypeScript Deep Check
         # Adicione o --pretty para ler melhor o erro no log do GitHub
-        run: npx tsc --noEmit --pretty 
+        run: npx tsc --noEmit --pretty
 
       - name: Production Build
         # Forçamos o build exato que a Vercel faz
         run: npm run build
-

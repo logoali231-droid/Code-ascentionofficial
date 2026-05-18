@@ -37,7 +37,7 @@ function normalizeTopic(topic: string) {
  * Obtém estado curricular completo do curso
  */
 export async function getCurriculumState(
-  courseId: string
+  courseId: string,
 ): Promise<CurriculumState> {
   const existing = await get(STORE, courseId);
 
@@ -60,7 +60,7 @@ export async function getCurriculumState(
 export async function ensureTopic(
   courseId: string,
   topic: string,
-  prerequisites: string[] = []
+  prerequisites: string[] = [],
 ) {
   const state = await getCurriculumState(courseId);
 
@@ -95,10 +95,7 @@ export async function ensureTopic(
 /**
  * Marca tópico como visto
  */
-export async function markTopicSeen(
-  courseId: string,
-  topic: string
-) {
+export async function markTopicSeen(courseId: string, topic: string) {
   const state = await getCurriculumState(courseId);
 
   const key = normalizeTopic(topic);
@@ -121,7 +118,7 @@ export async function markTopicSeen(
 export async function updateMastery(
   courseId: string,
   topic: string,
-  delta: number
+  delta: number,
 ) {
   const state = await getCurriculumState(courseId);
 
@@ -141,10 +138,7 @@ export async function updateMastery(
   node.lastSeen = Date.now();
 
   // difficulty escalona junto
-  node.difficulty = Math.max(
-    1,
-    Math.floor(node.mastery / 20)
-  );
+  node.difficulty = Math.max(1, Math.floor(node.mastery / 20));
 
   state.updatedAt = Date.now();
 
@@ -159,7 +153,7 @@ export async function updateMastery(
 export async function updateConfidence(
   courseId: string,
   topic: string,
-  delta: number
+  delta: number,
 ) {
   const state = await getCurriculumState(courseId);
 
@@ -188,10 +182,7 @@ export async function updateConfidence(
 /**
  * Marca reforço
  */
-export async function reinforceTopic(
-  courseId: string,
-  topic: string
-) {
+export async function reinforceTopic(courseId: string, topic: string) {
   const state = await getCurriculumState(courseId);
 
   const key = normalizeTopic(topic);
@@ -212,44 +203,25 @@ export async function reinforceTopic(
 /**
  * Obtém tópicos fracos
  */
-export async function getWeakTopics(
-  courseId: string
-) {
+export async function getWeakTopics(courseId: string) {
   const state = await getCurriculumState(courseId);
 
   return Object.values(state.map)
-    .filter(
-      (t) =>
-        t.mastery < 50 ||
-        t.confidence < 40
-    )
-    .sort(
-      (a, b) =>
-        a.mastery +
-        a.confidence -
-        (b.mastery + b.confidence)
-    );
+    .filter((t) => t.mastery < 50 || t.confidence < 40)
+    .sort((a, b) => a.mastery + a.confidence - (b.mastery + b.confidence));
 }
 
 /**
  * Obtém próximos tópicos ideais
  */
-export async function getSuggestedTopics(
-  courseId: string
-) {
+export async function getSuggestedTopics(courseId: string) {
   const state = await getCurriculumState(courseId);
 
   return Object.values(state.map)
     .sort((a, b) => {
-      const scoreA =
-        a.mastery +
-        a.confidence -
-        a.reinforced * 5;
+      const scoreA = a.mastery + a.confidence - a.reinforced * 5;
 
-      const scoreB =
-        b.mastery +
-        b.confidence -
-        b.reinforced * 5;
+      const scoreB = b.mastery + b.confidence - b.reinforced * 5;
 
       return scoreA - scoreB;
     })
@@ -259,9 +231,7 @@ export async function getSuggestedTopics(
 /**
  * Compressão simples da memória curricular
  */
-export async function summarizeCurriculum(
-  courseId: string
-) {
+export async function summarizeCurriculum(courseId: string) {
   const state = await getCurriculumState(courseId);
 
   const summary = Object.values(state.map)

@@ -12,16 +12,13 @@ export interface LanguageDefinition {
   syntaxMode: string;
 }
 
-export const LANGUAGE_REGISTRY: Record<
-  string,
-  LanguageDefinition
-> = {
+export const LANGUAGE_REGISTRY: Record<string, LanguageDefinition> = {
   javascript: {
     id: "javascript",
     label: "JavaScript",
     extension: ".js",
     executable: true,
-    syntaxMode: "javascript"
+    syntaxMode: "javascript",
   },
 
   typescript: {
@@ -29,7 +26,7 @@ export const LANGUAGE_REGISTRY: Record<
     label: "TypeScript",
     extension: ".ts",
     executable: true,
-    syntaxMode: "typescript"
+    syntaxMode: "typescript",
   },
 
   python: {
@@ -37,7 +34,7 @@ export const LANGUAGE_REGISTRY: Record<
     label: "Python",
     extension: ".py",
     executable: true,
-    syntaxMode: "python"
+    syntaxMode: "python",
   },
 
   brainfuck: {
@@ -45,7 +42,7 @@ export const LANGUAGE_REGISTRY: Record<
     label: "Brainfuck",
     extension: ".bf",
     executable: false,
-    syntaxMode: "plaintext"
+    syntaxMode: "plaintext",
   },
 
   zig: {
@@ -53,8 +50,8 @@ export const LANGUAGE_REGISTRY: Record<
     label: "Zig",
     extension: ".zig",
     executable: false,
-    syntaxMode: "rust"
-  }
+    syntaxMode: "rust",
+  },
 };
 
 export function resolveLanguage(lang?: string) {
@@ -64,7 +61,7 @@ export function resolveLanguage(lang?: string) {
       label: "Plain Text",
       extension: ".txt",
       executable: false,
-      syntaxMode: "plaintext"
+      syntaxMode: "plaintext",
     };
   }
 
@@ -74,7 +71,7 @@ export function resolveLanguage(lang?: string) {
       label: lang,
       extension: ".txt",
       executable: false,
-      syntaxMode: "plaintext"
+      syntaxMode: "plaintext",
     }
   );
 }

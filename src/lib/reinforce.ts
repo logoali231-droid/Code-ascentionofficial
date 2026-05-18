@@ -10,43 +10,29 @@ import { get } from "./db";
 
 import { safeParse } from "./safeParse";
 
-import {
-  buildPromptFragments,
-  compressContext,
-} from "./promptFragments";
+import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
 
 /* =========================================
    GENERATE REINFORCEMENT
 ========================================= */
 
-export async function generateReinforcement(
-  error: any,
-  course: any
-) {
-  const baseDifficulty =
-    error?.difficulty || 1;
+export async function generateReinforcement(error: any, course: any) {
+  const baseDifficulty = error?.difficulty || 1;
 
-  const user =
-    await get("user", "main");
+  const user = await get("user", "main");
 
-  const memory =
-    await getMemory();
+  const memory = await getMemory();
 
-  const topic =
-    course?.topic ||
-    "programming";
+  const topic = course?.topic || "programming";
 
-  const level =
-    course?.level ||
-    "beginner";
+  const level = course?.level || "beginner";
 
   /* =========================================
      ADAPTIVE METRICS
   ========================================= */
 
-  const metrics =
-    await getAdaptiveMetrics();
+  const metrics = await getAdaptiveMetrics();
 
   /*
     FINAL DIFFICULTY:
@@ -56,25 +42,15 @@ export async function generateReinforcement(
     - struggling state
   */
 
-  let difficulty =
-    Math.round(
-      (
-        metrics.difficulty +
-        baseDifficulty
-      ) / 2
-    );
+  let difficulty = Math.round((metrics.difficulty + baseDifficulty) / 2);
 
-  const recentErrors =
-    memory.lastErrors?.slice(-5) || [];
+  const recentErrors = memory.lastErrors?.slice(-5) || [];
 
-  const sameTopicErrors =
-    memory.lastErrors.filter(
-      (e: any) =>
-        e.topic === topic
-    ).length;
+  const sameTopicErrors = memory.lastErrors.filter(
+    (e: any) => e.topic === topic,
+  ).length;
 
-  const struggling =
-    sameTopicErrors >= 3;
+  const struggling = sameTopicErrors >= 3;
 
   /*
     se struggling:
@@ -82,54 +58,35 @@ export async function generateReinforcement(
   */
 
   if (struggling) {
-    difficulty = Math.max(
-      1,
-      difficulty - 1
-    );
+    difficulty = Math.max(1, difficulty - 1);
   }
 
   /*
     clamp
   */
 
-  difficulty = Math.min(
-    5,
-    Math.max(1, difficulty)
-  );
+  difficulty = Math.min(5, Math.max(1, difficulty));
 
   /* =========================================
      PROMPT FRAGMENTS
   ========================================= */
 
-  const cognitiveFragments =
-    buildPromptFragments({
-      cognitive:
-        user?.cognitive ||
-        "Standard",
+  const cognitiveFragments = buildPromptFragments({
+    cognitive: user?.cognitive || "Standard",
 
-      difficulty,
+    difficulty,
 
-      mastery:
-        struggling ? 30 : 65,
+    mastery: struggling ? 30 : 65,
 
-      reinforcement: true,
-    });
+    reinforcement: true,
+  });
 
-  const compressedErrors =
-    compressContext(
-      JSON.stringify(
-        recentErrors
-      ),
-      1200
-    );
+  const compressedErrors = compressContext(JSON.stringify(recentErrors), 1200);
 
-  const compressedWeaknesses =
-    compressContext(
-      JSON.stringify(
-        memory.weaknesses || {}
-      ),
-      1000
-    );
+  const compressedWeaknesses = compressContext(
+    JSON.stringify(memory.weaknesses || {}),
+    1000,
+  );
 
   /* =========================================
      PROMPT
@@ -300,20 +257,19 @@ OUTPUT FORMAT
   const rawRes = await runtimeQueue.enqueue(async () => {
     return generate(prompt);
   });
-  
-  
 
   // 2. Coletor Neural: Converte Stream/Undefined para String
   let res = "";
   if (rawRes) {
-    if (typeof rawRes === 'string') {
+    if (typeof rawRes === "string") {
       res = rawRes;
     } else {
       // Consome o stream do WebLLM para o Samsung M23 não travar
       for await (const chunk of rawRes) {
-        const content = typeof chunk === 'string' 
-          ? chunk 
-          : (chunk as any).choices?.[0]?.delta?.content || "";
+        const content =
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any).choices?.[0]?.delta?.content || "";
         res += content;
       }
     }
@@ -341,15 +297,12 @@ OUTPUT FORMAT
   return {
     type: "short",
 
-    question:
-      `Let's retry carefully:\n${error.question}`,
+    question: `Let's retry carefully:\n${error.question}`,
 
-    answer:
-      error.correct || "",
+    answer: error.correct || "",
 
-    explanation:
-      struggling
-        ? "Focus on the core concept only."
-        : "Retry focusing on the correct reasoning.",
+    explanation: struggling
+      ? "Focus on the core concept only."
+      : "Retry focusing on the correct reasoning.",
   };
 }

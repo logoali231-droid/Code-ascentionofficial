@@ -1,16 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import {
-  setSoundEnabled,
-  isSoundEnabled,
-  playSound,
-} from "@/lib/sounds";
+import { setSoundEnabled, isSoundEnabled, playSound } from "@/lib/sounds";
 
 export default function SoundButton() {
-  const [enabled, setEnabled] = useState(
-    isSoundEnabled()
-  );
+  const [enabled, setEnabled] = useState(isSoundEnabled());
 
   function toggle() {
     const next = !enabled;

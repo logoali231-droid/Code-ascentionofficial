@@ -7,7 +7,14 @@ import { playSound } from "@/lib/sounds";
 
 import { precompileNeuralModules } from "@/lib/neuralBundler";
 import {
-  ShieldAlert, Cpu, Lock, Unlock, ChevronRight, Zap, AlertCircle, Database
+  ShieldAlert,
+  Cpu,
+  Lock,
+  Unlock,
+  ChevronRight,
+  Zap,
+  AlertCircle,
+  Database,
 } from "lucide-react";
 
 import { detectSystemCapabilities } from "@/lib/modelManager";
@@ -20,7 +27,10 @@ export default function MachineLockPage() {
   const [selectedModel, setSelectedModel] = useState("");
   const [hardwareInfo, setHardwareInfo] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [progress, setProgress] = useState({ progress: 0, text: "INITIALIZING..." });
+  const [progress, setProgress] = useState({
+    progress: 0,
+    text: "INITIALIZING...",
+  });
   const [user, setUser] = useState<any>(null);
 
   // CORREÇÃO: Acessando .model_id em vez de .id para alinhar com a interface ModelRecord
@@ -37,7 +47,9 @@ export default function MachineLockPage() {
         console.error("Falha ao detectar hardware:", err);
         // Fallback usando a lista centralizada real do SYSTEM_CONFIG
         if (SYSTEM_CONFIG.AVAILABLE_MODELS.length > 0) {
-          setSelectedModel((SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model).model_id);
+          setSelectedModel(
+            (SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model).model_id,
+          );
         }
       }
     }
@@ -61,7 +73,11 @@ export default function MachineLockPage() {
       });
 
       if (user) {
-        await save("user", { ...user, model: selectedModel, engineReady: true }, "main");
+        await save(
+          "user",
+          { ...user, model: selectedModel, engineReady: true },
+          "main",
+        );
       }
       playSound("success", 0.5);
       setTimeout(() => router.push("/hub"), 1000);
@@ -77,13 +93,20 @@ export default function MachineLockPage() {
     <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col items-center justify-center p-6 font-mono relative overflow-hidden">
       <div className="w-full max-w-md relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className={`p-6 rounded-full border-2 mb-4 transition-all ${isInitializing ? "border-cyan-500 animate-pulse" : "border-slate-800"}`}>
-            {isInitializing ? <Unlock className="text-cyan-400" size={48} /> : <Lock className="text-slate-600" size={48} />}
+          <div
+            className={`p-6 rounded-full border-2 mb-4 transition-all ${isInitializing ? "border-cyan-500 animate-pulse" : "border-slate-800"}`}
+          >
+            {isInitializing ? (
+              <Unlock className="text-cyan-400" size={48} />
+            ) : (
+              <Lock className="text-slate-600" size={48} />
+            )}
           </div>
           <h1 className="text-2xl font-black uppercase italic">Machine_Auth</h1>
           {hardwareInfo && (
             <p className="text-[10px] text-slate-500 mt-2">
-              GPU_LIMIT: {hardwareInfo.gpuLimit}MB | TIER: {hardwareInfo.modelTier}
+              GPU_LIMIT: {hardwareInfo.gpuLimit}MB | TIER:{" "}
+              {hardwareInfo.modelTier}
             </p>
           )}
         </div>
@@ -93,7 +116,9 @@ export default function MachineLockPage() {
             <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4 text-cyan-400">
                 <Database size={16} />
-                <span className="text-xs font-bold uppercase tracking-widest">Neural_Core</span>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Neural_Core
+                </span>
               </div>
               <div className="space-y-2">
                 {SYSTEM_CONFIG.AVAILABLE_MODELS.map((m: Model) => (
@@ -104,9 +129,13 @@ export default function MachineLockPage() {
                   >
                     <div className="text-left">
                       <p className="text-sm font-bold">{m.name}</p>
-                      <p className="text-[10px] text-slate-500">{m.sizeMb} MB</p>
+                      <p className="text-[10px] text-slate-500">
+                        {m.sizeMb} MB
+                      </p>
                     </div>
-                    {selectedModel === m.model_id && <Zap size={14} className="text-cyan-400" />}
+                    {selectedModel === m.model_id && (
+                      <Zap size={14} className="text-cyan-400" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -127,7 +156,10 @@ export default function MachineLockPage() {
                 <span>{progress.progress}%</span>
               </div>
               <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+                <div
+                  className="h-full bg-cyan-500 transition-all duration-300"
+                  style={{ width: `${progress.progress}%` }}
+                />
               </div>
             </div>
           </div>

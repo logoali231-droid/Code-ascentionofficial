@@ -9,22 +9,23 @@ export async function streamExplanation(params: any) {
   const rawRes = await generateExplanationAI(params);
 
   let fullText = "";
-  
+
   if (rawRes) {
-    if (typeof rawRes === 'string') {
+    if (typeof rawRes === "string") {
       fullText = rawRes;
     } else {
       for await (const chunk of rawRes) {
-        const content = typeof chunk === 'string' 
-          ? chunk 
-          : (chunk as any).choices?.[0]?.delta?.content || "";
+        const content =
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any).choices?.[0]?.delta?.content || "";
         fullText += content;
       }
     }
   }
 
   const parsed = safeParse(fullText);
-  
+
   // Se for JSON válido e passar no validador, retorna objeto, senão retorna o texto puro limpo
   if (parsed && validateExplanation(parsed)) {
     return parsed;
@@ -38,11 +39,14 @@ export async function streamErrorExplanation(params: any) {
   let fullText = "";
 
   if (rawRes) {
-    if (typeof rawRes === 'string') {
+    if (typeof rawRes === "string") {
       fullText = rawRes;
     } else {
       for await (const chunk of rawRes) {
-        fullText += typeof chunk === 'string' ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
+        fullText +=
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any).choices?.[0]?.delta?.content || "";
       }
     }
   }

@@ -17,14 +17,17 @@ function escapeCode(code, escapeBacktick = false) {
 
 function buildRuntime(language, code) {
   const meta = LANGUAGE_METADATA[language.toLowerCase()];
-  
+
   if (!meta) {
     throw new Error(`Unsupported language engine: ${language}`);
   }
 
   // Cria o ID único para a Sandbox desta execução específica
   const id = uuidv4();
-  const tempDir = path.resolve(__dirname, `../temp-${language.toLowerCase()}-${id}`);
+  const tempDir = path.resolve(
+    __dirname,
+    `../temp-${language.toLowerCase()}-${id}`,
+  );
 
   // Garante que a pasta temporária isolada exista no disco do container
   fs.mkdirSync(tempDir, { recursive: true });

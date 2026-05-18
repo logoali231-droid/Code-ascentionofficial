@@ -26,8 +26,8 @@ function yesterday(): string {
  * @returns {Promise<object>} O objeto de progresso diário atualizado.
  */
 export async function updateDailyProgress(amount: number) {
-  return await db.transaction('rw', db.user, async () => {
-    const user = await db.user.get('main') || { id: 'main', xp: 0 };
+  return await db.transaction("rw", db.user, async () => {
+    const user = ((await db.user.get("main")) || { id: "main", xp: 0 }) as any;
     const currentDate = today();
     const yesterdayDate = yesterday();
 
@@ -55,7 +55,10 @@ export async function updateDailyProgress(amount: number) {
     }
 
     // Verifica quebra de streak: Se o último dia completado não foi ontem e nem hoje, a ofensiva zerou
-    if (streak.lastCompletedDate !== yesterdayDate && streak.lastCompletedDate !== currentDate) {
+    if (
+      streak.lastCompletedDate !== yesterdayDate &&
+      streak.lastCompletedDate !== currentDate
+    ) {
       streak.count = 0;
     }
 
@@ -65,7 +68,7 @@ export async function updateDailyProgress(amount: number) {
 
     if (daily.progress >= daily.goal) {
       daily.completed = true;
-      
+
       // Se acabou de completar a meta hoje pela primeira vez, incrementa a ofensiva
       if (!previouslyCompleted && streak.lastCompletedDate !== currentDate) {
         streak.count += 1;
@@ -78,12 +81,14 @@ export async function updateDailyProgress(amount: number) {
       ...user,
       daily,
       streak,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     await db.user.put(updatedUser);
 
-    console.log(`[Daily Core] Progresso: ${daily.progress}/${daily.goal} | Streak Ativo: ${streak.count} dias.`);
+    console.log(
+      `[Daily Core] Progresso: ${daily.progress}/${daily.goal} | Streak Ativo: ${streak.count} dias.`,
+    );
     return daily;
   });
 }

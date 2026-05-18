@@ -14,7 +14,9 @@ module.exports = async function runVBNet(code) {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     // Isolamento na criação do boilerplate
-    await execPromise(`docker run --rm -v "${tempDir}:/src" mcr.microsoft.com/dotnet/sdk:8.0 bash -c "cd /src && dotnet new console -lang VB -o VBApp"`);
+    await execPromise(
+      `docker run --rm -v "${tempDir}:/src" mcr.microsoft.com/dotnet/sdk:8.0 bash -c "cd /src && dotnet new console -lang VB -o VBApp"`,
+    );
 
     const filePath = path.join(tempDir, "VBApp", "Program.vb");
     fs.writeFileSync(filePath, code);
@@ -29,7 +31,9 @@ module.exports = async function runVBNet(code) {
 mcr.microsoft.com/dotnet/sdk:8.0 \
 dotnet run`;
 
-    const { stdout } = await execPromise(command, { timeout: CONFIG.LIMITS.timeout });
+    const { stdout } = await execPromise(command, {
+      timeout: CONFIG.LIMITS.timeout,
+    });
     return stdout;
   } catch (error) {
     throw new Error(error.stderr || error.message);

@@ -26,7 +26,9 @@ class RuntimeQueue {
     if (typeof window !== "undefined") {
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
-          console.log("[RuntimeQueue] Contexto oculto. Abortando todas as tarefas ativas...");
+          console.log(
+            "[RuntimeQueue] Contexto oculto. Abortando todas as tarefas ativas...",
+          );
           this.abortAll();
         }
       });
@@ -39,7 +41,7 @@ class RuntimeQueue {
   public enqueue<T>(
     execute: (signal: AbortSignal) => Promise<T>,
     priority = 0,
-    customId?: string
+    customId?: string,
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const controller = new AbortController();
@@ -84,7 +86,8 @@ class RuntimeQueue {
       task.resolve(result);
     } catch (error) {
       task.reject(error);
-    } {
+    }
+    {
       this.activeCount--;
       this.processNext();
     }
@@ -94,7 +97,7 @@ class RuntimeQueue {
    * Aborta uma tarefa específica pelo ID
    */
   public abortTask(id: string) {
-    const activeTask = this.queue.find(t => t.id === id);
+    const activeTask = this.queue.find((t) => t.id === id);
     if (activeTask) {
       activeTask.controller.abort();
     }
@@ -105,9 +108,11 @@ class RuntimeQueue {
    */
   public abortAll() {
     // Aborda e esvazia a fila de espera
-    this.queue.forEach(task => {
+    this.queue.forEach((task) => {
       task.controller.abort();
-      task.reject(new DOMException("Context switched or context closed.", "AbortError"));
+      task.reject(
+        new DOMException("Context switched or context closed.", "AbortError"),
+      );
     });
     this.queue = [];
     this.activeCount = 0;

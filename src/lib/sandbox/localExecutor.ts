@@ -5,19 +5,23 @@ import { SYSTEM_CONFIG } from "@/config/system";
 export async function runLocal(
   code: string,
   lang: string,
-  signal?: AbortSignal // <-- Injeção do AbortSignal vindo da Runtime Queue
+  signal?: AbortSignal, // <-- Injeção do AbortSignal vindo da Runtime Queue
 ): Promise<{ output: string[]; error?: string }> {
-
   // Se a fila já cancelou antes de começar
   if (signal?.aborted) {
     return { output: [], error: "Execution aborted by system runtime." };
   }
 
-  const targetLang = lang.toLowerCase() as keyof typeof SYSTEM_CONFIG.LIMITS.LANGUAGES;
-  const memoryLimit = SYSTEM_CONFIG.LIMITS.LANGUAGES[targetLang] || SYSTEM_CONFIG.LIMITS.memory_light;
+  const targetLang =
+    lang.toLowerCase() as keyof typeof SYSTEM_CONFIG.LIMITS.LANGUAGES;
+  const memoryLimit =
+    SYSTEM_CONFIG.LIMITS.LANGUAGES[targetLang] ||
+    SYSTEM_CONFIG.LIMITS.memory_light;
   const timeoutLimit = SYSTEM_CONFIG.LIMITS.timeout || 4000;
 
-  console.log(`[Runtime Sandbox] Inicializando Worker Isolado: Lang: ${lang} | AllocMem: ${memoryLimit} | Timeout: ${timeoutLimit}ms`);
+  console.log(
+    `[Runtime Sandbox] Inicializando Worker Isolado: Lang: ${lang} | AllocMem: ${memoryLimit} | Timeout: ${timeoutLimit}ms`,
+  );
 
   return new Promise((resolve) => {
     // Criamos um Blob contendo o código de execução isolado em uma Thread separada (Web Worker)
@@ -49,11 +53,12 @@ export async function runLocal(
       // ==== ADICIONE ESTA LINHA AQUI ====
       worker.postMessage({ type: "ABORT" }); // Avisa o Worker interno para aplicar os checkpoints de parada
       // ==================================
-      
+
       cleanup(); // O cleanup vai chamar o worker.terminate() logo em seguida
       resolve({
         output: [],
-        error: "Execution intercepted and terminated actively (Context switched)."
+        error:
+          "Execution intercepted and terminated actively (Context switched).",
       });
     };
 
@@ -88,7 +93,10 @@ export async function runLocal(
 
     // Proteção de Timeout Baseado na Configuração do Sistema
     const timeoutId = setTimeout(() => {
-      resolve({ output: [], error: `Execution timeout exceeded (${timeoutLimit}ms).` });
+      resolve({
+        output: [],
+        error: `Execution timeout exceeded (${timeoutLimit}ms).`,
+      });
       cleanup();
     }, timeoutLimit);
 

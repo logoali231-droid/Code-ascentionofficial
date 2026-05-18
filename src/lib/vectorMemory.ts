@@ -21,9 +21,36 @@ const MAX_TEXT_SIZE = 1400;
 const MEMORY_STORE = "memory";
 
 const STOPWORDS = new Set([
-  "the", "and", "for", "with", "that", "this", "from", "into", "about", "have", 
-  "your", "will", "they", "them", "then", "what", "when", "where", "while", 
-  "which", "there", "their", "were", "been", "being", "using", "used", "each", "some", "very"
+  "the",
+  "and",
+  "for",
+  "with",
+  "that",
+  "this",
+  "from",
+  "into",
+  "about",
+  "have",
+  "your",
+  "will",
+  "they",
+  "them",
+  "then",
+  "what",
+  "when",
+  "where",
+  "while",
+  "which",
+  "there",
+  "their",
+  "were",
+  "been",
+  "being",
+  "using",
+  "used",
+  "each",
+  "some",
+  "very",
 ]);
 
 function tokenize(text: string): string[] {
@@ -103,7 +130,8 @@ export async function retrieveRelevantMemories({
     .map((memory) => {
       const semantic = calculateSimilarity(query, memory.text);
       const tagScore = memory.tags.filter((t) => tags.includes(t)).length * 0.2;
-      const conceptScore = memory.concepts.filter((c) => concepts.includes(c)).length * 0.35;
+      const conceptScore =
+        memory.concepts.filter((c) => concepts.includes(c)).length * 0.35;
       const decay = calculateDecay(memory);
       const score = semantic + tagScore + conceptScore + decay;
 
@@ -121,7 +149,7 @@ export async function retrieveRelevantMemories({
         accessCount: item.memory.accessCount + 1,
         lastAccessed: Date.now(),
       },
-      item.memory.id
+      item.memory.id,
     );
   }
 
@@ -139,11 +167,19 @@ export async function buildMemoryContext({
   concepts?: string[];
   limit?: number;
 }): Promise<string> {
-  const memories = await retrieveRelevantMemories({ query, tags, concepts, limit });
+  const memories = await retrieveRelevantMemories({
+    query,
+    tags,
+    concepts,
+    limit,
+  });
   if (!memories.length) return "";
 
   return memories
-    .map((m, i) => `\nMEMORY ${i + 1}:\n${m.summary}\n\nTAGS:\n${m.tags.join(", ")}\n\nCONCEPTS:\n${m.concepts.join(", ")}\n`)
+    .map(
+      (m, i) =>
+        `\nMEMORY ${i + 1}:\n${m.summary}\n\nTAGS:\n${m.tags.join(", ")}\n\nCONCEPTS:\n${m.concepts.join(", ")}\n`,
+    )
     .join("\n");
 }
 
@@ -164,7 +200,10 @@ export async function cleanupVectorMemory(): Promise<void> {
     }
   }
 
-  console.log(`%c[VECTOR-MEMORY] Limpeza concluída. Memórias preservadas: ${kept.length}.`, "color: #00ffcc");
+  console.log(
+    `%c[VECTOR-MEMORY] Limpeza concluída. Memórias preservadas: ${kept.length}.`,
+    "color: #00ffcc",
+  );
 }
 
 export function computeImportance({
