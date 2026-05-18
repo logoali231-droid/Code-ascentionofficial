@@ -30,10 +30,31 @@ export default function CodeEditor({
 
   const langInfo = useMemo(() => {
     if (language === "plaintext") return { label: "PLAINTEXT", ext: ".txt" };
-    return {
-      label: language.toUpperCase(),
-      ext: `.${language === "javascript" ? "js" : language === "typescript" ? "ts" : language === "python" ? "py" : language.slice(0, 3)}`
-    };
+    
+    const label = language.toUpperCase();
+    let ext = ".txt";
+
+    // Mapeamento dinâmico e preciso para extensões do ecossistema global de linguagens
+    switch (language) {
+      case "javascript": ext = ".js"; break;
+      case "typescript": ext = ".ts"; break;
+      case "python": ext = ".py"; break;
+      case "csharp": ext = ".cs"; break;
+      case "c++": case "cpp": ext = ".cpp"; break;
+      case "html": ext = ".html"; break;
+      case "rust": ext = ".rs"; break;
+      case "golang": case "go": ext = ".go"; break;
+      case "ruby": ext = ".rb"; break;
+      case "kotlin": case "kotlin-native": ext = ".kt"; break;
+      case "shell": case "powershell": ext = ".sh"; break;
+      case "solidity": ext = ".sol"; break;
+      case "actionscript": ext = ".as"; break;
+      default:
+        // Fallback inteligente para siglas de 3 letras (php, lua, sql, vhdl, asm, swift, etc)
+        ext = `.${language.split("-")[0].slice(0, 3)}`;
+    }
+
+    return { label, ext };
   }, [language]);
 
   function insertText(textarea: HTMLTextAreaElement, open: string, close = "") {
