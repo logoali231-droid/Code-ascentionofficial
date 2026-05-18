@@ -1,18 +1,12 @@
-// src/lib/lessonStreamer.ts
-
 "use client";
 
 import { generate } from "./webllm";
-
 import { safeParse } from "./safeParse";
-
 import { buildPromptFragments } from "./promptFragments";
-
 import { buildMemoryContext } from "./vectorMemory";
-
 import { getUserProfile } from "./userMemory";
-
 import { runtimeQueue } from "./generationQueue";
+import { save } from "./db"; // Adicionado para persistência fragmentada
 
 import {
   buildDynamicConstraint,
@@ -24,24 +18,18 @@ import { validateLesson } from "./lessonValidator";
 
 export interface StreamedLesson {
   title: string;
-
   explanation: string;
-
   content: string;
-
   exercises: any[];
 }
 
 /* =========================================================
    FALLBACK LESSON
 ========================================================= */
-
 function buildFallbackLesson(concept: string) {
   return {
     title: concept,
-
     explanation: "Review the core logic carefully.",
-
     content: "Practice the concept progressively.",
   };
 }
@@ -49,19 +37,13 @@ function buildFallbackLesson(concept: string) {
 /* =========================================================
    FALLBACK EXERCISE
 ========================================================= */
-
 function buildFallbackExercise(concept: string) {
   return {
     id: crypto.randomUUID(),
-
     type: "mcq",
-
     question: `What best describes ${concept}?`,
-
     options: ["A programming concept", "A browser", "A database", "A compiler"],
-
     answer: "A programming concept",
-
     explanation: "This concept belongs to programming fundamentals.",
   };
 }
@@ -69,17 +51,13 @@ function buildFallbackExercise(concept: string) {
 /* =========================================================
    GENERATE EXPLANATION FIRST
 ========================================================= */
-
 export async function generateLessonCore({ course, concept, difficulty }: any) {
   const profile = await getUserProfile();
 
   const promptFragments = buildPromptFragments({
     cognitive: profile?.cognitive,
-
     difficulty,
-
     mastery: 50,
-
     reinforcement: false,
   });
 
@@ -89,9 +67,7 @@ ${course.topic}
 ${concept}
 `,
     tags: [course.topic],
-
     concepts: [concept],
-
     limit: 3,
   });
 
@@ -138,14 +114,13 @@ RETURN JSON:
 `;
 
   try {
-    // 1. Pega o retorno (que pode ser string, stream ou undefined)
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
         return generate(prompt);
       },
-      1, // prioridade
+      1,
     );
-    // 2. Coletor Neural: Converte para string
+
     let raw = "";
     if (rawRes) {
       if (typeof rawRes === "string") {
@@ -161,7 +136,6 @@ RETURN JSON:
       }
     }
 
-    // 3. Agora o safeParse recebe string
     const parsed = safeParse(raw);
 
     if (!parsed) {
@@ -171,10 +145,6 @@ RETURN JSON:
     if (!validateLesson(parsed)) {
       return buildFallbackLesson(concept);
     }
-
-    /* -----------------------------------------
-       REGISTER CONCEPT STABILITY
-    ----------------------------------------- */
 
     const constraint = buildDynamicConstraint(
       course.topic,
@@ -194,10 +164,6 @@ RETURN JSON:
 /* =========================================================
    GENERATE SINGLE EXERCISE
 ========================================================= */
-/* =========================================================
-   GENERATE SINGLE EXERCISE
-========================================================= */
-
 export async function generateExercise({
   lesson,
   course,
@@ -262,15 +228,13 @@ RETURN JSON:
 `;
 
   try {
-    // 1. Pega o retorno bruto (pode ser Stream)
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
         return generate(prompt);
       },
-      1, // prioridade
+      1,
     );
 
-    // 2. Coletor Neural: Converte Stream em String
     let raw = "";
     if (rawRes) {
       if (typeof rawRes === "string") {
@@ -286,14 +250,12 @@ RETURN JSON:
       }
     }
 
-    // 3. Agora sim, passa a string limpa para o safeParse
     const parsed = safeParse(raw);
 
     if (!parsed) {
       return buildFallbackExercise(concept);
     }
 
-    // Retorna o objeto processado
     return {
       ...parsed,
       id: parsed.id || crypto.randomUUID(),
@@ -302,12 +264,11 @@ RETURN JSON:
     console.warn("Exercise generation failed", error);
     return buildFallbackExercise(concept);
   }
-} // <--- CHAVE DE FECHAMENTO DA FUNÇÃO
+}
 
 /* =========================================================
-   FULL STREAMED LESSON
+   FULL STREAMED LESSON (ADAPTADO COM SALVAMENTO FRAGMENTADO)
 ========================================================= */
-
 export async function streamLesson({
   course,
   concept,
@@ -316,20 +277,14 @@ export async function streamLesson({
   onExercise,
 }: {
   course: any;
-
   concept: string;
-
   difficulty?: number;
-
   exerciseCount?: number;
-
   onExercise?: (exercise: any, index: number) => void;
 }) {
   /* -----------------------------------------
-     STEP 1:
-     Generate lesson core
+     STEP 1: Generate lesson core
   ----------------------------------------- */
-
   const lesson = await generateLessonCore({
     course,
     concept,
@@ -339,10 +294,8 @@ export async function streamLesson({
   const exercises: any[] = [];
 
   /* -----------------------------------------
-     STEP 2:
-     Generate exercises progressively
+     STEP 2: Generate exercises progressively
   ----------------------------------------- */
-
   for (let i = 0; i < exerciseCount; i++) {
     const exercise = await generateExercise({
       lesson,
@@ -354,34 +307,40 @@ export async function streamLesson({
 
     exercises.push(exercise);
 
-    /* -------------------------------------
-       LIVE CALLBACK
-       allows UI progressive rendering
-    ------------------------------------- */
-
     if (onExercise) {
       onExercise(exercise, i);
     }
 
-    /* -------------------------------------
-       tiny cooldown
-       helps mobile thermals
-    ------------------------------------- */
-
     await sleep(80);
   }
 
-  return {
+  const finalLessonData: StreamedLesson = {
     ...lesson,
-
     exercises,
-  } as StreamedLesson;
+  };
+
+  /* -----------------------------------------
+     CORREÇÃO DE PERSISTÊNCIA RELACIONAL
+  ----------------------------------------- */
+  // 1. Salva a lição de forma independente na tabela de lições, ligada por courseId
+  const lessonRecordId = `lesson_${course.id}_${Date.now()}`;
+  await save("lessons", {
+    courseId: course.id,
+    content: finalLessonData,
+  }, lessonRecordId);
+
+  // 2. Atualiza apenas os metadados rasos do curso atual, sem carregar arrays de lições
+  await save("courses", {
+    ...course,
+    currentLesson: (course.currentLesson || 0) + 1
+  }, course.id);
+
+  return finalLessonData;
 }
 
 /* =========================================================
    MOBILE SAFE SLEEP
 ========================================================= */
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
