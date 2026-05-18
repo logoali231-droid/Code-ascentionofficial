@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
 import { CosmosClient } from "@azure/cosmos";
 
-// Inicializa o cliente do Cosmos DB usando a string de conexão da Azure
-const connectionString = process.env.DATABASE_URL;
-const client = connectionString ? new CosmosClient(connectionString) : null;
-
 // Configuração do teu Banco no Cosmos DB
-const DATABASE_ID = "code-ascension-db"; // Altere se o nome do teu banco no painel for diferente
-const CONTAINER_ID = "leaderboard";     // Nome da tabela/coleção para o ranking
+const DATABASE_ID = "code-ascension-db"; 
+const CONTAINER_ID = "leaderboard";     
+
+// Função auxiliar para obter o cliente de forma segura apenas quando necessário
+function getCosmosClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.warn("⚠️ DATABASE_URL não configurada no ambiente.");
+    return null;
+  }
+  try {
+    return new CosmosClient(connectionString);
+  } catch (err) {
+    console.error("❌ Falha crítica ao inicializar CosmosClient:", err);
+    return null;
+  }
+}
+
+// Força a rota a ser tratada como dinâmica (evita que o Next.js tente pré-compilar no build)
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const client = getCosmosClient();
     if (!client) {
       return NextResponse.json({ error: "CONEXÃO_NUVEM_OFFLINE" }, { status: 500 });
     }
@@ -23,7 +38,6 @@ export async function POST(request: Request) {
 
     const container = client.database(DATABASE_ID).container(CONTAINER_ID);
 
-    // Upsert: Grava o registro do utilizador se não existir, ou atualiza se já existir
     await container.items.upsert({
       id: userId,
       username,
@@ -41,20 +55,19 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
+    const client = getCosmosClient();
     if (!client) {
       return NextResponse.json({ error: "CONEXÃO_NUVEM_OFFLINE" }, { status: 500 });
     }
 
     const container = client.database(DATABASE_ID).container(CONTAINER_ID);
 
-    // 1. Procura os 30 melhores operadores ordenados por XP decrescente
     const { resources: players } = await container.items
       .query({
         query: "SELECT TOP 30 c.id, c.username, c.xp, c.factionId FROM c ORDER BY c.xp DESC"
       })
       .fetchAll();
 
-    // 2. Calcula dinamicamente o XP total de cada facção para a guerra global
     const { resources: factionSums } = await container.items
       .query({
         query: "SELECT c.factionId, SUM(c.xp) as totalXp FROM c GROUP BY c.factionId"
@@ -62,8 +75,6 @@ export async function GET() {
       .fetchAll();
 
     const totalGlobalXp = factionSums.reduce((acc, f) => acc + (f.totalXp || 0), 0) || 1;
-
-    // Distribuição base padrão equilibrada
     const dominance: Record<string, number> = { zap: 25, shield: 25, cpu: 25, target: 25 };
 
     factionSums.forEach((f) => {
