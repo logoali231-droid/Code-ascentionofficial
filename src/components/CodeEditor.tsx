@@ -86,8 +86,10 @@ export default function CodeEditor({
       case "sql": ext = ".sql"; break;
       case "actionscript": ext = ".as"; break;
       case "wasm": ext = ".wasm"; break;
-      default:
-        ext = `.${language.split("-")[0].slice(0, 3)}`;
+      default: {
+        const langStr = language as string;
+        ext = `.${langStr.split("-")[0].slice(0, 3)}`;
+      }
     }
 
     return { label, ext };
