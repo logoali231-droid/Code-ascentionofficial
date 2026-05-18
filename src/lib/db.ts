@@ -2,12 +2,21 @@ import Dexie, { type Table } from "dexie";
 
 const CLOUDFLARE_WORKER_URL =
   "https://code-ascension-api.logoali231.workers.dev/save-progress";
-const syncChannel = new BroadcastChannel("code_ascension_sync");
-window.addEventListener("beforeunload", () => {
-  syncChannel.close();
-});
-const syncTimers = new Map<string, any>();
+const syncChannel =
+  typeof window !== "undefined" &&
+  typeof BroadcastChannel !== "undefined"
+    ? new BroadcastChannel("code_ascension_sync")
+    : null;
 
+if (typeof window !== "undefined" && syncChannel) {
+  window.addEventListener("beforeunload", () => {
+    syncChannel.close();
+  });
+}
+const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingCloudSync = new Map<string, any>();
+
+const SAVE_DEBOUNCE_MS = 800;
 /* =========================================================
    INTERFACES & TYPES (ESTRUTURA COMPLETA)
 ========================================================= */
@@ -169,14 +178,50 @@ export async function save(
 ): Promise<boolean> {
   try {
     const table = (db as any)[storeName];
+
     const dataToSave =
       typeof value === "object"
-        ? { ...value, id: key, timestamp: Date.now() }
+        ? {
+            ...value,
+            id: key,
+            timestamp: Date.now(),
+          }
         : value;
 
     await table.put(dataToSave);
-    syncChannel.postMessage({ store: storeName, key, data: dataToSave });
-    await syncToCloud(storeName, dataToSave);
+
+    if (syncChannel) {
+      syncChannel.postMessage({
+        store: storeName,
+        key,
+        data: dataToSave,
+      });
+    }
+
+    // Debounce agressivo para sync cloud
+    const syncKey = `${storeName}:${key}`;
+
+    pendingCloudSync.set(syncKey, dataToSave);
+
+    const existingTimer = syncTimers.get(syncKey);
+
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(async () => {
+      const latest = pendingCloudSync.get(syncKey);
+
+      if (latest) {
+        await syncToCloud(storeName, latest);
+        pendingCloudSync.delete(syncKey);
+      }
+
+      syncTimers.delete(syncKey);
+    }, SAVE_DEBOUNCE_MS);
+
+    syncTimers.set(syncKey, timer);
+
     return true;
   } catch (e) {
     console.error(`[DB] Erro ao salvar em ${storeName}:`, e);
