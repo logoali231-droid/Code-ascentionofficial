@@ -16,6 +16,11 @@ if (typeof window !== "undefined" && syncChannel) {
 const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pendingCloudSync = new Map<string, User | Course>();
 const SAVE_DEBOUNCE_MS = 800;
+
+// BUFFER DE ESCRITA LOCAL E DEBOUNCE TIMER
+const localWriteBuffer = new Map<string, { store: string; data: any }>();
+let localWriteTimer: ReturnType<typeof setTimeout> | null = null;
+
 /* =========================================================
    INTERFACES & TYPES (ESTRUTURA COMPLETA)
 ========================================================= */
@@ -41,11 +46,17 @@ export interface Course {
   title?: string;
   topic?: string;
   level?: number;
-  lessons: any[];
+  // FRAGMENTADO: lessons movido para LessonRecord independente
   currentLesson?: number;
   currentExercise?: number;
   difficulty?: number;
   stylePrompt?: string;
+}
+
+export interface LessonRecord {
+  id: string;       // Chave composta ou hash da lição
+  courseId: string; // Relacionamento indexado
+  content: any;
 }
 
 export interface AppError {
@@ -74,11 +85,12 @@ export interface TelemetryMetric {
 }
 
 /* =========================================================
-   DEXIE INSTANCE & DATABASE SCHEMA (VERSÃO 3)
+   DEXIE INSTANCE & DATABASE SCHEMA (VERSÃO 4)
 ========================================================= */
 class CodeAscensionDB extends Dexie {
   user!: Table<User>;
   courses!: Table<Course>;
+  lessons!: Table<LessonRecord>; // Adicionado no Schema
   errors!: Table<AppError>;
   explanations!: Table<Explanation>;
   shop!: Table<any>;
@@ -89,15 +101,17 @@ class CodeAscensionDB extends Dexie {
 
   constructor() {
     super("codeascent_db");
-    this.version(3).stores({
+    // Incrementado para a Versão 4 devido às mudanças estruturais de fragmentação
+    this.version(4).stores({
       user: "id",
       courses: "id",
+      lessons: "id, courseId", // Indexado por courseId para buscas eficientes
       errors: "++id, timestamp, courseId",
       explanations: "++id, timestamp",
       shop: "id",
       daily: "id",
       memory: "id, timestamp",
-      curriculum: "courseId, updatedAt",
+      curriculum: "id, courseId", // Ajustado para aceitar chaves compostas e query relacional
       telemetry: "++id, timestamp, type",
     });
   }
@@ -111,63 +125,58 @@ export const db = new CodeAscensionDB();
 async function syncToCloud(storeName: string, data: any): Promise<void> {
   if (storeName !== "user" && storeName !== "courses") return;
 
-  if (
-    typeof navigator !== "undefined" &&
-    !navigator.onLine
-  ) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
     console.log(
       `%c[SYNC] Offline. Alteração em '${storeName}' mantida apenas local.`,
       "color: #ff9900",
     );
-
     return;
   }
 
   try {
-  const payload = {
-    store: storeName,
-    userId: "main",
-    payload: data,
-    timestamp: Date.now(),
-  };
+    const payload = {
+      store: storeName,
+      userId: "main",
+      payload: data,
+      timestamp: Date.now(),
+    };
 
-  const res = await fetch(CLOUDFLARE_WORKER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+    const res = await fetch(CLOUDFLARE_WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
-    console.warn(
-      `%c[SYNC:CLOUD] Worker retornou status: ${res.status}`,
+    if (!res.ok) {
+      console.warn(
+        `%c[SYNC:CLOUD] Worker retornou status: ${res.status}`,
+        "color: #ff0055",
+      );
+    } else {
+      console.log(
+        `%c[SYNC:CLOUD] Dados de '${storeName}' espelhados na nuvem.`,
+        "color: #00ffcc",
+      );
+    }
+  } catch (e) {
+    console.error(
+      "%c[SYNC:CLOUD] Falha ao tentar sincronizar:",
       "color: #ff0055",
+      e,
     );
-  } else {
-    console.log(
-      `%c[SYNC:CLOUD] Dados de '${storeName}' espelhados na nuvem.`,
-      "color: #00ffcc",
-    );
-  }
-} catch (e) {
-  console.error(
-    "%c[SYNC:CLOUD] Falha ao tentar sincronizar:",
-    "color: #ff0055",
-    e,
-  );
   }
 }
+
 if (syncChannel) {
   syncChannel.onmessage = async (event) => {
     const { store, data } = event.data;
 
     try {
       const table = (db as any)[store];
-
       if (table) {
         await table.put(data);
-
         console.log(
           `%c[MULTI-TAB] Tabela '${store}' sincronizada via BroadcastChannel.`,
           "color: #00ffcc",
@@ -191,8 +200,6 @@ export async function save(
   key: string = "main",
 ): Promise<boolean> {
   try {
-    const table = (db as any)[storeName];
-
     const dataToSave =
       typeof value === "object"
         ? {
@@ -202,7 +209,10 @@ export async function save(
           }
         : value;
 
-    await table.put(dataToSave);
+    const bufferKey = `${storeName}:${key}`;
+    
+    // 1. Atualização instantânea na memória para consistência de UI (L1 Cache)
+    localWriteBuffer.set(bufferKey, { store: storeName, data: dataToSave });
 
     if (syncChannel) {
       syncChannel.postMessage({
@@ -214,31 +224,44 @@ export async function save(
 
     // Debounce agressivo para sync cloud
     const syncKey = `${storeName}:${key}`;
-
     pendingCloudSync.set(syncKey, dataToSave);
 
     const existingTimer = syncTimers.get(syncKey);
-
     if (existingTimer) {
       clearTimeout(existingTimer);
     }
 
     const timer = setTimeout(async () => {
       const latest = pendingCloudSync.get(syncKey);
-
       if (latest) {
         await syncToCloud(storeName, latest);
         pendingCloudSync.delete(syncKey);
       }
-
       syncTimers.delete(syncKey);
     }, SAVE_DEBOUNCE_MS);
 
     syncTimers.set(syncKey, timer);
 
+    // 2. Debounce e Flush no IndexedDB em lote para evitar gargalos de I/O (300ms)
+    if (localWriteTimer) clearTimeout(localWriteTimer);
+    localWriteTimer = setTimeout(async () => {
+      const operations = Array.from(localWriteBuffer.values());
+      localWriteBuffer.clear();
+
+      try {
+        await db.transaction("rw", [db.user, db.courses, db.lessons, db.memory, db.errors, db.shop, db.curriculum, db.explanations, db.daily, db.telemetry], async () => {
+          for (const op of operations) {
+            await (db as any)[op.store].put(op.data);
+          }
+        });
+      } catch (err) {
+        console.error("[DB:BATCH] Erro no flush assíncrono do IndexedDB:", err);
+      }
+    }, 300);
+
     return true;
   } catch (e) {
-    console.error(`[DB] Erro ao salvar em ${storeName}:`, e);
+    console.error(`[DB] Erro ao agendar salvamento em ${storeName}:`, e);
     return false;
   }
 }
@@ -248,6 +271,12 @@ export async function get<T = any>(
   key: string,
 ): Promise<T | null> {
   try {
+    // Intercepta a leitura no buffer em memória caso a transação física ainda não tenha ocorrido
+    const bufferKey = `${storeName}:${key}`;
+    if (localWriteBuffer.has(bufferKey)) {
+      return localWriteBuffer.get(bufferKey)!.data as T;
+    }
+
     const table = (db as any)[storeName];
     return (await table.get(key)) || null;
   } catch {
@@ -257,38 +286,51 @@ export async function get<T = any>(
 
 export async function getAll<T = any>(storeName: string): Promise<T[]> {
   try {
-    return await (db as any)[storeName].toArray();
+    const rawArray = await (db as any)[storeName].toArray();
+    
+    // Mescla itens que ainda estão em memória aguardando o flush
+    const mergedMap = new Map<string, T>();
+    for (const item of rawArray) {
+      if (item && item.id) mergedMap.set(item.id, item);
+    }
+    
+    for (const [bufKey, bufVal] of localWriteBuffer.entries()) {
+      if (bufVal.store === storeName) {
+        const id = bufKey.split(":")[1];
+        mergedMap.set(id, bufVal.data);
+      }
+    }
+
+    return Array.from(mergedMap.values());
   } catch {
     return [];
   }
 }
 
 export async function updateUser(updates: Partial<User>): Promise<User> {
-  return await db.transaction("rw", db.user, async () => {
-    const current = (await db.user.get("main")) || {
-      id: "main",
-      xp: 0,
-      coins: 0,
-      streak: 0,
-      lastLogin: Date.now(),
-      cognitive: "standard",
-      level: 1,
-      factionId: "default",
-    };
-    const merged = { ...current, ...updates, id: "main" };
-    await db.user.put(merged);
+  const current = (await get<User>("user", "main")) || {
+    id: "main",
+    xp: 0,
+    coins: 0,
+    streak: 0,
+    lastLogin: Date.now(),
+    cognitive: "standard",
+    level: 1,
+    factionId: "default",
+  };
+  const merged = { ...current, ...updates, id: "main" };
+  await save("user", merged, "main");
 
-if (syncChannel) {
-  syncChannel.postMessage({
-    store: "user",
-    key: "main",
-    data: merged,
-  });
-}
+  if (syncChannel) {
+    syncChannel.postMessage({
+      store: "user",
+      key: "main",
+      data: merged,
+    });
+  }
 
-await syncToCloud("user", merged);
-    return merged;
-  });
+  await syncToCloud("user", merged);
+  return merged;
 }
 
 export async function getUser(): Promise<User | null> {
@@ -398,9 +440,9 @@ export async function cleanupOldData(): Promise<void> {
     await db.memory.where("timestamp").below(expirationThreshold).delete();
 
     await db.telemetry
-  .where("timestamp")
-  .below(expirationThreshold)
-  .delete();
+      .where("timestamp")
+      .below(expirationThreshold)
+      .delete();
 
     const currentExpCount = await db.explanations.count();
     if (currentExpCount > MAX_EXPLANATIONS_TOTAL) {
@@ -432,7 +474,14 @@ export async function performStorageCleanup(): Promise<void> {
 
   await cleanupOldData();
 
-  await db.courses.filter((c) => !c.lessons || c.lessons.length === 0).delete();
+  // Limpa cursos vazios analisando a tabela fragmentada de lições
+  const coursesList = await db.courses.toArray();
+  for (const c of coursesList) {
+    const count = await db.lessons.where("courseId").equals(c.id).count();
+    if (count === 0) {
+      await db.courses.delete(c.id);
+    }
+  }
 
   try {
     const { cleanupVectorMemory } = await import("./vectorMemory");
@@ -453,4 +502,4 @@ export async function performStorageCleanup(): Promise<void> {
 
 export function useAutoCleanup() {
   return performStorageCleanup;
-}
+    }
