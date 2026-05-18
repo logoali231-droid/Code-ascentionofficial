@@ -210,7 +210,7 @@ export default function ExerciseRenderer({
             initialValue={codeValue}
             onChange={(val) => setCodeValue(val || '')}
             language={exercise.language}
-            theme="vs-dark"
+            
           />
           <div className="p-3 bg-[#050505] border-t border-white/5 flex justify-end">
             <button
