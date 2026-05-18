@@ -64,18 +64,14 @@ export async function getOrCreatePedagogicalState(courseId: string, currentTopic
  * PROCESS EVENT - O ponto de entrada unificado que remove a autonomia dos sub-módulos.
  * Modifica Grafo, Memória Histórica e Métricas Adaptativas em uma única transação atômica.
  */
+// No início da função processPedagogicalEvent:
 export async function processPedagogicalEvent(
   courseId: string,
   conceptId: string,
-  payload: {
-    success: boolean;
-    attempts: number;
-    errorType?: "conceptual" | "syntax" | "accidental" | "attention";
-    executionTimeMs?: number;
-    userOutput?: string;
-  }
+  payload: { ... }
 ): Promise<EngineExecutionResult> {
-  const stateKey = `${ENGINE_STATE_PREFIX}${courseId}`;
+  const normalizedCourseId = courseId.toLowerCase().trim(); // Garante consistência de chaves
+  const stateKey = `${ENGINE_STATE_PREFIX}${normalizedCourseId}`;
   
   // 1. Carrega todas as dependências em paralelo de forma limpa
   const [graph, rawMemory, currentState] = await Promise.all([
