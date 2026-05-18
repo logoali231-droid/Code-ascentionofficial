@@ -8,6 +8,7 @@ import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
 import { validateCourse } from "./courseValidator"; 
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
+import { CognitiveProfile } from "@/types/core";
 
 export async function generateCourse({
   topic,
@@ -29,7 +30,7 @@ export async function generateCourse({
   courseId?: string;
 }): Promise<any> {
   const cognitiveFragments = buildPromptFragments({
-    cognitive: cognitive || "Standard",
+    cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
     reinforcement: false,
