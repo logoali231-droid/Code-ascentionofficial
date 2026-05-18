@@ -152,21 +152,29 @@ async function syncToCloud(storeName: string, data: any): Promise<void> {
   }
 }
 
-syncChannel.onmessage = async (event) => {
-  const { store, data } = event.data;
-  try {
-    const table = (db as any)[store];
-    if (table) {
-      await table.put(data);
-      console.log(
-        `%c[MULTI-TAB] Tabela '${store}' sincronizada via BroadcastChannel.`,
-        "color: #00ffcc",
+if (syncChannel) {
+  syncChannel.onmessage = async (event) => {
+    const { store, data } = event.data;
+
+    try {
+      const table = (db as any)[store];
+
+      if (table) {
+        await table.put(data);
+
+        console.log(
+          `%c[MULTI-TAB] Tabela '${store}' sincronizada via BroadcastChannel.`,
+          "color: #00ffcc",
+        );
+      }
+    } catch (e) {
+      console.error(
+        "[MULTI-TAB] Falha ao processar sincronização paralela:",
+        e,
       );
     }
-  } catch (e) {
-    console.error("[MULTI-TAB] Falha ao processar sincronização paralela:", e);
-  }
-};
+  };
+}
 
 /* =========================================================
    CORE FUNCTIONS & WRAPPERS
