@@ -149,7 +149,8 @@ export async function processPedagogicalEvent(
     success: payload.success,
     attempts: payload.attempts,
     topic: conceptId,
-    difficulty: node.difficulty
+    difficulty: node.difficulty,
+    courseId: normalizedCourseId
   });
   if (rawMemory.history.length > 40) rawMemory.history.shift();
 
