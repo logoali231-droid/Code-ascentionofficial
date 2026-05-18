@@ -1,46 +1,7 @@
-// modelManager.ts
 "use client";
 
-import { ModelRecord } from "@mlc-ai/web-llm";
+import { SYSTEM_CONFIG, type Model } from "@/config/system";
 import { save, get } from "./db";
-import { SYSTEM_CONFIG, Model } from "@/config/system";
-
-/* =========================================================
-   BENCHMARK
-========================================================= */
-
-export async function runQuickBenchmark(engine: any): Promise<number> {
-  const startTime = performance.now();
-
-  const testPrompt = "Explique loop em 3 palavras.";
-
-  await engine.chat.completions.create({
-    messages: [
-      {
-        role: "user",
-        content: testPrompt,
-      },
-    ],
-    max_tokens: 10,
-  });
-
-  const endTime = performance.now();
-  const durationSeconds = (endTime - startTime) / 1000;
-  const tokensPerSecond = 10 / durationSeconds;
-
-  const user = await get("user", "main");
-
-  await save("user", {
-    ...user,
-    tokensPerSecond,
-  });
-
-  return tokensPerSecond;
-}
-
-/* =========================================================
-   TYPES
-========================================================= */
 
 export interface SystemSpecs {
   modelTier: "LOW" | "MID" | "HIGH";
@@ -53,46 +14,62 @@ export interface SystemSpecs {
   isMobile: boolean;
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
+let cachedSpecs: SystemSpecs | null = null;
 
-function getModelByTier(tier: "LOW" | "MID" | "HIGH"): Model {
-  switch (tier) {
-    case "HIGH":
-      return SYSTEM_CONFIG.AVAILABLE_MODELS[2] as Model;
-    case "MID":
-      return SYSTEM_CONFIG.AVAILABLE_MODELS[1] as Model;
-    default:
-      return SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model;
+/* =========================================================
+   BENCHMARK ENGINE
+========================================================= */
+export async function runQuickBenchmark(engine: any): Promise<number> {
+  const startTime = performance.now();
+  const testPrompt = "Explique loop em 3 palavras.";
+
+  try {
+    await engine.chat.completions.create({
+      messages: [{ role: "user", content: testPrompt }],
+      max_tokens: 10,
+    });
+  } catch (err) {
+    console.error("%c[BENCHMARK] Falha ao executar teste de estresse da GPU.", "color: #ff0055", err);
+    return 0;
   }
+
+  const endTime = performance.now();
+  const durationSeconds = (endTime - startTime) / 1000;
+  const tokensPerSecond = 10 / durationSeconds;
+
+  const user = await get("user", "main");
+  await save("user", {
+    ...user,
+    tokensPerSecond,
+  });
+
+  console.log(`%c[BENCHMARK] Desempenho local verificado: ${tokensPerSecond.toFixed(2)} t/s.`, "color: #00ffcc");
+  return tokensPerSecond;
 }
 
 /* =========================================================
-   ENGINE MANAGEMENT
+   HEURISTICS HELPERS
 ========================================================= */
+function getModelByTier(tier: "LOW" | "MID" | "HIGH"): Model {
+  if (tier === "HIGH") return SYSTEM_CONFIG.AVAILABLE_MODELS[2] as Model;
+  if (tier === "MID") return SYSTEM_CONFIG.AVAILABLE_MODELS[1] as Model;
+  return SYSTEM_CONFIG.AVAILABLE_MODELS[0] as Model;
+}
 
 export async function unloadEngine(engine?: any): Promise<void> {
   try {
     if (engine && typeof engine.unload === "function") {
-      console.log("[Model Manager] Descarregando engine para liberar VRAM...");
+      console.log("%c[MODEL:MANAGER] Descarregando engine para liberar VRAM...", "color: #ff9900");
       await engine.unload();
     }
   } catch (err) {
-    console.error("[Model Manager] Erro ao descarregar a engine:", err);
+    console.error("%c[MODEL:MANAGER] Erro ao descarregar a engine:", "color: #ff0055", err);
   }
 }
 
 /* =========================================================
-   CACHE SYSTEM DETECTION
+   SYSTEM CAPABILITIES DETECTION
 ========================================================= */
-
-let cachedSpecs: SystemSpecs | null = null;
-
-/* =========================================================
-   SYSTEM DETECTION
-========================================================= */
-
 export async function detectSystemCapabilities(): Promise<SystemSpecs> {
   if (cachedSpecs) return cachedSpecs;
 
@@ -101,7 +78,7 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
   const cores = navigator.hardwareConcurrency || 4;
   const webgpu = "gpu" in navigator;
   const sharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
-  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(nav.userAgent);
 
   let gpuLimit = 512;
   let modelTier: "LOW" | "MID" | "HIGH" = "LOW";
@@ -122,11 +99,9 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
     }
 
     const adapter = await nav.gpu.requestAdapter();
-
     if (!adapter) {
-      console.warn("[WebGPU] Adapter indisponível no ambiente atual.");
-      // Lançamos um erro padronizado para a UI interceptar, em vez de mascarar o estado
-      throw new Error("HARDWARE_INCOMPATIBLE: WebGPU detectado no navegador, mas falhou ao instanciar o Adapter gráfico.");
+      console.warn("%c[WEBGPU] Adapter gráfico indisponível.", "color: #ff0055");
+      throw new Error("HARDWARE_INCOMPATIBLE: WebGPU detectado, mas falhou ao instanciar o Adapter gráfico.");
     }
 
     gpuLimit = 2048;
@@ -142,23 +117,23 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       gpuLimit = 4096;
     }
 
-    // CORREÇÃO CRÍTICA: Se for mobile, nunca use HIGH. 
-    // O Shader do M23 não aguenta a complexidade do Phi 3.5
+    /* CORREÇÃO CRÍTICA MOBILE (Ex: Galaxy M23)
+       Evita estouro térmico e quebra nos Shaders do driver gráfico limitando alocação a 1024MB */
     if (isMobile) {
       modelTier = memory > 4 ? "MID" : "LOW";
-      gpuLimit = 1024; // Reduz pressão na VRAM
+      gpuLimit = 1024;
     }
 
     if (memory <= 4 && modelTier === "HIGH") {
       modelTier = "MID";
     }
   } catch (err) {
-    console.error("[WebGPU Detection Error]", err);
+    console.error("%c[WEBGPU:DETECTION] Falha na análise de hardware externo:", "color: #ff0055", err);
   }
 
   const recommended = getModelByTier(modelTier);
 
-  console.log("[System Detection]", {
+  console.log("%c[SYSTEM:DETECTION] Perfil de hardware mapeado:", "color: #00ffcc", {
     memory,
     cores,
     gpuLimit,
