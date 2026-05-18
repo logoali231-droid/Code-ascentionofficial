@@ -149,12 +149,13 @@ export default function CoursePage() {
       /* ====================================
          THEORY EXPLANATION AI
       ==================================== */
-      const historyLessons = await db.table("lessons").where("courseId").equals(currentCourse.id).toArray();
+      const rawHistory = await db.table("lessons").where("courseId").equals(currentCourse.id).toArray();
+      const historyLessons = rawHistory.map(record => record.content); // <-- EXTRAI APENAS A PAYLOAD
       if (signal?.aborted) return;
 
       const explanationStream = await generateExplanationAI({
         lesson: streamed,
-        history: historyLessons,
+        history: historyLessons, // <-- Envia limpo
         user,
         course: currentCourse,
       });
@@ -265,11 +266,12 @@ export default function CoursePage() {
       const currentLessonCount = lessonCount + 1;
       
       if (shouldUpdateSummary(currentLessonCount) && course?.id) {
-        const freshUserMemory = await db.user.get("main");
-        const courseLessons = await db.table("lessons").where("courseId").equals(course.id).toArray();
+        const freshUserMemory = await get("user", "main"); // Já com a correção 1
+        const rawLessons = await db.table("lessons").where("courseId").equals(course.id).toArray();
+        const courseLessons = rawLessons.map(record => record.content); // <-- EXTRAI APENAS A PAYLOAD
         
         await saveMemorySummary(course.id, {
-          lessons: courseLessons,
+          lessons: courseLessons, // <-- Envia limpo
           memory: freshUserMemory,
           mastery: freshUserMemory?.mastery || 0,
         });
