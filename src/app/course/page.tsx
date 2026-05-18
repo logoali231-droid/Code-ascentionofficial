@@ -5,180 +5,147 @@ const loadEngine = async () => {
   return mod.initEngine;
 };
 
-import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
-
+import { unloadEngine } from "@/lib/modelManager";
 import { useEffect, useState } from "react";
-
 import { updateUser, db, getErrorLogs, clearErrorLog, getUser } from "@/lib/db";
-
-
-
 import { streamLesson } from "@/lib/lessonStreamer";
-
 import { generateReinforcement } from "@/lib/reinforce";
-
 import dynamic from "next/dynamic";
 
 const ExerciseRenderer = dynamic(
   () => import("@/components/ExerciseRenderer"),
-  {
-    ssr: false,
-  },
+  { ssr: false }
 );
 
-
 import { generateExplanationAI, explainError } from "@/lib/explanationAI";
-
 import { updateMemory } from "@/lib/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
 
-
 export default function CoursePage() {
   const [course, setCourse] = useState<any>(null);
-
   const [user, setUser] = useState<any>(null);
-
   const [currentExercise, setCurrentExercise] = useState(0);
-
   const [tab, setTab] = useState<"practice" | "theory" | "errors">("practice");
-
   const [title, setTitle] = useState("Course");
-
   const [daily, setDaily] = useState<any>({
     progress: 0,
     goal: 5,
     completed: false,
   });
-
   const [streak, setStreak] = useState(0);
-
   const [downloadInfo, setDownloadInfo] = useState({ text: "", model: "" });
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
   /* =====================================================
      STREAMING STATES
   ===================================================== */
-
   const [streamedExplanation, setStreamedExplanation] = useState("");
-
   const [streamedExercises, setStreamedExercises] = useState<any[]>([]);
-
   const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
-
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
-
   const [streamProgress, setStreamProgress] = useState(0);
-
   const [loadingCourse, setLoadingCourse] = useState(true);
 
+  // CONTROLLED LIFECYCLE HOOK (LOAD AND UNMOUNT CLEANUP)
   useEffect(() => {
-    load();
-  }, []);
+    const controller = new AbortController();
 
-  // Libera a memória RAM/GPU do WebLLM assim que o componente é desmontado (mudança de rota/página)
-  useEffect(() => {
+    async function load() {
+      setLoadingCourse(true);
+      const userData = await getUser();
+      if (controller.signal.aborted) return;
+      setUser(userData);
+
+      const activeCourseId = userData?.activeCourse;
+      setStreak(userData?.streak || 0);
+
+      const dailyData = await db.daily.get("daily_main");
+      if (controller.signal.aborted) return;
+      if (dailyData) {
+        setDaily(dailyData);
+      }
+
+      if (!activeCourseId) {
+        setLoadingCourse(false);
+        return;
+      }
+
+      const found = await db.courses.get(activeCourseId);
+      if (controller.signal.aborted) return;
+      if (!found) {
+        setLoadingCourse(false);
+        return;
+      }
+
+      setCourse(found);
+      setCurrentExercise(found.currentExercise || 0);
+      setTitle(found.topic || found.title || "Course");
+
+      /* ============================================
+         STREAM GENERATION
+      ============================================ */
+      const initEngine = await loadEngine();
+      if (controller.signal.aborted) return;
+      await initEngine(undefined, (report) => {
+        if (controller.signal.aborted) return;
+        setDownloadInfo({
+          text: report.text,
+          model: "Neural Engine v1.0",
+        });
+      });
+
+      await startStreamingLesson(found, controller.signal);
+      if (!controller.signal.aborted) {
+        setLoadingCourse(false);
+      }
+    }
+
+    load();
+
     return () => {
+      controller.abort(); // Cancela todos os streams e chamadas pendentes de IA
       unloadEngine().catch((err) =>
-        console.error("[COURSE UNLOAD ERROR]", err),
+        console.error("[COURSE UNLOAD ERROR]", err)
       );
     };
   }, []);
 
   /* =====================================================
-     LOAD
+     STREAM LESSON (CONTROLADO COM ABORT_SIGNAL)
   ===================================================== */
-
-  async function load() {
-    setLoadingCourse(true);
-
-    const userData = await getUser();
-
-    setUser(userData);
-
-    const activeCourseId = userData?.activeCourse;
-
-    setStreak(userData?.streak || 0);
-
-    const dailyData = await db.daily.get("daily_main");
-
-    if (dailyData) {
-      setDaily(dailyData);
-    }
-
-    if (!activeCourseId) {
-      setLoadingCourse(false);
-      return;
-    }
-
-    const found = await db.courses.get(activeCourseId);
-
-    if (!found) {
-      setLoadingCourse(false);
-      return;
-    }
-
-    setCourse(found);
-
-    setCurrentExercise(found.currentExercise || 0);
-
-    setTitle(found.topic || found.title || "Course");
-
-    /* ============================================
-       STREAM GENERATION
-    ============================================ */
-    const initEngine = await loadEngine();
-    await initEngine(undefined, (report) => {
-      setDownloadInfo({
-        text: report.text,
-        model: "Neural Engine v1.0",
-      });
-    });
-
-    await startStreamingLesson(found);
-
-    setLoadingCourse(false);
-  }
-
-  /* =====================================================
-     STREAM LESSON
-  ===================================================== */
-
-  async function startStreamingLesson(currentCourse: any) {
+  async function startStreamingLesson(currentCourse: any, signal?: AbortSignal) {
     try {
       setStreamedExplanation("");
-
       setStreamedExercises([]);
-
       setIsGeneratingExplanation(true);
-
       setIsGeneratingExercises(true);
-
       setStreamProgress(0);
+
+      if (signal?.aborted) return;
 
       /* ====================================
          STREAM LESSON
       ==================================== */
-
       const streamed = await streamLesson({
         course: currentCourse,
-
         concept: currentCourse.topic || currentCourse.title,
-
         difficulty: currentCourse.difficulty || 1,
-
         exerciseCount: 3,
-
+        signal, // Envia o sinal para abortar iterações internas de geração
         onExercise(exercise, index) {
+          if (signal?.aborted) return;
           setStreamedExercises((prev) => [...prev, exercise]);
-
           setStreamProgress(40 + (index + 1) * 20);
         },
       });
-/* ====================================
+
+      if (signal?.aborted) return;
+
+      /* ====================================
          THEORY EXPLANATION AI
       ==================================== */
-      // Busca as lições fragmentadas de forma relacional no Dexie antes da chamada
       const historyLessons = await db.table("lessons").where("courseId").equals(currentCourse.id).toArray();
+      if (signal?.aborted) return;
 
       const explanationStream = await generateExplanationAI({
         lesson: streamed,
@@ -187,7 +154,8 @@ export default function CoursePage() {
         course: currentCourse,
       });
 
-      // Se for um stream (AsyncIterable), consumimos pedaço por pedaço
+      if (signal?.aborted) return;
+
       if (
         explanationStream &&
         typeof explanationStream === "object" &&
@@ -195,45 +163,47 @@ export default function CoursePage() {
       ) {
         let fullText = "";
         for await (const chunk of explanationStream as any) {
+          if (signal?.aborted) return; // Interrompe o consumo de tokens imediatamente
           const content = chunk.choices?.[0]?.delta?.content || "";
           fullText += content;
-          setStreamedExplanation(fullText); // Atualiza a UI conforme as palavras chegam
+          setStreamedExplanation(fullText);
         }
       } else {
-        // Caso a função retorne uma string simples (fallback)
+        if (signal?.aborted) return;
         setStreamedExplanation(
-          (explanationStream as unknown as string) || streamed.explanation,
+          (explanationStream as unknown as string) || streamed.explanation
         );
       }
 
-      // --- ADICIONE ESTAS LINHAS PARA FECHAR O BLOCO ---
       setIsGeneratingExplanation(false);
       setIsGeneratingExercises(false);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "AbortError" || error.message === "Aborted") {
+        console.log("%c[STREAM] Fluxo de IA abortado com sucesso devido à navegação.", "color: #00ffcc");
+        return;
+      }
+
       console.error("Erro no stream:", error);
-      // Incrementa erros se a IA falhar em gerar (mitiga loop infinito)
       setConsecutiveErrors((prev) => prev + 1);
       setIsGeneratingExplanation(false);
       setIsGeneratingExercises(false);
 
       if (consecutiveErrors >= 2) {
         alert(
-          "📡 LINK NEURAL INSTÁVEL: O motor de IA falhou. Recarregando módulos...",
+          "📡 LINK NEURAL INSTÁVEL: O motor de IA falhou. Recarregando módulos..."
         );
         window.location.reload();
       }
     }
-  } // <--- CORREÇÃO CRÍTICA: Adicione esta chave para fechar a função startStreamingLesson!
+  }
 
   /* =====================================================
-      NEXT (Agora movido corretamente para o escopo do componente principal)
+      NEXT 
   ===================================================== */
-
-  // AJUSTE: Adicionado o terceiro parâmetro 'xpGainFromExercise' vindo do renderer
   async function handleNext(
     correct: boolean,
     userResponse?: string,
-    xpGainFromExercise?: number,
+    xpGainFromExercise?: number
   ) {
     if (!course) return;
 
@@ -241,13 +211,12 @@ export default function CoursePage() {
         ANTI-SPAM VALIDATION
     ==================================== */
     if (userResponse) {
-      // Importante: certifique-se que o import statisticalValidator existe
       const isSpam = statisticalValidator.isLowEntropy(userResponse);
       if (isSpam) {
         alert(
-          "⚠️ NEURAL_ERROR: Resposta inconsistente detectada. Tente elaborar melhor.",
+          "⚠️ NEURAL_ERROR: Resposta inconsistente detectada. Tente elaborar melhor."
         );
-        return; // Interrompe a execução antes de processar XP ou erros
+        return;
       }
     }
 
@@ -266,36 +235,27 @@ export default function CoursePage() {
     /* ====================================
         XP & PROGRESSION
     ==================================== */
-    /* ====================================
-          XP & PROGRESSION
-      ==================================== */
-    // ADICIONADO: Importações automáticas do ecossistema Code-Ascension
-    const { updateMastery, updateConfidence } =
-      await import("@/lib/curriculumState");
+    const { updateMastery, updateConfidence } = await import("@/lib/curriculumState");
     const { addXP, addCoins } = await import("@/lib/economy");
-    const { saveMemorySummary, shouldUpdateSummary } =
-      await import("@/lib/contextMemory");
+    const { saveMemorySummary, shouldUpdateSummary } = await import("@/lib/contextMemory");
 
     if (correct) {
-      // Reset do contador Roguelike se acertar
       setConsecutiveErrors(0);
 
       const xpGain = xpGainFromExercise ?? 10;
       setStreak((prev) => prev + 1);
 
-      // ALTERADO: Agora usa as curvas reais do economy.ts (com sons e leveis automáticos)
       await addXP(xpGain);
       await addCoins(2);
 
-      // ADICIONADO: Sincroniza o progresso no grafo curricular do usuário (+10 de maestria e +5 de confiança)
       if (course?.id && exercise?.topic) {
         await updateMastery(course.id, exercise.topic, 10);
         await updateConfidence(course.id, exercise.topic, 5);
       }
 
-      // ADICIONADO: Integração Anti-Spam / Compressão de Memória Periódica
-      // ADICIONADO: Integração Anti-Spam / Compressão de Memória Periódica
-      // Conta os registros fragmentados na tabela relacional
+      /* ====================================
+          RELATIONAL MEMORY COMPRESSION
+      ==================================== */
       const lessonCount = await db.table("lessons").where("courseId").equals(course?.id).count();
       const currentLessonCount = lessonCount + 1;
       
@@ -309,22 +269,23 @@ export default function CoursePage() {
           mastery: freshUserMemory?.mastery || 0,
         });
       }
+
       /* ================================
           CLEAR ERROR LOGS
       ================================ */
       const errors = await getErrorLogs(course.id);
       const matching = errors.find(
-        (e: any) => e.question === exercise.question,
+        (e: any) => e.question === exercise.question
       );
 
       if (matching && matching.id !== undefined) {
         await clearErrorLog(matching.id);
       }
     } else {
-      // ADICIONADO: Penaliza confiança e resgata o nó no grafo curricular devido ao erro
       if (course?.id && exercise?.topic) {
         await updateConfidence(course.id, exercise.topic, -8);
       }
+
       /* ====================================
           ROGUELIKE REDIRECT (3 ERRORS)
       ==================================== */
@@ -332,12 +293,12 @@ export default function CoursePage() {
       setConsecutiveErrors(newErrorCount);
 
       if (newErrorCount >= 3) {
-        setConsecutiveErrors(0); // Reseta para a próxima tentativa
-        setTab("theory"); // Muda para a aba de teoria
+        setConsecutiveErrors(0);
+        setTab("theory");
         alert(
-          "🧠 NEURAL GLITCH: Muitas falhas consecutivas. Revise o feed de teoria antes de continuar.",
+          "🧠 NEURAL GLITCH: Muitas falhas consecutivas. Revise o feed de teoria antes de continuar."
         );
-        return; // Sai da função sem gerar mais reforço agora
+        return;
       }
 
       /* ================================
@@ -348,13 +309,13 @@ export default function CoursePage() {
           ...exercise,
           difficulty: 0.6,
         },
-        course,
+        course
       );
 
       setStreamedExercises((prev) => {
         const clone = [...prev];
         const reinforcementCount = clone.filter(
-          (e) => e.isReinforcement,
+          (e) => e.isReinforcement
         ).length;
 
         if (reinforcementCount < 5) {
@@ -387,8 +348,6 @@ export default function CoursePage() {
   /* =====================================================
      LOADING
   ===================================================== */
-
-  // Substitua a verificação de loadingCourse por:
   if (loadingCourse) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-cyan-400 font-mono">
@@ -421,19 +380,15 @@ export default function CoursePage() {
   /* =====================================================
      UI
   ===================================================== */
-
   return (
     <div className="p-4 pb-24">
       {/* HEADER */}
-
       <div className="flex justify-between text-xs mb-3">
         <h1 className="text-cyan-400 font-black uppercase tracking-widest">
           {title}
         </h1>
-
         <div className="flex gap-3">
           <span className="text-orange-400">🔥 {streak}</span>
-
           <span className="text-yellow-400">
             🎯 {daily.progress || 0}/{daily.goal || 5}
           </span>
@@ -441,26 +396,20 @@ export default function CoursePage() {
       </div>
 
       {/* STREAM BAR */}
-
       <div className="w-full h-2 rounded bg-slate-800 overflow-hidden mb-5">
         <div
           className="h-full bg-cyan-500 transition-all duration-500"
-          style={{
-            width: `${streamProgress}%`,
-          }}
+          style={{ width: `${streamProgress}%` }}
         />
       </div>
 
       {/* STATUS */}
-
       <div className="mb-5 text-xs space-y-1 opacity-80">
         <p>[{isGeneratingExplanation ? "..." : "✓"}] explanation</p>
-
         <p>[{isGeneratingExercises ? "..." : "✓"}] exercises</p>
       </div>
 
       {/* TABS */}
-
       <div className="flex gap-2 mb-5">
         {["practice", "theory", "errors"].map((t) => (
           <button
@@ -476,7 +425,6 @@ export default function CoursePage() {
       </div>
 
       {/* PRACTICE */}
-
       {tab === "practice" && (
         <>
           {!currentStreamExercise ? (
@@ -494,11 +442,9 @@ export default function CoursePage() {
       )}
 
       {/* THEORY */}
-
       {tab === "theory" && (
         <div className="bg-slate-900 border border-cyan-900/40 p-5 rounded-2xl">
           <h2 className="text-cyan-400 font-bold mb-3">Neural Theory Feed</h2>
-
           {isGeneratingExplanation && !streamedExplanation ? (
             <p className="animate-pulse text-sm opacity-70">
               Synthesizing explanation...
@@ -512,7 +458,6 @@ export default function CoursePage() {
       )}
 
       {/* ERRORS */}
-
       {tab === "errors" && <ErrorsTab course={course} />}
     </div>
   );
@@ -521,25 +466,18 @@ export default function CoursePage() {
 /* =========================================================
    ERRORS TAB
 ========================================================= */
-
 function ErrorsTab({ course }: { course: any }) {
   const [errors, setErrors] = useState<any[]>([]);
-
-  const [aiExplanations, setAiExplanations] = useState<Record<number, string>>(
-    {},
-  );
+  const [aiExplanations, setAiExplanations] = useState<Record<number, string>>({});
 
   useEffect(() => {
     async function loadErrors() {
       const e = await getErrorLogs(course.id);
-
       const last = e.slice(-5);
-
       setErrors(last);
 
       const results: string[] = [];
 
-      // Localize este bloco dentro da função loadErrors:
       for (const err of last) {
         try {
           const explanation = await explainError({
@@ -549,7 +487,7 @@ function ErrorsTab({ course }: { course: any }) {
           results.push(
             typeof explanation === "string"
               ? explanation
-              : "Explanation processing...",
+              : "Explanation processing..."
           );
         } catch {
           results.push("Failed to explain.");
@@ -557,7 +495,6 @@ function ErrorsTab({ course }: { course: any }) {
       }
 
       const map: Record<number, string> = {};
-
       results.forEach((res, i) => {
         map[i] = res ?? "";
       });
@@ -578,9 +515,7 @@ function ErrorsTab({ course }: { course: any }) {
           <p className="text-xs text-red-400 font-bold mb-2">
             ❌ {err.question}
           </p>
-
           <p className="text-green-400 text-xs">✔ {err.correct}</p>
-
           {aiExplanations[i] && (
             <p className="text-cyan-300 text-xs mt-3 whitespace-pre-wrap">
               🧠 {aiExplanations[i]}
@@ -596,4 +531,4 @@ function ErrorsTab({ course }: { course: any }) {
       )}
     </div>
   );
-}
+    }
