@@ -25,7 +25,7 @@ function cleanText(text?: string): string {
 export function buildMemorySummary({ lessons, memory, mastery }: any): string {
   const recentLessons = (lessons || [])
     .slice(-MAX_HISTORY_ITEMS)
-    .map((l: any) => l.title)
+    .map((l: any) => l.topic || l.title)
     .join(", ");
 
   const weaknesses = Object.entries(memory?.weaknesses || {})
