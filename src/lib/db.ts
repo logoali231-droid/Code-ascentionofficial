@@ -115,8 +115,15 @@ async function syncToCloud(storeName: string, data: any): Promise<void> {
   typeof navigator !== "undefined" &&
   !navigator.onLine
 ) {
+  console.log(
+    `%c[SYNC] Offline. Alteração em '${storeName}' mantida apenas local.`,
+    "color: #ff9900",
+  );
 
-  try {
+  return;
+}
+
+try {
     const payload = {
       store: storeName,
       userId: "main",
