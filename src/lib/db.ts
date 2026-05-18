@@ -111,13 +111,10 @@ export const db = new CodeAscensionDB();
 ========================================================= */
 async function syncToCloud(storeName: string, data: any): Promise<void> {
   if (storeName !== "user" && storeName !== "courses") return;
-  if (!navigator.onLine) {
-    console.log(
-      `%c[SYNC] Offline. Alteração em '${storeName}' mantida apenas local.`,
-      "color: #ff9900",
-    );
-    return;
-  }
+ if (
+  typeof navigator !== "undefined" &&
+  !navigator.onLine
+) {
 
   try {
     const payload = {
