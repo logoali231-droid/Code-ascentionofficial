@@ -40,7 +40,7 @@ export async function generateLessonPlan(params: {
   const conceptId = nextConcept?.id || "core_fundamentals";
   const conceptDifficulty = nextConcept?.difficulty || course.difficulty || 1;
 
-  const compressedHistory = compressContext(history, 400);
+  const compressedHistory = compressContext(JSON.stringify(history || []), 400);
 
   const memoryContext = await buildMemoryContext({
     query: `\n${course.topic}\n${conceptTitle}\n${compressedHistory}\n`,
@@ -52,9 +52,9 @@ export async function generateLessonPlan(params: {
   const shouldReview = reviewTargets.length >= 3;
   const reviewText = shouldReview
     ? `\nREVIEW TARGETS:\n${reviewTargets
-        .slice(0, 3)
-        .map((r) => `${r.title} (${r.mastery})`)
-        .join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
+      .slice(0, 3)
+      .map((r) => `${r.title} (${r.mastery})`)
+      .join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
     : "";
 
   const promptFragments = buildPromptFragments({
