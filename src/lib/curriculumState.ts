@@ -1,6 +1,6 @@
 "use client";
 
-import { db, get, save } from "@/lib/db";
+import { db, get, save, getAll } from "@/lib/db";
 
 export type TopicNode = {
   courseId: string; // Acoplado para viabilizar indexação e queries relacionais no Dexie
@@ -21,7 +21,7 @@ function normalizeTopic(topic: string): string {
 }
 
 /**
- * Obtém estado individual de um tópico de maneira fragmentada
+ * Obtém estado individual de um tópico de maneira fragmentada interceptando o buffer
  */
 export async function getTopicState(courseId: string, topic: string): Promise<TopicNode | null> {
   const key = `${courseId}_${normalizeTopic(topic)}`;
@@ -118,10 +118,11 @@ export async function reinforceTopic(courseId: string, topic: string): Promise<v
 }
 
 /**
- * Obtém os tópicos fracos usando queries indexadas do Dexie (.where)
+ * Obtém os tópicos fracos mesclando dados em disco com alterações retidas no buffer L1
  */
 export async function getWeakTopics(courseId: string): Promise<TopicNode[]> {
-  const topics = await db.table(STORE).where("courseId").equals(courseId).toArray();
+  const allTopics = await getAll<TopicNode>(STORE);
+  const topics = allTopics.filter((t) => t.courseId === courseId);
 
   return topics
     .filter((t: TopicNode) => t.mastery < 50 || t.confidence < 40)
@@ -129,10 +130,11 @@ export async function getWeakTopics(courseId: string): Promise<TopicNode[]> {
 }
 
 /**
- * Obtém os próximos tópicos sugeridos baseados no score matemático
+ * Obtém os próximos tópicos sugeridos baseados no score matemático mitigando dirty-reads
  */
 export async function getSuggestedTopics(courseId: string): Promise<TopicNode[]> {
-  const topics = await db.table(STORE).where("courseId").equals(courseId).toArray();
+  const allTopics = await getAll<TopicNode>(STORE);
+  const topics = allTopics.filter((t) => t.courseId === courseId);
 
   return topics
     .sort((a: TopicNode, b: TopicNode) => {
@@ -144,10 +146,11 @@ export async function getSuggestedTopics(courseId: string): Promise<TopicNode[]>
 }
 
 /**
- * Serializa de forma simples a memória do progresso curricular para contexto de IA
+ * Serializa de forma consistente o progresso curricular do buffer unificado para o contexto da IA
  */
 export async function summarizeCurriculum(courseId: string): Promise<string> {
-  const topics = await db.table(STORE).where("courseId").equals(courseId).toArray();
+  const allTopics = await getAll<TopicNode>(STORE);
+  const topics = allTopics.filter((t) => t.courseId === courseId);
 
   return topics
     .map((t: TopicNode) => `${t.topic}: mastery ${t.mastery}/100, confidence ${t.confidence}/100`)
