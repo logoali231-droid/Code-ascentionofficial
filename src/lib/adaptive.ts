@@ -47,18 +47,7 @@ export async function getAdaptiveMetrics(
   let finalDifficulty = calculateGranularDifficulty(baseDifficulty, successRate, avgAttempts);
 
   // Amortece e sincroniza com a soberania do motor central se houver um estado ativo registrado
-  try {
-    const activeState = await get("memory", `pedagogical_state_main`);
-    if (activeState) {
-      if (activeState.pacing === "slow") {
-        finalDifficulty = Math.max(1, finalDifficulty - 0.5);
-      } else if (activeState.pacing === "accelerated") {
-        finalDifficulty = Math.min(5, finalDifficulty + 0.3);
-      }
-    }
-  } catch (e) {
-    console.warn("[Adaptive Engine] Fallback para cálculo isolado temporário:", e);
-  }
+
 
   const normalizedProfile = String(profile || 'standard').toLowerCase();
   const isADHD = normalizedProfile === 'tdah';
