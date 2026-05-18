@@ -36,24 +36,22 @@ function normalizeTopic(topic: string) {
 /**
  * Obtém estado curricular completo do curso
  */
-export async function getCurriculumState(
-  courseId: string,
-): Promise<CurriculumState> {
-  const existing = await get(STORE, courseId);
-
-  if (existing) return existing;
-
-  const empty: CurriculumState = {
-    courseId,
-    updatedAt: Date.now(),
-    map: {},
-  };
-
-  await save(STORE, empty);
-
-  return empty;
+// Remova a interface CurriculumState monolítica e busque tópicos diretamente.
+export async function getTopicState(courseId: string, topic: string): Promise<TopicNode | null> {
+  const key = `${courseId}_${normalizeTopic(topic)}`;
+  return await get(STORE, key);
 }
 
+export async function ensureTopic(courseId: string, topic: string, prerequisites: string[] = []) {
+  const key = `${courseId}_${normalizeTopic(topic)}`;
+  let node = await getTopicState(courseId, topic);
+  
+  if (!node) {
+    node = { topic, mastery: 0, confidence: 0, seen: false, reinforced: 0, difficulty: 1, prerequisites, lastSeen: Date.now() };
+    await save(STORE, node, key);
+  }
+  return node;
+}
 /**
  * Garante existência de tópico
  */
