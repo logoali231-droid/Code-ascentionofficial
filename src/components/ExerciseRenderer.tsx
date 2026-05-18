@@ -6,13 +6,14 @@ import { getUser } from '@/lib/db';
 import CodeEditor from './CodeEditor';
 import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { getAdaptiveMetrics } from '@/lib/adaptive';
+import { Language } from "@/lib/sandbox/types";
 
 const detector = new GibberishDetector();
 
 interface Exercise {
   id: string;
   type: 'code' | 'quiz' | 'dragdrop' | 'mcq';
-  language: any;
+  language: Language | "plaintext";
   question: string;
   answer: string;
   codeSnippet?: string;
@@ -106,13 +107,13 @@ export default function ExerciseRenderer({
 
   const exercise: Exercise = {
     id: rawExercise?.id || '',
-    language: rawExercise?.language || 'javascript',
+    language: rawExercise?.language || 'plaintext',
     question: rawExercise?.question || '',
     answer: rawExercise?.answer || '',
     options: rawExercise?.options || [],
     ...rawExercise,
     type: mutatedType 
-  } as Exercise;
+  };
 
   const handleValidation = async (value: string) => {
     setErrorMessage(null);
