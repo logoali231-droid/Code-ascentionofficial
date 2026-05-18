@@ -275,20 +275,26 @@ export async function streamLesson({
   difficulty = 1,
   exerciseCount = 3,
   onExercise,
+  signal,
 }: {
   course: any;
   concept: string;
   difficulty?: number;
   exerciseCount?: number;
   onExercise?: (exercise: any, index: number) => void;
+  signal?: AbortSignal;
 }) {
   /* -----------------------------------------
      STEP 1: Generate lesson core
   ----------------------------------------- */
+  // Se o sinal já disparou, interrompe imediatamente
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
   const lesson = await generateLessonCore({
     course,
     concept,
     difficulty,
+    // Note: repasse o signal se sua função generate compatibilizar com AbortSignal
   });
 
   const exercises: any[] = [];
@@ -297,6 +303,9 @@ export async function streamLesson({
      STEP 2: Generate exercises progressively
   ----------------------------------------- */
   for (let i = 0; i < exerciseCount; i++) {
+    // Nova checagem a cada iteração do loop para travar a geração imediatamente se mudar de tela
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
     const exercise = await generateExercise({
       lesson,
       course,
