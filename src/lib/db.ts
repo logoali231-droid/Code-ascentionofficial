@@ -158,7 +158,7 @@ async function syncToCloud(storeName: string, data: any): Promise<void> {
     e,
   );
   }
-
+}
 if (syncChannel) {
   syncChannel.onmessage = async (event) => {
     const { store, data } = event.data;
