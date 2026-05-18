@@ -14,8 +14,7 @@ if (typeof window !== "undefined" && syncChannel) {
   });
 }
 const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const pendingCloudSync = new Map<string, any>();
-
+const pendingCloudSync = new Map<string, User | Course>();
 const SAVE_DEBOUNCE_MS = 800;
 /* =========================================================
    INTERFACES & TYPES (ESTRUTURA COMPLETA)
