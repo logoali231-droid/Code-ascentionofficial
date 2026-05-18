@@ -1,146 +1,48 @@
 import Dexie, { type Table } from 'dexie';
 
-// Adicione a URL do seu Worker no topo do db.ts
 const CLOUDFLARE_WORKER_URL = "https://code-ascension-api.logoali231.workers.dev/save-progress";
 const syncChannel = new BroadcastChannel("code_ascension_sync");
 
-
-syncChannel.onmessage = async (event) => {
-  const { store, key, data } = event.data;
-  try {
-    const table = (db as any)[store];
-    if (table) {
-      // Coloca os dados atualizados diretamente no Dexie local da aba secundária
-      await table.put(data);
-      console.log(`[Multi-Aba] Tabela '${store}' atualizada via BroadcastChannel.`);
-    }
-  } catch (e) {
-    console.error("[Multi-Aba] Falha ao processar sincronização paralela:", e);
-  }
-};
-
-/**
- * FUNÇÃO AUXILIAR PARA SINCRONIZAR COM A NUVEM (AZURE VIA CLOUDFLARE)
- */
-async function syncToCloud(storeName: string, data: any) {
-  // Só sincroniza tabelas críticas de progresso (user e courses)
-  if (storeName !== 'user' && storeName !== 'courses') return;
-
-  // Se o navegador estiver offline, falha silenciosamente (fica guardado no Dexie)
-  if (!navigator.onLine) {
-    console.log(`[Sync] Dispositivo offline. Alteração em '${storeName}' mantida apenas local.`);
-    return;
-  }
-
-  try {
-    // Envia o payload contendo a tabela modificada e os dados
-    const payload = {
-      store: storeName,
-      userId: "main", // Como você usa chaves fixas ou 'main'
-      payload: data,
-      timestamp: Date.now()
-    };
-
-    // Dispara o fetch para o seu worker de forma assíncrona (non-blocking)
-    fetch(CLOUDFLARE_WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(async (res) => {
-      if (!res.ok) {
-        console.warn(`[Sync Cloud] Worker retornou status: ${res.status}`);
-      } else {
-        console.log(`[Sync Cloud] Dados de '${storeName}' espelhados na Azure com sucesso.`);
-      }
-    }).catch(err => {
-      console.error("[Sync Cloud] Erro na requisição para o Worker:", err);
-    });
-
-  } catch (e) {
-    console.error("[Sync Cloud] Falha ao tentar sincronizar:", e);
-  }
-}
-
-
-export async function save(storeName: string, value: any, key: string = "main") {
-  try {
-    const table = (db as any)[storeName];
-
-    const dataToSave = typeof value === 'object'
-      ? { ...value, id: key, timestamp: Date.now() }
-      : value;
-
-    await table.put(dataToSave);
-
-    // MULTI-ABA: Notifica abas paralelas para clonarem o estado imediatamente
-    syncChannel.postMessage({ store: storeName, key, data: dataToSave });
-
-    // GATILHO DE CONEXÃO: Tenta espelhar na nuvem após salvar local com sucesso
-    await syncToCloud(storeName, dataToSave);
-
-    return true;
-  } catch (e) {
-    console.error(`Erro ao salvar em ${storeName}:`, e);
-    return false;
-  }
-}
-
-// ✅ UPDATE USER
-export async function updateUser(updates: any) {
-  return await db.transaction('rw', db.user, async () => {
-    const current = await db.user.get('main') || {};
-    const merged = { ...current, ...updates, id: 'main' };
-    await db.user.put(merged);
-    
-    // MULTI-ABA: Sincroniza mutações críticas (XP, moedas, streaks) inter-abas
-    syncChannel.postMessage({ store: 'user', key: 'main', data: merged });
-
-    // GATILHO DE CONEXÃO: Atualiza a nuvem com os dados mesclados do player
-    await syncToCloud('user', merged);
-    
-    return merged;
-  });
-}
-/**
- * CONFIGURAÇÃO DO BANCO DE DADOS (DEXIE)
- */
+/* =========================================================
+   INTERFACES & TYPES (ESTRUTURA COMPLETA)
+========================================================= */
 export interface User {
-  id?: string;
+  id: string;
   name?: string;
+  xp: number;
+  coins: number;
+  streak: number;
+  lastLogin: number;
+  cognitive: 'standard' | 'tdah' | 'deep_dive' | 'visual_logic';
+  level: number;
+  factionId: string;
+  customBanned?: string[];
+  rank?: "Initiate" | "Operator" | "Architect" | "Ghost" | "Overmind";
+  mastery?: number;
   timestamp?: number;
   [key: string]: any;
 }
 
 export interface Course {
   id: string;
-
   title?: string;
-
   topic?: string;
-
   level?: number;
-
   lessons: any[];
-
   currentLesson?: number;
-
   currentExercise?: number;
-
   difficulty?: number;
-
   stylePrompt?: string;
 }
 
 export interface AppError {
   id?: number;
   message: string;
-  question?: string; // Adicionado para compatibilidade com o log de exercícios
-  courseId?: string; // Adicionado para o índice de busca
+  question?: string; 
+  courseId?: string; 
   timestamp: number;
   [key: string]: any;
 }
-
-
 
 export interface Explanation {
   id?: number;
@@ -148,8 +50,6 @@ export interface Explanation {
   timestamp: number;
 }
 
-// 1. Definição da Classe do Banco
-// Adicione essa interface junto com as outras
 export interface TelemetryMetric {
   id?: number;
   type: "execution_time" | "memory_leak" | "engine_fault" | "bundle_time";
@@ -160,6 +60,9 @@ export interface TelemetryMetric {
   timestamp: number;
 }
 
+/* =========================================================
+   DEXIE INSTANCE & DATABASE SCHEMA (VERSÃO 3)
+========================================================= */
 class CodeAscensionDB extends Dexie {
   user!: Table<User>;
   courses!: Table<Course>;
@@ -169,13 +72,10 @@ class CodeAscensionDB extends Dexie {
   daily!: Table<any>;
   memory!: Table<any>;
   curriculum!: Table<any>;
-  // 1. Declarar a nova tabela
   telemetry!: Table<TelemetryMetric>;
 
   constructor() {
     super("codeascent_db");
-
-    // 2. Registrar a tabela na versão atual (Subindo para a versão 3 se necessário)
     this.version(3).stores({
       user: 'id',
       courses: 'id',
@@ -185,201 +85,213 @@ class CodeAscensionDB extends Dexie {
       daily: 'id',
       memory: 'id, timestamp',
       curriculum: 'courseId, updatedAt',
-      telemetry: '++id, timestamp, type' // Índice por tipo e timestamp para futuras análises
+      telemetry: '++id, timestamp, type' 
     });
   }
 }
 
 export const db = new CodeAscensionDB();
 
-// 3. Função de escrita em lote de alta performance
-export async function saveTelemetryBatch(metrics: TelemetryMetric[]): Promise<boolean> {
-  if (metrics.length === 0) return true;
+/* =========================================================
+   CLOUD & MULTI-TAB SYNCHRONIZATION ENGINE
+========================================================= */
+async function syncToCloud(storeName: string, data: any): Promise<void> {
+  if (storeName !== 'user' && storeName !== 'courses') return;
+  if (!navigator.onLine) {
+    console.log(`%c[SYNC] Offline. Alteração em '${storeName}' mantida apenas local.`, "color: #ff9900");
+    return;
+  }
+
   try {
-    // bulkAdd ignora travas de registros individuais, ideal para telemetria em lote
-    await db.telemetry.bulkAdd(metrics);
+    const payload = {
+      store: storeName,
+      userId: "main",
+      payload: data,
+      timestamp: Date.now()
+    };
+
+    fetch(CLOUDFLARE_WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then((res) => {
+      if (!res.ok) console.warn(`%c[SYNC:CLOUD] Worker retornou status: ${res.status}`, "color: #ff0055");
+      else console.log(`%c[SYNC:CLOUD] Dados de '${storeName}' espelhados na nuvem.`, "color: #00ffcc");
+    }).catch(err => {
+      console.error("%c[SYNC:CLOUD] Erro na requisição do Worker:", err);
+    });
+  } catch (e) {
+    console.error("[SYNC:CLOUD] Falha ao tentar sincronizar:", e);
+  }
+}
+
+syncChannel.onmessage = async (event) => {
+  const { store, data } = event.data;
+  try {
+    const table = (db as any)[store];
+    if (table) {
+      await table.put(data);
+      console.log(`%c[MULTI-TAB] Tabela '${store}' sincronizada via BroadcastChannel.`, "color: #00ffcc");
+    }
+  } catch (e) {
+    console.error("[MULTI-TAB] Falha ao processar sincronização paralela:", e);
+  }
+};
+
+/* =========================================================
+   CORE FUNCTIONS & WRAPPERS
+========================================================= */
+export async function save(storeName: string, value: any, key: string = "main"): Promise<boolean> {
+  try {
+    const table = (db as any)[storeName];
+    const dataToSave = typeof value === 'object' ? { ...value, id: key, timestamp: Date.now() } : value;
+    
+    await table.put(dataToSave);
+    syncChannel.postMessage({ store: storeName, key, data: dataToSave });
+    await syncToCloud(storeName, dataToSave);
     return true;
   } catch (e) {
-    console.error("[Telemetry DB] Falha ao persistir lote de telemetria:", e);
+    console.error(`[DB] Erro ao salvar em ${storeName}:`, e);
     return false;
   }
 }
 
-// ... Resto do seu arquivo db.ts permanece idêntico
+export async function get<T = any>(storeName: string, key: string): Promise<T | null> {
+  try {
+    const table = (db as any)[storeName];
+    return (await table.get(key)) || null;
+  } catch {
+    return null;
+  }
+}
 
+export async function getAll<T = any>(storeName: string): Promise<T[]> {
+  try {
+    return await (db as any)[storeName].toArray();
+  } catch {
+    return [];
+  }
+}
 
-/**
- * CONSTANTES DE MANUTENÇÃO REFINADAS
- */
-const MAX_LOG_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias (Explicações e Logs)
-const MAX_EXPLANATIONS_TOTAL = 100; // Limite de registros para evitar lentidão no index
+export async function updateUser(updates: Partial<User>): Promise<User> {
+  return await db.transaction('rw', db.user, async () => {
+    const current = (await db.user.get('main')) || { id: 'main', xp: 0, coins: 0, streak: 0, lastLogin: Date.now(), cognitive: 'standard', level: 1, factionId: 'default' };
+    const merged = { ...current, ...updates, id: 'main' };
+    await db.user.put(merged);
+    syncChannel.postMessage({ store: 'user', key: 'main', data: merged });
+    await syncToCloud('user', merged);
+    return merged;
+  });
+}
+
+export async function getUser(): Promise<User | null> {
+  return get<User>('user', 'main');
+}
+
+export async function getRecord<T = any>(store: string, id?: string | number): Promise<T | null> {
+  return get<T>(store, id !== undefined ? String(id) : "main");
+}
+
+export async function saveRecord(store: string, value: any, id?: string | number): Promise<boolean> {
+  return save(store, value, id !== undefined ? String(id) : "main");
+}
+
+/* =========================================================
+   TELEMETRY & COURSE MANAGEMENT
+========================================================= */
+export async function saveTelemetryBatch(metrics: TelemetryMetric[]): Promise<boolean> {
+  if (!metrics.length) return true;
+  try {
+    await db.telemetry.bulkAdd(metrics);
+    return true;
+  } catch (e) {
+    console.error("%c[TELEMETRY:DB] Falha ao persistir lote de telemetria.", "color: #ff0055", e);
+    return false;
+  }
+}
+
+export async function getErrorLogs(courseId: string): Promise<AppError[]> {
+  try {
+    return await db.errors.where('courseId').equals(courseId).toArray();
+  } catch (e) {
+    console.error("[DB] Erro ao buscar logs de erro:", e);
+    return [];
+  }
+}
+
+export async function clearErrorLog(id: number): Promise<boolean> {
+  try {
+    await db.errors.delete(id);
+    return true;
+  } catch (e) {
+    console.error("[DB] Erro ao deletar log de erro:", e);
+    return false;
+  }
+}
+
+export async function addBannedTerm(term: string): Promise<void> {
+  const settings = (await get<User>("user", "main")) || { id: 'main', xp: 0, coins: 0, streak: 0, lastLogin: Date.now(), cognitive: 'standard', level: 1, factionId: 'default' };
+  const currentBanned: string[] = settings.customBanned || [];
+  
+  if (!currentBanned.includes(term)) {
+    await save("user", {
+      ...settings,
+      customBanned: [...currentBanned, term]
+    }, "main");
+    console.log(`%c[PROTOCOL] Termo "${term}" injetado nas restrições.`, "color: #ff0055");
+  }
+}
+
+/* =========================================================
+   MAINTENANCE & DETERMINISTIC AUTO-CLEANUP
+========================================================= */
+const MAX_LOG_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 Dias
+const MAX_EXPLANATIONS_TOTAL = 100;
 const MAX_ERRORS_TOTAL = 50;
 
-/**
- * LÓGICA DE CLEANUP (AUTO-DELETE)
- */
-
-
-export async function cleanupOldData() {
+export async function cleanupOldData(): Promise<void> {
   const now = Date.now();
   const expirationThreshold = now - MAX_LOG_AGE_MS;
 
   try {
-    const deletedExplanations = await db.explanations
-      .where('timestamp')
-      .below(expirationThreshold)
-      .delete();
-
+    await db.explanations.where('timestamp').below(expirationThreshold).delete();
     await db.errors.where('timestamp').below(expirationThreshold).delete();
     await db.memory.where('timestamp').below(expirationThreshold).delete();
 
     const currentExpCount = await db.explanations.count();
     if (currentExpCount > MAX_EXPLANATIONS_TOTAL) {
       const overflow = currentExpCount - MAX_EXPLANATIONS_TOTAL;
-      await db.explanations
-        .orderBy('timestamp')
-        .limit(overflow)
-        .delete();
+      await db.explanations.orderBy('timestamp').limit(overflow).delete();
     }
 
     const currentErrorCount = await db.errors.count();
     if (currentErrorCount > MAX_ERRORS_TOTAL) {
-      await db.errors
-        .orderBy('timestamp')
-        .limit(currentErrorCount - MAX_ERRORS_TOTAL)
-        .delete();
+      await db.errors.orderBy('timestamp').limit(currentErrorCount - MAX_ERRORS_TOTAL).delete();
     }
-
-    console.log(`[Cleanup] Manutenção concluída. Registros expirados removidos.`);
   } catch (err) {
-    console.error("[Cleanup] Falha crítica na manutenção do DB:", err);
+    console.error("%c[CLEANUP] Falha crítica na limpeza básica:", "color: #ff0055", err);
   }
 }
 
-
-export async function addBannedTerm(term: string) {
-  // Busca o registro principal do usuário (onde ficam as settings)
-  const settings = await get<User>("user", "main") || {};
+export async function performStorageCleanup(): Promise<void> {
+  console.log("%c⚙️ [SYSTEM] Iniciando ciclo de manutenção determinística...", "color: #ff9900");
   
-  // Garante que customBanned seja um array
-  const currentBanned: string[] = settings.customBanned || [];
-  
-  if (!currentBanned.includes(term)) {
-    // Atualiza usando a função save que você já tem no arquivo
-    await save("user", {
-      ...settings,
-      customBanned: [...currentBanned, term]
-    }, "main");
-    
-    console.log(`[Protocol] Termo "${term}" injetado na lista de restrições.`);
-  }
-}
-
-
-
-/**
- * NOVAS FUNÇÕES REQUISITADAS PELO COURSE PAGE
- */
-
-// Busca logs de erro de um curso específico
-export async function getErrorLogs(courseId: string): Promise<AppError[]> {
-  try {
-    return await db.errors
-      .where('courseId')
-      .equals(courseId)
-      .toArray();
-  } catch (e) {
-    console.error("Erro ao buscar logs de erro:", e);
-    return [];
-  }
-}
-
-// Remove um log de erro específico após o reforço
-export async function clearErrorLog(id: number) {
-  try {
-    await db.errors.delete(id);
-    return true;
-  } catch (e) {
-    console.error("Erro ao deletar log de erro:", e);
-    return false;
-  }
-}
-
-/**
- * WRAPPERS COMPATÍVEIS
- */
-
-// ✅ GENERIC GET
-export async function get<T = any>(storeName: string, key: string): Promise<T | null> {
-  try {
-    const table = (db as any)[storeName];
-    const result = await table.get(key);
-    return result || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-// ✅ GENERIC SAVE
-
-
-// ✅ GENERIC GET ALL
-export async function getAll(storeName: string) {
-  try {
-    const table = (db as any)[storeName];
-    return await table.toArray();
-  } catch (e) {
-    return [];
-  }
-}
-
-// ✅ HELPERS DE REGISTRO
-export async function getRecord<T = any>(store: string, id?: string | number): Promise<T | null> {
-  return get<T>(store, id !== undefined ? String(id) : "main");
-}
-
-export async function saveRecord(store: string, value: any, id?: string | number) {
-  return save(store, value, id !== undefined ? String(id) : "main");
-}
-
-
-
-/*
- * MANUTENÇÃO COMPLETA DETERMINÍSTICA
- */
-export async function performStorageCleanup() {
-  console.log("⚙️ [System] Iniciando ciclo de manutenção determinística...");
-  
-  // 1. Executa a limpeza padrão de logs e tabelas estáticas
   await cleanupOldData();
 
-  // 2. Remove cursos inválidos
   await db.courses
     .filter(c => !c.lessons || c.lessons.length === 0)
     .delete();
 
-  // 3. Injeta dinamicamente a limpeza do VectorMemory de forma assíncrona
   try {
     const { cleanupVectorMemory } = await import("./vectorMemory");
     await cleanupVectorMemory();
   } catch (err) {
-    console.error("[System] Erro ao processar sub-rotina de Vector Memory:", err);
+    console.error("%c[SYSTEM] Falha ao processar sub-rotina de Vector Memory:", "color: #ff0055", err);
   }
 
-  console.log("✅ [System] Ciclo de vida de auto-cleanup concluído com sucesso.");
+  console.log("%c✅ [SYSTEM] Ciclo de vida de auto-cleanup concluído com sucesso.", "color: #00ffcc");
 }
 
-/**
- * HOOK PARA O FRONTEND
- */
 export function useAutoCleanup() {
   return performStorageCleanup;
-}
-
-export async function getUser(): Promise<User | null> {
-  try {
-    return await db.user.get('main') || null;
-  } catch (e) {
-    return null;
-  }
 }
