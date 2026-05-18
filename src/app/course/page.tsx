@@ -7,7 +7,7 @@ const loadEngine = async () => {
 
 import { unloadEngine } from "@/lib/modelManager";
 import { useEffect, useState, useRef } from "react";
-import { updateUser, db, getErrorLogs, clearErrorLog, getUser } from "@/lib/db";
+import { updateUser, db, getErrorLogs, clearErrorLog, getUser, get } from "@/lib/db";
 import { streamLesson } from "@/lib/lessonStreamer";
 import { generateReinforcement } from "@/lib/reinforce";
 import dynamic from "next/dynamic";
