@@ -375,6 +375,11 @@ export async function cleanupOldData(): Promise<void> {
     await db.errors.where("timestamp").below(expirationThreshold).delete();
     await db.memory.where("timestamp").below(expirationThreshold).delete();
 
+    await db.telemetry
+  .where("timestamp")
+  .below(expirationThreshold)
+  .delete();
+
     const currentExpCount = await db.explanations.count();
     if (currentExpCount > MAX_EXPLANATIONS_TOTAL) {
       const overflow = currentExpCount - MAX_EXPLANATIONS_TOTAL;
