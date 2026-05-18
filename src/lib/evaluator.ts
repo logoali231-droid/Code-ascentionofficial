@@ -170,12 +170,13 @@ export async function evaluateExercise({
   }
 
   // 3. RECUPERAÇÃO DE ESTADO
+ // 3. RECUPERAÇÃO DE ESTADO
   const user = await getUser();
   const currentXp = user?.xp || 0;
   const streakDays = user?.streak || 1;
-  const metrics = await getAdaptiveMetrics();
   const difficulty = exercise?.difficulty || lesson?.difficulty || 1;
   const resolvedConceptId = conceptId || lesson?.conceptId || "core_fundamentals";
+  const metrics = await getAdaptiveMetrics(difficulty, resolvedConceptId);
 
   // 4. RECOMPENSAS
   const rewards = computeRewards({
