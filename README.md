@@ -1,28 +1,199 @@
 # Code Ascension
 
-## Visão Geral
+## Overview
 
-O **Code Ascension** é um projeto de estudo e hobby desenvolvido para explorar as capacidades de Large Language Models (LLMs) executados localmente no navegador via WebGPU. O objetivo técnico é fornecer uma plataforma de aprendizado de programação que não dependa de APIs pagas ou processamento em nuvem, garantindo privacidade e custo zero de inferência para o usuário final.
+Code Ascension is an experimental offline-first educational platform focused on programming learning through local AI inference, adaptive curriculum generation, and hybrid code execution.
 
-## Propósito Social: Educação para Todos
+The project explores the practical limits of running Large Language Models (LLMs) directly inside the browser using WebGPU, eliminating continuous dependency on cloud inference APIs while preserving responsiveness, privacy, and low operational cost.
 
-O projeto fundamenta-se no princípio da democratização do conhecimento. Ao utilizar a biblioteca `@mlc-ai/web-llm` para rodar modelos como **Phi-3.5 Mini** e **Qwen** diretamente no hardware do usuário (edge computing), a plataforma elimina barreiras financeiras associadas ao consumo de tokens de IAs comerciais. Isso permite que qualquer pessoa com um dispositivo compatível possa ter acesso a um tutor de programação inteligente e personalizado.
+Instead of treating AI as a remote service, Code Ascension treats the browser as a local cognitive runtime.
 
-## Pilares Técnicos
+---
 
-- **Processamento Local:** Utilização da API WebGPU para execução de modelos de linguagem de forma nativa no browser.
-- **Eficiência Mobile:** Otimização específica para dispositivos intermediários, permitindo que smartphones com hardware limitado (como o Samsung M23) realizem inferência de modelos de até 3.8B parâmetros.
-- **Arquitetura Moderna:** Desenvolvido com React, TypeScript e Next.js, focando em uma interface reativa e persistência de dados local via IndexedDB.
+# Core Goals
 
-## Sobre o Desenvolvedor
+* Provide AI-assisted programming education without recurring inference costs.
+* Reduce dependency on centralized cloud providers.
+* Preserve user privacy by processing educational interactions locally.
+* Explore adaptive learning systems powered by local LLM inference.
+* Investigate hybrid execution models combining browser-native runtimes and isolated remote containers.
 
-Este projeto é o resultado da aplicação de conhecimentos sólidos em algoritmos e desenvolvimento de software. Possuo domínio nas seguintes áreas e linguagens:
+---
 
-- **Lógica de Programação:** Base estrutural em Portugol e algoritmos complexos.
-- **Python:** Desenvolvimento de scripts e automação.
-- **JavaScript & TypeScript:** Implementação de sistemas web escaláveis e tipagem estática.
-- **Desenvolvimento Web:** Foco em ecossistema React e integração de tecnologias de vanguarda.
+# Architecture
 
-## Status do Projeto
+Code Ascension follows a hybrid offline-first architecture.
 
-Atualmente em fase de desenvolvimento ativo como ambiente de testes para novas implementações de WebLLM e metodologias de ensino de programação.
+## Learn Mode
+
+The educational and cognitive layer operates primarily on-device.
+
+After the initial model download, the platform can continue generating lessons, explanations, exercises, and adaptive feedback fully offline using WebLLM and WebGPU.
+
+### Local Components
+
+* WebLLM (`@mlc-ai/web-llm`)
+* WebGPU accelerated inference
+* IndexedDB persistence (Dexie)
+* Context summarization and memory compression
+* Adaptive curriculum generation
+* Vector-based lightweight retrieval
+* Reinforcement and spaced repetition systems
+
+### Offline Capabilities
+
+After models are cached locally, the following systems operate without network dependency:
+
+* Lesson generation
+* Theory explanations
+* Adaptive difficulty
+* Error analysis
+* Reinforcement loops
+* Progress persistence
+* Knowledge graph traversal
+* Local memory retrieval
+
+---
+
+## Sandbox Mode
+
+The Sandbox subsystem uses a multi-engine execution architecture.
+
+Depending on the selected language, execution may happen:
+
+### Locally
+
+* JavaScript / TypeScript via browser runtime
+* Python via Pyodide + WebAssembly
+* Neural execution fallback for unsupported languages
+
+### Remotely
+
+Compiled and system-level languages are executed through isolated Docker containers hosted on Azure infrastructure.
+
+Examples:
+
+* Java
+* C++
+* Kotlin
+* Rust
+* Go
+
+The remote runtime is only activated during Sandbox usage and is completely decoupled from the educational inference pipeline.
+
+---
+
+# Technical Stack
+
+## Frontend
+
+* React
+* Next.js
+* TypeScript
+* TailwindCSS
+
+## AI Runtime
+
+* WebLLM
+* WebGPU
+* Web Workers
+* WASM / Pyodide
+
+## Persistence
+
+* IndexedDB
+* Dexie
+
+## Remote Runtime
+
+* Docker
+* Azure Virtual Machines
+* Containerized execution
+
+---
+
+# Adaptive Learning System
+
+The platform includes multiple educational subsystems designed to dynamically adapt content generation and reinforcement.
+
+Current systems include:
+
+* Adaptive difficulty scaling
+* Knowledge graph prerequisites
+* Spaced repetition
+* Reinforcement exercise generation
+* Long-term local memory
+* Context compression
+* Curriculum synchronization
+* Concept constraint heuristics
+* AI-assisted code evaluation
+
+The objective is to maintain longitudinal pedagogical consistency while minimizing cognitive overload.
+
+---
+
+# Performance Philosophy
+
+Code Ascension is designed with low-end and mid-range hardware in mind.
+
+The runtime includes:
+
+* Hardware-aware model selection
+* VRAM tier detection
+* Worker-based task offloading
+* Lazy runtime initialization
+* Aggressive memory cleanup
+* Mobile-oriented optimizations
+
+The project is actively tested on intermediate Android devices to validate practical WebGPU inference viability outside high-end hardware environments.
+
+---
+
+# Privacy
+
+Educational interactions are processed locally whenever possible.
+
+Unlike traditional cloud-based AI platforms:
+
+* prompts are not continuously transmitted to external inference APIs;
+* lesson generation can operate fully offline after model caching;
+* user memory and progress remain stored locally in the browser.
+
+Remote infrastructure is only required for:
+
+* initial model download;
+* optional future synchronization systems;
+* remote sandbox execution for compiled languages.
+
+---
+
+# Limitations
+
+Because the platform depends heavily on modern browser capabilities, some features may be unavailable depending on:
+
+* WebGPU support;
+* available VRAM;
+* browser implementation quality;
+* mobile thermal constraints.
+
+Certain Sandbox languages also require active internet connectivity due to remote container execution.
+
+---
+
+# Current Status
+
+The project is currently in active development as:
+
+* a research environment for local-first AI systems;
+* a study platform for adaptive programming education;
+* an experimental runtime for browser-native LLM inference.
+
+The architecture and APIs are still evolving and may change frequently.
+
+---
+
+# References
+
+* [WebLLM GitHub Repository](https://github.com/mlc-ai/web-llm?utm_source=chatgpt.com)
+* [WebLLM Research Paper (arXiv)](https://arxiv.org/abs/2412.15803?utm_source=chatgpt.com)
+* [WebGPU Specification (W3C)](https://www.w3.org/TR/webgpu/?utm_source=chatgpt.com)
