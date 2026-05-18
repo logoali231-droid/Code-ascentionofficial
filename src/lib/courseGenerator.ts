@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { generate } from "./webllm";
@@ -20,7 +18,16 @@ export async function generateCourse({
   stylePrompt,
   cognitive,
   courseId
-}: any)  {
+}: {
+  topic: string;
+  style: string;
+  level: string;
+  difficulty: number;
+  baseMaterial?: string;
+  stylePrompt?: string;
+  cognitive?: string;
+  courseId?: string;
+}): Promise<any> {
   const cognitiveFragments = buildPromptFragments({
     cognitive: cognitive || "Standard",
     difficulty: difficulty || 1,
@@ -31,11 +38,10 @@ export async function generateCourse({
   const compressedMaterial = baseMaterial ? compressContext(baseMaterial, 5000) : "";
   const userAnalysis = await getUserStrengthsAndWeaknesses();
 
-  // 1. Recupera o histórico pedagógico do grafo de conhecimento se aplicável
+  /* 1. KNOWLEDGE GRAPH PEDAGOGICAL HISTORY */
   let graphReviewText = "None yet";
   try {
- 
-const graph = await getKnowledgeGraph(courseId || topic.toLowerCase());
+    const graph = await getKnowledgeGraph(courseId || topic.toLowerCase());
     if (graph) {
       const reviewTargets = getReviewConcepts(graph);
       if (reviewTargets.length > 0) {
@@ -46,7 +52,7 @@ const graph = await getKnowledgeGraph(courseId || topic.toLowerCase());
     console.error("Failed to fetch graph review concepts", e);
   }
 
-  // 2. Recupera memórias históricas semânticas de lições e falhas anteriores do usuário
+  /* 2. HISTORICAL VECTOR MEMORY RETRIEVAL */
   const vectorMemoryContext = await buildMemoryContext({
     query: `Course creation for topic: ${topic}. User weaknesses: ${userAnalysis.weaknesses.join(", ")}`,
     tags: [topic.toLowerCase(), level],
@@ -71,10 +77,9 @@ INSTRUCTION:
   
   const prompt = `
 You are an elite curriculum architect.
-Your mission: create a coherent, progressive, adaptive programming course.
+Your mission: create a coherent, progressive, adaptive programming course structure.
 
 ${cognitiveFragments}
-
 ${adaptiveContext}
 
 ================================
@@ -98,43 +103,38 @@ ${compressedMaterial || "none"}
 ================================
 COURSE RULES
 ================================
-- Scale complexity gradually
-- ADHD / tdah: shorter modules, clearer segmentation
-- Deep_Dive: deeper theory, mechanics
-- Visual_Logic: patterns, analogies
-- beginner: fundamentals first | advanced: optimization, edge cases
+- Scale complexity gradually across the timeline.
+- ADHD / tdah profile: shorter modules, clearer visual segmentation chunks.
+- Deep_Dive profile: deeper engineering theory and internal mechanics.
+- Visual_Logic profile: intense pattern architecture, diagrams, and functional analogies.
 
 ================================
 OUTPUT FORMAT
 ================================
 Return ONLY valid JSON.
 {
-  "title": "",
-  "description": "",
-  "tags": [],
+  "title": "Course primary title",
+  "description": "Adaptive course syllabus overview mapping out modules",
+  "tags": ["topic", "level"],
   "lessons": [
-    { "title": "", "summary": "", "difficulty": 1 }
+    { "title": "Module Lesson Title", "summary": "Granular lesson overview mapping dependencies", "difficulty": 1 }
   ]
 }
 `;
 
   try {
-    // 1. Correct variable name 'prompt' used here
     const rawRes = await runtimeQueue.enqueue(
-  async (_signal) => {
-    return generate(prompt);
-  },
-  1 // prioridade
-);
+      async (_signal) => {
+        return generate(prompt);
+      },
+      1
+    );
 
     let fullResponse = "";
-    
-    // 2. Ensure we check 'rawRes' (the result from the queue)
     if (rawRes) {
       if (typeof rawRes === 'string') {
         fullResponse = rawRes;
       } else {
-        // 3. Iterate through the stream (rawRes)
         for await (const chunk of rawRes) {
           const content = typeof chunk === 'string' 
             ? chunk 
@@ -144,13 +144,10 @@ Return ONLY valid JSON.
       }
     }
 
-    // 4. Parse the final concatenated string
     const parsed = safeParse(fullResponse);
     
-    // ... rest of your validation logic
-    // Validação com o seu validateCourseStructure
     if (!parsed || !validateCourse(parsed)) {
-      console.error("Course validation failed. Using fallback.");
+      console.error("Course validation failed. Redirecting to safe local fallback skeleton.");
       return {
         title: `${topic} Course`,
         description: `Foundational guide for ${topic}.`,
@@ -163,7 +160,7 @@ Return ONLY valid JSON.
 
     return parsed;
   } catch (error) {
-    console.error("Course Generation Failure:", error);
+    console.error("Course Generation Failure Pipeline Exception:", error);
     return null;
   }
 }
