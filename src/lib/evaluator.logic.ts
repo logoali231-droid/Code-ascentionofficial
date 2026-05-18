@@ -7,6 +7,7 @@
  * Detecta automaticamente se o contexto é código ou texto.
  */
 import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
+import { get } from "./db";
 
 const detector = new GibberishDetector();
 
@@ -26,14 +27,29 @@ export async function evaluateLogic(received: any, expected: any, customThreshol
   try {
     const valReceived = String(received || "").trim();
     const valExpected = String(expected || "").trim();
-    const customThresholdNum = typeof customThreshold === "number" && !isNaN(customThreshold) ? customThreshold : 0.72;
+    
+    let calculatedThreshold = typeof customThreshold === "number" && !isNaN(customThreshold) ? customThreshold : 0.72;
+
+    // Adaptação elástica baseada na carga de fadiga e atrito do motor unificado central
+    try {
+      const activeState = await get("memory", "pedagogical_state_main");
+      if (activeState) {
+        if (activeState.struggleLevel > 0.6 || activeState.cognitiveLoad > 0.7) {
+          calculatedThreshold = Math.max(0.62, calculatedThreshold - 0.08); // Concede leniência inteligente para evitar desistência por cansaço
+        } else if (activeState.pacing === "accelerated") {
+          calculatedThreshold = Math.min(0.85, calculatedThreshold + 0.05); // Enrijece o rigor lógico para usuários de alto rendimento
+        }
+      }
+    } catch (e) {
+      // Silencia falhas de busca periférica mantendo o threshold base seguro
+    }
 
     if (!valReceived && valExpected) return false;
 
     const isCode = /[{}[\];()]/.test(valExpected) || valExpected.length > 50;
 
     if (isCode) {
-      return compareCode(valExpected, valReceived);
+      return compareCode(valExpected, valReceived, calculatedThreshold);
     }
 
     return compareAnswers(valExpected, valReceived);
@@ -64,8 +80,6 @@ export function compareAnswers(expected: string, received: string) {
 /* =========================================================
    CODE COMPARISON (HARDCORE FLEXIBLE)
 ========================================================= */
-
-
 
 export function compareCode(expected: string, received: string, customThreshold: number = 0.72) {
   const cleanExpected = normalizeCode(expected);
@@ -111,4 +125,3 @@ function tokenize(code: string) {
     .split(/[^a-z0-9_]+/gi)
     .filter(Boolean);
 }
-
