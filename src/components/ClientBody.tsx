@@ -4,6 +4,25 @@ import { useEffect, useState, useRef } from "react";
 import { get, performStorageCleanup } from "@/lib/db";
 import { useRouter, usePathname } from "next/navigation";
 
+const ECO_KEY = "eco_telemetry_v1";
+
+function loadEcoState() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(ECO_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveEcoState(state: any) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ECO_KEY, JSON.stringify(state));
+  } catch {}
+}
+
 export default function ClientBody({
   children,
 }: {
@@ -11,18 +30,23 @@ export default function ClientBody({
 }) {
   const [profile, setProfile] = useState("Standard");
 
-  // 🌱 SUSTENTABILIDADE STATE
+  // 🌱 UI STATE
   const [trees, setTrees] = useState(0);
   const [co2, setCo2] = useState(0);
 
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🧠 refs para tracking contínuo (não re-renderiza a cada ação)
+  // =========================================================
+  // 🌱 LOAD PERSISTED ECO STATE
+  // =========================================================
+  const saved = loadEcoState();
+
   const sessionStart = useRef(Date.now());
-  const tokensRef = useRef(0);
-  const actionsRef = useRef(0);
-  const dataMBRef = useRef(0);
+
+  const tokensRef = useRef(saved?.tokens ?? 0);
+  const dataMBRef = useRef(saved?.dataMB ?? 0);
+  const initEnergyRef = useRef(saved?.initEnergy ?? 0);
 
   // =========================================================
   // SW + USER LOAD
@@ -32,8 +56,9 @@ export default function ClientBody({
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
-          .then(() => console.log("SW registered"))
-          .catch((err) => console.log("SW registration failed", err));
+          .catch((err) =>
+            console.log("SW registration failed", err)
+          );
       });
     }
 
@@ -47,13 +72,9 @@ export default function ClientBody({
         return;
       }
 
-      if (user.profile) {
-        setProfile(user.profile);
-      }
+      if (user.profile) setProfile(user.profile);
 
-      performStorageCleanup().catch((err) =>
-        console.error("[Boot Cleanup] Error:", err)
-      );
+      performStorageCleanup().catch(() => {});
     }
 
     load();
@@ -67,41 +88,48 @@ export default function ClientBody({
   }, [profile]);
 
   // =========================================================
-  // 🌱 SUSTAINABILITY ENGINE (REAL TIME ESTIMATION)
+  // 🌱 SUSTAINABILITY ENGINE
   // =========================================================
   useEffect(() => {
     const interval = setInterval(() => {
-      const sessionMinutes =
-        (Date.now() - sessionStart.current) / 60000;
+      const hours =
+        (Date.now() - sessionStart.current) / 3_600_000;
 
-      const hours = sessionMinutes / 60;
-
-      // 🔋 energia do dispositivo (~2W mobile médio)
+      // 💤 idle baseline
       const E_device = (2 / 1000) * hours;
 
-      // 🧠 inferência LLM
-      const E_inference = tokensRef.current * 0.0000005;
+      // 🧠 compute
+      const E_inference = tokensRef.current * 5e-7;
 
-      // 🌐 rede
-      const E_network = dataMBRef.current * 0.0000002;
+      // 🌐 network
+      const E_network = dataMBRef.current * 2e-7;
 
-      const E_total = E_device + E_inference + E_network;
+      // ⚡ total session
+      const E_session =
+        E_device + E_inference + E_network + initEnergyRef.current;
 
-      // 🌍 CO₂ (kg)
-      const CO2 = E_total * 0.4;
+      // 🌍 CO2
+      const CO2 = E_session * 0.4;
 
-      // 🌳 árvores equivalentes
-      const trees = CO2 / 21;
+      // 🌳 trees equivalence
+      const TREES = CO2 / 21;
 
       setCo2(CO2);
-      setTrees(trees);
-    }, 5000);
+      setTrees(TREES);
+
+      // 💾 persist state (EVITA RESET NO REFRESH)
+      saveEcoState({
+        tokens: tokensRef.current,
+        dataMB: dataMBRef.current,
+        initEnergy: initEnergyRef.current,
+      });
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
 
   // =========================================================
-  // 🌱 HUD FIXO (UI)
+  // 🌱 HUD FIXO
   // =========================================================
   return (
     <>
