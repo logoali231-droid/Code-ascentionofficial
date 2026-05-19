@@ -199,7 +199,7 @@ export default function CodeEditor({
 
       <div className="flex relative">
         {/* Linhas indicadoras laterais */}
-        <div className="select-none text-right px-3 py-4 text-[13px] text-slate-600 bg-[#080808] border-r border-white/5 min-w-12 z-20">
+        <div className="select-none text-right px-3 py-4 text-[16px] text-slate-600 bg-[#080808] border-r border-white/5 min-w-12 z-20">
           {lines.map((_, i) => (
             <div key={i} className="leading-6">
               {i + 1}
