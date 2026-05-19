@@ -24,12 +24,11 @@ export async function streamExplanation(params: any) {
     }
   }
 
-  const parsed = safeParse(fullText);
+  const parsed = safeParse(fullResponse);
 
-  // Se for JSON válido e passar no validador, retorna objeto, senão retorna o texto puro limpo
-  if (parsed && validateExplanation(parsed)) {
-    return parsed;
-  }
+    // ADICIONADO o await aqui, pois a validação agora lê o IndexedDB
+    if (!parsed || !(await validateExplanation(parsed))) {
+      console.warn("Explanation validation failed or parse error.");
 
   return fullText || "Mentor system offline. Critical link failure.";
 }
