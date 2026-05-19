@@ -116,24 +116,25 @@ export default function ProfilePage() {
   }
 
   async function handleReset() {
-    if (
-      !confirm("AVISO: ESTA AÇÃO IRÁ APAGAR SUA CONSCIÊNCIA ATUAL. CONTINUAR?")
-    )
-      return;
+    if (!confirm("AVISO: ESTA AÇÃO IRÁ APAGAR SUA CONSCIÊNCIA ATUAL. CONTINUAR?")) return;
 
     try {
       await performStorageCleanup();
 
-      await save("user", { xp: 0, coins: 0, level: 1 }, "main");
-
+      // 1. Limpa o disco primeiro de forma síncrona/atómica
       await Promise.all([
         db.table("courses").clear(),
         db.table("errors").clear(),
         db.table("memory").clear(),
         db.table("curriculum").clear(),
+        db.table("user").clear()
       ]);
 
-      window.location.reload();
+      // 2. Grava o estado inicial limpo diretamente, sobrepondo o buffer
+      await save("user", { xp: 0, coins: 0, level: 1, customBanned: [] }, "main");
+
+      // 3. Força o hard-reload para limpar os timers pendentes do debounce em RAM
+      window.location.replace("/profile");
     } catch (error) {
       console.error("Falha no reset do sistema:", error);
     }
