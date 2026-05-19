@@ -38,8 +38,15 @@ export class SandboxOrchestrator {
    * Inicializa o ambiente da linguagem escolhida sob demanda (Lazy Loading)
    */
   public async bootLanguageRuntime(language: string): Promise<Worker> {
-    this.cleanUpMemoryAggressively(); // Garante que a linguagem anterior foi expurgada da RAM
+    const { thermalMonitor } = await import("../thermal");
+    
+    // 🔥 Adaptive Throttling: Dá 2 segundos de respiro para a CPU antes de subir novo worker
+    if (thermalMonitor.getStatus() === 'THROTTLED') {
+      console.warn("[THERMAL] Sistema quente. Aplicando cooldown de 2s...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
+    this.cleanUpMemoryAggressively();
     this.currentLanguage = language;
     let workerURL = "";
 
