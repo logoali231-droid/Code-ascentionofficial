@@ -12,6 +12,7 @@ export interface QueueTask {
   controller: AbortController;
   resolve: (value: any) => void;
   reject: (reason: any) => void;
+  queuedAt: number;
 }
 
 class RuntimeQueue {
@@ -45,32 +46,11 @@ class RuntimeQueue {
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const controller = new AbortController();
-      const task: QueueTask = {
-        id: customId || crypto.randomUUID(),
-        priority,
-        execute,
-        controller,
-        resolve,
-        reject,
-      };
-
-      this.queue.push(task);
-      // Ordena por prioridade decrescente (maiores primeiro)
-      this.queue.sort((a, b) => b.priority - a.priority);
-
-      this.processNext();
-    });
-  }
-
-  /**
-   * Processa as tarefas respeitando o limite estrito de concorrência
-   */
-  private async processNext() {
-    if (this.activeCount >= this.maxConcurrency || this.queue.length === 0) {
-      return;
-    }
-
-    const task = this.queue.shift()!;
+      const task = this.queue.shift()!;
+    
+    // Cálculo do Wait Time (tempo na fila)
+    const waitTime = performance.now() - task.queuedAt;
+    
     this.activeCount++;
 
     // Se o sinal já foi abortado antes mesmo de iniciar
@@ -81,17 +61,63 @@ class RuntimeQueue {
       return;
     }
 
+    const execStart = performance.now(); // Início da execução real
     try {
       const result = await task.execute(task.controller.signal);
+      const execTime = performance.now() - execStart; // Fim da execução
+      
+      console.log(`[Telemetry] Task: ${task.id} | Wait: ${waitTime.toFixed(2)}ms | Exec: ${execTime.toFixed(2)}ms`);
+      
       task.resolve(result);
     } catch (error) {
+      const execTime = performance.now() - execStart;
+      console.error(`[Telemetry] Task: ${task.id} (FAILED) | Wait: ${waitTime.toFixed(2)}ms | Exec: ${execTime.toFixed(2)}ms`);
+      
       task.reject(error);
-    }
-    {
+    } finally {
       this.activeCount--;
       this.processNext();
     }
-  }
+  /**
+   * Processa as tarefas respeitando o limite estrito de concorrência
+   */
+  private async processNext() {
+    if (this.activeCount >= this.maxConcurrency || this.queue.length === 0) {
+      return;
+    }
+
+    const task = this.queue.shift()!;
+    
+    // Cálculo do Wait Time (tempo na fila)
+    const waitTime = performance.now() - task.queuedAt;
+    
+    this.activeCount++;
+
+    // Se o sinal já foi abortado antes mesmo de iniciar
+    if (task.controller.signal.aborted) {
+      this.activeCount--;
+      task.reject(new DOMException("Aborted", "AbortError"));
+      this.processNext();
+      return;
+    }
+
+    const execStart = performance.now(); // Início da execução real
+    try {
+      const result = await task.execute(task.controller.signal);
+      const execTime = performance.now() - execStart; // Fim da execução
+      
+      console.log(`[Telemetry] Task: ${task.id} | Wait: ${waitTime.toFixed(2)}ms | Exec: ${execTime.toFixed(2)}ms`);
+      
+      task.resolve(result);
+    } catch (error) {
+      const execTime = performance.now() - execStart;
+      console.error(`[Telemetry] Task: ${task.id} (FAILED) | Wait: ${waitTime.toFixed(2)}ms | Exec: ${execTime.toFixed(2)}ms`);
+      
+      task.reject(error);
+    } finally {
+      this.activeCount--;
+      this.processNext();
+    }
 
   /**
    * Aborta uma tarefa específica pelo ID
