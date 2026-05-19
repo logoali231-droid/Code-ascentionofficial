@@ -54,7 +54,13 @@ export type Language =
 
 export type EngineType = "local" | "remote" | "wasm" | "neural";
 
+
 export interface SandboxResult {
   output: string[];
   error?: string;
+}
+
+// O contrato que todos os engines DEVEM seguir
+export interface IEngineExecutor {
+  execute(code: string, language: string): Promise<SandboxResult>;
 }
