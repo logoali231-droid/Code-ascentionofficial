@@ -1,9 +1,105 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { exportUserMind } from "@/lib/memoryExport";
 import { importUserMind } from "@/lib/memoryImport";
-import { save, db, performStorageCleanup } from "@/lib/db";
+import { save, db, get, performStorageCleanup } from "@/lib/db";
 
+/* ============================================================================
+   COMPONENT: BANNED TERMS MANAGER (Anti-Cortex Filter)
+============================================================================ */
+function BannedTermsManager() {
+  const [bannedTerms, setBannedTerms] = useState<string[]>([]);
+  const [newTerm, setNewTerm] = useState("");
+
+  useEffect(() => {
+    async function loadProfile() {
+      const user = await get("user", "main");
+      if (user?.customBanned) {
+        setBannedTerms(user.customBanned);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  async function handleAddTerm() {
+    if (!newTerm.trim()) return;
+    
+    const cleaned = newTerm.trim().toLowerCase();
+    if (bannedTerms.includes(cleaned)) return;
+
+    const updatedTerms = [...bannedTerms, cleaned];
+    setBannedTerms(updatedTerms);
+    setNewTerm("");
+
+    const user = (await get("user", "main")) || {};
+    user.customBanned = updatedTerms;
+    await save("user", user, "main");
+  }
+
+  async function handleRemoveTerm(termToRemove: string) {
+    const updatedTerms = bannedTerms.filter((t) => t !== termToRemove);
+    setBannedTerms(updatedTerms);
+
+    const user = (await get("user", "main")) || {};
+    user.customBanned = updatedTerms;
+    await save("user", user, "main");
+  }
+
+  return (
+    <div className="p-4 bg-slate-900/20 border border-[#00FF00]/30 rounded font-mono w-full">
+      <h3 className="text-[#00FF00] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+        <span>☣️</span> Anti-Cortex Word Filter
+      </h3>
+      <p className="text-[10px] text-slate-400 mb-4 uppercase">
+        Bane termos específicos das gerações de IA da sua mentoria.
+      </p>
+
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          value={newTerm}
+          onChange={(e) => setNewTerm(e.target.value)}
+          placeholder="Ex: innerHTML, var, etc..."
+          className="flex-1 bg-slate-950 border border-slate-800 focus:border-[#FF0000] text-xs p-2 rounded text-white outline-none transition-all"
+          onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
+        />
+        <button
+          onClick={handleAddTerm}
+          className="bg-slate-950 border border-[#00FF00]/50 hover:bg-[#00FF00] hover:text-black text-[#00FF00] text-xs px-4 rounded font-bold transition-all"
+        >
+          EXEC
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+        {bannedTerms.map((term) => (
+          <span
+            key={term}
+            className="inline-flex items-center gap-1.5 bg-slate-950 border border-[#FF0000]/40 text-[#FF0000] text-[11px] px-2 py-0.5 rounded"
+          >
+            {term}
+            <button
+              onClick={() => handleRemoveTerm(term)}
+              className="hover:text-white font-bold text-[10px] ml-1"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        {bannedTerms.length === 0 && (
+          <div className="text-[10px] text-slate-600 italic uppercase p-2 border border-dashed border-slate-900 w-full text-center rounded">
+            No active blocklist filters.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+   MAIN PAGE: PROFILE PAGE
+============================================================================ */
 export default function ProfilePage() {
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -11,7 +107,7 @@ export default function ProfilePage() {
       try {
         await importUserMind(file);
         alert("NEURAL LINK RESTAURADO COM SUCESSO");
-        window.location.reload(); // Recarrega para aplicar a nova consciência
+        window.location.reload();
       } catch (err) {
         console.error("Erro na restauração:", err);
         alert("FALHA NA SINCRONIZAÇÃO NEURAL");
@@ -26,17 +122,15 @@ export default function ProfilePage() {
       return;
 
     try {
-      // ⚠️ CRÍTICO: Limpeza de cache para evitar erros de cota (Samsung M23)
       await performStorageCleanup();
 
-      // Reset do usuário usando o helper 'save' para preservar a estrutura do banco
-      await save("main", { xp: 0, coins: 0, level: 1 });
+      await save("user", { xp: 0, coins: 0, level: 1 }, "main");
 
-      // Limpeza completa das tabelas de progresso e memória
       await Promise.all([
-        db.courses.clear(),
-        db.errors.clear(),
-        db.memory.clear(),
+        db.table("courses").clear(),
+        db.table("errors").clear(),
+        db.table("memory").clear(),
+        db.table("curriculum").clear(),
       ]);
 
       window.location.reload();
@@ -51,7 +145,15 @@ export default function ProfilePage() {
         Perfil do Operator // Configurações
       </h1>
 
-      <div className="space-y-4">
+      {/* CORE ADAPTATION FILTER */}
+      <div className="space-y-2">
+        <h2 className="text-sm uppercase opacity-70">
+          Filtros Cognitivos Dinâmicos
+        </h2>
+        <BannedTermsManager />
+      </div>
+
+      <div className="space-y-4 pt-4">
         <h2 className="text-sm uppercase opacity-70">
           Backup de Consciência (External Save)
         </h2>
@@ -78,7 +180,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="pt-20">
+      <div className="pt-10">
         <p className="text-[10px] text-[#FF0000] mb-2 uppercase text-center animate-pulse">
           Cuidado: Operação Irreversível
         </p>
