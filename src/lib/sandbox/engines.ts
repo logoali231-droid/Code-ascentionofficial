@@ -1,10 +1,23 @@
 "use client";
 
-import { Language, EngineType } from "./types";
+import { IEngineExecutor } from "./types";
+import { LocalExecutor } from "./engines/LocalExecutor";
+import { WasmExecutor } from "./engines/WasmExecutor";
+import { RemoteExecutor } from "./engines/RemoteExecutor";
+import { NeuralExecutor } from "./engines/NeuralExecutor";
 
-// Usar string no Record resolve o conflito com a string dinâmica do autocompletar
-export const ENGINE_MAP: Record<string, EngineType> = {
-  // --- LOCAL ENGINE (Interpretadores leves client-side) ---
+// 1. Instanciamos os Singletons. 
+// O Registry mantém apenas UMA instância viva de cada executor.
+const EXECUTOR_REGISTRY: Record<string, IEngineExecutor> = {
+  local: new LocalExecutor(),
+  wasm: new WasmExecutor(),
+  remote: new RemoteExecutor(),
+  neural: new NeuralExecutor(),
+};
+
+// 2. Mapeamento de Linguagem -> Chave do Registry
+const LANGUAGE_MAP: Record<string, string> = {
+  // Local
   javascript: "local",
   typescript: "local",
   html: "local",
@@ -13,11 +26,11 @@ export const ENGINE_MAP: Record<string, EngineType> = {
   actionscript: "local",
   coffeescript: "local",
 
-  // --- WASM ENGINE (Runtimes pesados compilados em binário web) ---
+  // Wasm
   python: "wasm",
   ruby: "wasm",
 
-  // --- REMOTE ENGINE (Cluster de Containers Docker - Compilação Pesada/Isolada) ---
+  // Remote (Cluster Docker)
   java: "remote",
   csharp: "remote",
   cpp: "remote",
@@ -55,7 +68,7 @@ export const ENGINE_MAP: Record<string, EngineType> = {
   ada: "remote",
   fsharp: "remote",
 
-  // --- NEURAL ENGINE (Simulação lógica baseada em AST/Heurística Educacional) ---
+  // Neural (Fallback)
   swift: "neural",
   dart: "neural",
   matlab: "neural",
@@ -72,7 +85,18 @@ export const ENGINE_MAP: Record<string, EngineType> = {
   "small basic": "neural",
 };
 
-// Função utilitária opcional para buscar o motor com segurança caso digitem uma string customizada
-export const getEngine = (lang: Language): EngineType => {
-  return ENGINE_MAP[lang as string] || "neural"; // "neural" ou qualquer motor padrão para linguagens desconhecidas
+/**
+ * Registry de Execução: O cérebro do orquestrador.
+ * Ele retorna a implementação da estratégia (executor) 
+ * baseada na linguagem solicitada.
+ */
+export const getExecutor = (lang: string): IEngineExecutor => {
+  const engineKey = LANGUAGE_MAP[lang] || "neural";
+  const executor = EXECUTOR_REGISTRY[engineKey];
+  
+  if (!executor) {
+    throw new Error(`Executor para a linguagem '${lang}' não configurado no Registry.`);
+  }
+  
+  return executor;
 };
