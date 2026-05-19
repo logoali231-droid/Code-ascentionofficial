@@ -123,7 +123,8 @@ CRITICAL EXECUTION RULES
 
     const parsed = safeParse(fullResponse);
 
-    if (!parsed || !validateExplanation(parsed)) {
+    // ADICIONADO o await aqui, pois a validação agora lê o IndexedDB
+    if (!parsed || !(await validateExplanation(parsed))) {
       console.warn("Explanation validation failed or parse error.");
       return {
         title: lesson?.title || "Explanation",
