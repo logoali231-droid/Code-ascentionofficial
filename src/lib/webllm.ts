@@ -25,7 +25,16 @@ export async function initEngine(
   loadingPromise = (async () => {
     try {
       const specs = await detectSystemCapabilities();
-      const selectedModelId = modelId || specs.recommended.model_id;
+
+const isMobile =
+  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+// 🔥 FORÇA fallback inteligente no mobile fraco
+let selectedModelId = modelId || specs.recommended.model_id;
+
+if (isMobile && selectedModelId.includes("Phi-3")) {
+  console.warn("[WEBLLM] Mobile detected → Phi risk mode enabled");
+}
 
       const modelConfig = SYSTEM_CONFIG.AVAILABLE_MODELS.find(
         (m) => m.model_id === selectedModelId,
@@ -62,15 +71,38 @@ export async function initEngine(
         loadingPromise = null;
       };
       const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
-      engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
-        initProgressCallback: onProgress,
-        logLevel: "INFO",
-        chatOpts: {
-          context_window_size: SYSTEM_CONFIG.LLM.context_window_size,
-          sliding_window_size: SYSTEM_CONFIG.LLM.sliding_window_size,
-          attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
-        },
-      } as any);
+      const isMobile =
+  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+const isMobile =
+  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+const isPhi = selectedModelId.includes("Phi");
+
+if (isMobile && isPhi) {
+  console.warn("[WEBLLM] Mobile + Phi detected → enabling SAFE INIT MODE");
+}
+
+engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
+  initProgressCallback: onProgress,
+  logLevel: "INFO",
+
+  chatOpts: {
+    context_window_size: isMobile
+      ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
+      : SYSTEM_CONFIG.LLM.context_window_size,
+
+    sliding_window_size: isMobile
+      ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
+      : SYSTEM_CONFIG.LLM.sliding_window_size,
+
+    attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
+  },
+
+  // 🔥 NOVO: evita crash no restore de cache
+  useIndexedDBCache: !isMobile,
+  enableProgressiveLoading: true,
+} as any);
 
       const gpuDevice =
 
