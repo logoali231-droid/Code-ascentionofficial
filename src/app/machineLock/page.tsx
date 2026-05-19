@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/db";
 import { playSound } from "@/lib/sounds";
+import { fullClientCacheReset } from "@/lib/cleanCache";
 
 import { precompileNeuralModules } from "@/lib/neuralBundler";
 import {
@@ -152,6 +153,25 @@ export default function MachineLockPage() {
             >
               Authorize Link <ChevronRight size={18} />
             </button>
+            <button
+  onClick={async () => {
+    await fullClientCacheReset();
+    alert("Cache limpo. Recarregue o sistema.");
+  }}
+  className="
+    w-full mt-3
+    bg-slate-900/40
+    border border-slate-700
+    text-slate-400
+    p-3 rounded-xl
+    text-xs uppercase tracking-widest
+    flex items-center justify-center gap-2
+    hover:border-cyan-500 hover:text-cyan-300
+    transition-all
+  "
+>
+  🧹 Clean Cache
+</button>
           </div>
         ) : (
           <div className="space-y-6">
