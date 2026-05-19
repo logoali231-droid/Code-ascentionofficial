@@ -47,18 +47,15 @@ export async function getAdaptiveMetrics(
       ? topicLogs.filter((h) => h.success).length / topicLogs.length
       : 0.7;
 
+  // Define a dificuldade base de forma puramente matemática alinhada ao nível real
   let baseDifficulty = currentDifficulty || Math.min(5, userLevel * 0.1 + 1.5);
 
-  if (successRate > 0.85) baseDifficulty += 0.4;
-  if (successRate < 0.4) baseDifficulty -= 0.6;
-
+  // CORREÇÃO: O cálculo agora ocorre de forma centralizada e amortecida sem dupla taxação externa
   let finalDifficulty = calculateGranularDifficulty(
     baseDifficulty,
     successRate,
     avgAttempts,
   );
-
-  // Amortece e sincroniza com a soberania do motor central se houver um estado ativo registrado
 
   const normalizedProfile = String(profile || "standard").toLowerCase();
   const isADHD = normalizedProfile === "tdah";
@@ -69,11 +66,8 @@ export async function getAdaptiveMetrics(
     xpMultiplier: parseFloat(
       (finalDifficulty * (isADHD ? 1.8 : 1.2) * streakBonus).toFixed(2),
     ),
-
     coinMultiplier: Math.floor(finalDifficulty * 10 * (1 + userLevel * 0.05)),
-
     focusMode: isADHD && (finalDifficulty > 3.8 || avgAttempts > 2),
-
     style: getCognitiveFormattingRules(normalizedProfile),
   };
 }
@@ -86,19 +80,29 @@ export function getCognitiveFormattingRules(profile: string): string {
     visual_logic:
       "FORÇAR: Representações em fluxogramas de texto (ASCII Art), mapeamento de dados ou tabelas comparativas de fluxo.",
     standard:
-      "FORÇAR: Um exemplo prático em primeiro lugar, seguido de uma síntese teórica corta contendo a regra conceitual.",
+      "FORÇAR: Um exemplo prático em primeiro lugar, seguido de uma síntese teórica curta contendo a regra conceitual.",
   };
   return rules[profile] || rules["standard"];
 }
 
+// CORREÇÃO: Função centralizada com amortecimento linear (Evita o efeito dente de serra na UI)
 function calculateGranularDifficulty(
   base: number,
   successRate: number,
   avgAttempts: number,
 ): number {
-  const consistencyBonus = successRate > 0.95 ? 0.2 : 0;
-  const struggleTax = avgAttempts > 3 ? 0.7 : 0;
-  const finalValue = base + consistencyBonus - struggleTax;
+  let variance = 0;
 
+  // Ajustes de taxa de sucesso equilibrados e sem saltos bruscos
+  if (successRate > 0.85) variance += 0.3;
+  if (successRate < 0.4) variance -= 0.4;
+
+  // Penalização por esforço excessivo controlada
+  if (avgAttempts > 3) variance -= 0.3;
+  
+  // Recompensa sutil para performance limpa/impecável
+  if (successRate > 0.95 && avgAttempts <= 1.2) variance += 0.1;
+
+  const finalValue = base + variance;
   return parseFloat(Math.max(1, Math.min(5, finalValue)).toFixed(3));
 }
