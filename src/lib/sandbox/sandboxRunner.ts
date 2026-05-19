@@ -6,38 +6,43 @@ import { runRemote } from "./remoteExecutor";
 import { runNeural } from "./neuralExecutor";
 import { runWasm } from "./wasmExecutor";
 import { telemetry } from "./telemetryManager"; // Importando o gerenciador
-
-
 import { Language, SandboxResult } from "./types";
 import { SandboxFile } from "@/components/SandboxEditor";
 
+class BundleWorkerManager {
+  private static instance: Worker | null = null;
 
-let bundleWorker: Worker | null = null;
-/**
- * Executa o empacotamento de arquivos dentro de um Worker respeitando o cancelamento ativo
- */
+  public static get(): Worker {
+    if (!this.instance) {
+      this.instance = new Worker(
+        new URL("../sandbox.worker.ts", import.meta.url)
+      );
+    }
+    return this.instance;
+  }
+
+  public static terminate() {
+    if (this.instance) {
+      this.instance.terminate();
+      this.instance = null; // Ação crítica: Reset atômico da referência
+    }
+  }
+}
 export function executeInWorker(
   mainFile: SandboxFile,
   allFiles: SandboxFile[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const startTime = performance.now(); // Início da métrica de bundle
+  const startTime = performance.now();
 
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       return reject(new DOMException("Bundling aborted.", "AbortError"));
     }
-
-    if (!bundleWorker) {
-      bundleWorker = new Worker(
-        new URL("../sandbox.worker.ts", import.meta.url)
-      );
-    }
-
-    const worker = bundleWorker;
-
+    const worker = BundleWorkerManager.get();
     const abortHandler = () => {
-      worker.terminate();
+      // O manager agora garante que o worker seja encerrado E a referência nullificada
+      BundleWorkerManager.terminate();
       reject(
         new DOMException(
           "Bundling process terminated by user or context switch.",
@@ -45,7 +50,6 @@ export function executeInWorker(
         ),
       );
     };
-
     if (signal) {
       signal.addEventListener("abort", abortHandler);
     }
@@ -121,13 +125,6 @@ export function executeInWorker(
     });
   });
 }
-
-/**
- * Despacha a execução do código para o motor correto repassando o AbortSignal
- */
-/**
- * Despacha a execução do código para o motor correto repassando o AbortSignal
- */
 export async function executeSandboxCode(
   code: string,
   language: Language,
