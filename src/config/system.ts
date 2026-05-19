@@ -39,7 +39,7 @@ const SYSTEM_CONFIG = {
     context_window_size: 768,
     sliding_window_size: 512,
   }
-  }
+  },
   // PARÂMETROS DE CLEANUP (Limites físicos e controle de estado do app)
   CLEANUP: {
     MAX_EXPLANATIONS_TOTAL: 50, // Limite de explicações salvas/em cache por sessão
