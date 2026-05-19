@@ -8,33 +8,36 @@ export async function fullClientCacheReset() {
     // 2. sessionStorage
     sessionStorage.clear();
 
-    // 3. Cache API (service worker)
-    if ("caches" in window) {
+    // 3. Cache API (Service Worker)
+    if (typeof caches !== "undefined") {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
 
-    // 4. IndexedDB (WebLLM / Dexie / models)
-    const dbs = await indexedDB.databases?.();
-    if (dbs) {
-      await Promise.all(
-        dbs.map((db) => {
-          const dbs = await indexedDB.databases?.();
+    // 4. IndexedDB cleanup (WebLLM / Dexie / models)
+    const dbs =
+      typeof indexedDB.databases === "function"
+        ? await indexedDB.databases()
+        : [];
 
-if (dbs) {
-  await Promise.all(
-    dbs
-      .filter((db): db is { name: string } => typeof db.name === "string")
-      .map((db) => {
-        return new Promise<void>((resolve, reject) => {
-          const req = indexedDB.deleteDatabase(db.name);
+    await Promise.all(
+      dbs
+        .filter((db): db is { name: string } => typeof db.name === "string")
+        .map((db) => {
+          return new Promise<void>((resolve, reject) => {
+            const req = indexedDB.deleteDatabase(db.name);
 
-          req.onsuccess = () => resolve();
-          req.onerror = () => reject(req.error);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
 
-          req.onblocked = () =>
-            console.warn("[CACHE] blocked:", db.name);
-        });
-      })
-  );
+            req.onblocked = () =>
+              console.warn("[CACHE] blocked:", db.name);
+          });
+        })
+    );
+
+    console.log("[CACHE] Full reset completed.");
+  } catch (err) {
+    console.error("[CACHE] Reset error:", err);
+  }
 }
