@@ -19,19 +19,22 @@ export async function fullClientCacheReset() {
     if (dbs) {
       await Promise.all(
         dbs.map((db) => {
-          if (!db.name) return;
-          return new Promise((resolve, reject) => {
-            const req = indexedDB.deleteDatabase(db.name);
-            req.onsuccess = () => resolve(true);
-            req.onerror = () => reject(req.error);
-            req.onblocked = () => console.warn("[CACHE] blocked:", db.name);
-          });
-        })
-      );
-    }
+          const dbs = await indexedDB.databases?.();
 
-    console.log("[CACHE] Full reset completed.");
-  } catch (err) {
-    console.error("[CACHE] Reset error:", err);
-  }
+if (dbs) {
+  await Promise.all(
+    dbs
+      .filter((db): db is { name: string } => typeof db.name === "string")
+      .map((db) => {
+        return new Promise<void>((resolve, reject) => {
+          const req = indexedDB.deleteDatabase(db.name);
+
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+
+          req.onblocked = () =>
+            console.warn("[CACHE] blocked:", db.name);
+        });
+      })
+  );
 }
