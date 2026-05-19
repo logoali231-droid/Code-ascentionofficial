@@ -44,15 +44,80 @@ class LocalWorkerManager {
   }
 }
 
+
+class ExecutionQueue {
+  private static chain: Promise<any> = Promise.resolve();
+
+  public static enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const wrapper = async () => {
+      try {
+        return await task();
+      } catch (error) {
+        // Log ou tratamento de erro global aqui, se necessário
+        console.error("Queue execution error:", error);
+      }
+    };
+    this.chain = this.chain.then(wrapper);
+    return this.chain as any;
+  }
+}
+
 export async function runLocal(
   code: string,
   lang: string,
-  signal?: AbortSignal, // <-- Injeção do AbortSignal vindo da Runtime Queue
+  signal?: AbortSignal,
 ): Promise<{ output: string[]; error?: string }> {
-  // Se a fila já cancelou antes de começar
-  if (signal?.aborted) {
-    return { output: [], error: "Execution aborted by system runtime." };
-  }
+  
+  // Encapsulamos toda a execução lógica dentro da Fila
+  return ExecutionQueue.enqueue(async () => {
+    
+    // 1. Verificação de abort ANTES de iniciar o processamento do Worker
+    if (signal?.aborted) {
+      return { output: [], error: "Execution aborted by system runtime." };
+    }
+
+    const targetLang = lang.toLowerCase() as keyof typeof SYSTEM_CONFIG.LIMITS.LANGUAGES;
+    const memoryLimit = SYSTEM_CONFIG.LIMITS.LANGUAGES[targetLang] || SYSTEM_CONFIG.LIMITS.memory_light;
+    const timeoutLimit = SYSTEM_CONFIG.LIMITS.timeout || 4000;
+
+    return new Promise((resolve) => {
+      const worker = LocalWorkerManager.get();
+      
+      const abortHandler = () => {
+        // Se abortado, terminamos o worker para garantir limpeza total
+        LocalWorkerManager.terminate();
+        cleanup();
+        resolve({ output: [], error: "Execution intercepted and terminated." });
+      };
+
+      if (signal) signal.addEventListener("abort", abortHandler);
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        if (signal) signal.removeEventListener("abort", abortHandler);
+      };
+
+      worker.onmessage = (e) => {
+        cleanup();
+        if (e.data.success) resolve({ output: e.data.output });
+        else resolve({ output: [], error: e.data.error });
+      };
+
+      worker.onerror = (err) => {
+        cleanup();
+        resolve({ output: [], error: err.message });
+      };
+
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        LocalWorkerManager.terminate(); // Timeout mata o worker forçadamente
+        resolve({ output: [], error: `Execution timeout exceeded (${timeoutLimit}ms).` });
+      }, timeoutLimit);
+
+      worker.postMessage({ code });
+    });
+  });
+}
 
   const targetLang =
     lang.toLowerCase() as keyof typeof SYSTEM_CONFIG.LIMITS.LANGUAGES;
