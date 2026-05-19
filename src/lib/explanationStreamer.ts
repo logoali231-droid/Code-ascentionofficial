@@ -26,12 +26,16 @@ export async function streamExplanation(params: any) {
 
   const parsed = safeParse(fullText);
 
-  // Se for JSON válido e passar no validador assíncrono, retorna objeto, senão retorna o texto puro limpo
   if (parsed && (await validateExplanation(parsed))) {
     return parsed;
   }
 
-  return fullText || "Mentor system offline. Critical link failure.";
+  // Retorno controlado se a IA violar o Filtro Anti-Cortex
+  return {
+    title: "⚠️ LINK ANÔMALO DETECTADO",
+    content: "O output gerado pela rede neural violou os seus filtros restritivos de sintaxe configurados no perfil.",
+    analogy: "Filtro de segurança ativado pelo Operador."
+  };
 }
 
 export async function streamErrorExplanation(params: any) {
@@ -43,12 +47,15 @@ export async function streamErrorExplanation(params: any) {
       fullText = rawRes;
     } else {
       for await (const chunk of rawRes) {
-        fullText +=
-          typeof chunk === "string"
-            ? chunk
-            : (chunk as any).choices?.[0]?.delta?.content || "";
+        fullText += typeof chunk === "string" ? chunk : (chunk as any).choices?.[0]?.delta?.content || "";
       }
     }
+  }
+
+  const parsed = safeParse(fullText);
+  // Validação estrita injetada também no fluxo do Debugger de Erros
+  if (parsed && !(await validateExplanation(parsed))) {
+    return "⚠️ CORRUPÇÃO DE DADOS: O debugger gerou explicações contendo termos bloqueados pelas suas diretivas de segurança.";
   }
 
   return fullText;
