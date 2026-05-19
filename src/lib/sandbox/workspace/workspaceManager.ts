@@ -224,7 +224,35 @@ export class WorkspaceManager {
 
     return "plaintext";
   }
+
+  async updateFileContent(
+  path: string,
+  content: string
+) {
+  const workspace =
+    this.getWorkspace();
+
+  if (!workspace) {
+    return;
+  }
+
+  workspace.files =
+    workspace.files.map((file) =>
+      file.path === path
+        ? {
+            ...file,
+            content,
+          }
+        : file
+    );
+
+  this.workspace = workspace;
 }
+}
+
+
+
 
 export const workspaceManager =
   new WorkspaceManager();
+
