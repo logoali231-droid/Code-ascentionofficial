@@ -6,66 +6,60 @@ export async function runRemote(
   code: string,
   language: string,
   signal?: AbortSignal,
-): Promise<{ output: string[]; error?: string }> {
+  queuedAt: number = performance.now() // Telemetria: momento em que entrou na fila
+): Promise<{ output: string[]; error?: string; metrics: { waitTime: number; execTime: number } }> {
+  
+  const runId = crypto.randomUUID(); // ID único para garantir a integridade da resposta
+  const waitTime = performance.now() - queuedAt;
+
   if (signal?.aborted) {
-    return { output: [], error: "Execution aborted by system runtime." };
+    throw new DOMException("Execution aborted before start.", "AbortError");
   }
 
   const socket = await connectSandboxSocket();
 
   return new Promise((resolve, reject) => {
-    // ID único ou filtro de execução para garantir que este Handler só leia a resposta DESTA execução específica
-    // (Útil se você rodar vários códigos ou compartilhar o socket)
+    const startTime = performance.now();
 
-    // Handler de cancelamento ativo acionado pela troca de contexto/abas (Safari Guard)
-    const abortHandler = () => {
-      cleanup();
-
-      // Notifica o servidor remoto para dar um "docker stop/kill" no container ativo lá fora
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "abort" }));
-      }
-
-      reject(
-        new DOMException(
-          "Remote execution intercepted actively (Context switched).",
-          "AbortError",
-        ),
-      );
-    };
-
-    // Centralizador de limpeza estrito (Remove absolutamente tudo para poupar RAM no iOS)
     const cleanup = () => {
-      clearTimeout(timeout);
-      if (signal) {
-        signal.removeEventListener("abort", abortHandler);
-      }
+      if (signal) signal.removeEventListener("abort", abortHandler);
       socket.removeEventListener("message", messageHandler);
       socket.removeEventListener("error", errorHandler);
+      clearTimeout(timeout);
     };
 
-    if (signal) {
-      signal.addEventListener("abort", abortHandler);
-    }
+    const abortHandler = () => {
+      cleanup();
+      // Notifica o backend para matar o processo específico deste runId
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "abort", runId }));
+      }
+      reject(new DOMException("Remote execution intercepted (Abort).", "AbortError"));
+    };
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error("Remote execution timeout"));
+      reject(new Error("Remote execution timeout (15s)"));
     }, 15000);
 
     const messageHandler = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // CORREÇÃO CRÍTICA: Filtra apenas mensagens desta execução
+        if (data.runId !== runId) return;
 
-        // Opcional: se o seu backend devolver um ID, filtre aqui (ex: if (data.runId !== meuId) return;)
-
+        cleanup();
         resolve({
           output: data.output || [],
           error: data.error,
+          metrics: {
+            waitTime,
+            execTime: performance.now() - startTime
+          }
         });
-        cleanup(); // Garante a remoção dos escutadores imediatamente após o retorno
       } catch (e) {
-        // Ignora mensagens mal-formatadas que não pertençam ao fluxo de execução atual
+        // Ignora mensagens mal formadas
       }
     };
 
@@ -74,19 +68,18 @@ export async function runRemote(
       reject(err);
     };
 
-    // Vincula os escutadores
+    if (signal) signal.addEventListener("abort", abortHandler);
     socket.addEventListener("message", messageHandler);
     socket.addEventListener("error", errorHandler);
 
-    // 1. Envia a ordem de execução inicial para o cluster Docker
+    // Envia o payload com o ID de correlação
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          type: "execute",
-          language,
-          code,
-        }),
-      );
+      socket.send(JSON.stringify({
+        type: "execute",
+        runId, // O backend deve ecoar este ID na resposta
+        language,
+        code
+      }));
     } else {
       cleanup();
       reject(new Error("WebSocket is not in OPEN state."));
