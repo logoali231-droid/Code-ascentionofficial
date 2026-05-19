@@ -74,8 +74,7 @@ if (isMobile && selectedModelId.includes("Phi-3")) {
       const isMobile =
   /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
-const isMobile =
-  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
 
 const isPhi = selectedModelId.includes("Phi");
 
