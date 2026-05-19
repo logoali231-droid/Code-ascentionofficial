@@ -1,0 +1,73 @@
+export type RuntimeType = 'local' | 'wasm' | 'remote';
+
+export interface RuntimeConfig {
+  type: RuntimeType;
+  needsDownload: boolean;
+  artifactUrl?: string; // URL base para o binário/runtime
+  version: string;
+}
+
+/**
+ * Manifesto de Runtimes.
+ * - 'local': Execução imediata, sem overhead de rede ou binário.
+ * - 'wasm': Requer download e persistência (OPFS).
+ * - 'remote': Requer conexão ativa com o Runtime Server.
+ */
+export const RUNTIME_MANIFEST: Record<string, RuntimeConfig> = {
+  // LINGUAGENS LOCAIS (Zero dependência)
+  javascript: { type: 'local', needsDownload: false, version: 'native' },
+  typescript: { type: 'local', needsDownload: false, version: 'native' },
+  html: { type: 'local', needsDownload: false, version: 'native' },
+  shell: { type: 'local', needsDownload: false, version: 'native' },
+  lua: { type: 'local', needsDownload: false, version: 'native' },
+  scratch: { type: 'local', needsDownload: false, version: 'native' },
+  sql: { type: 'local', needsDownload: false, version: 'native' },
+
+  // LINGUAGENS WASM (Requerem Warm-up)
+  python: { type: 'wasm', needsDownload: true, artifactUrl: '/runtimes/pyodide/v0.26.0', version: '0.26.0' },
+  ruby: { type: 'wasm', needsDownload: true, artifactUrl: '/runtimes/ruby/ruby-wasm', version: '3.2.0' },
+  php: { type: 'wasm', needsDownload: true, artifactUrl: '/runtimes/php/php-wasm', version: '8.2.0' },
+  sqlite: { type: 'wasm', needsDownload: true, artifactUrl: '/runtimes/sqlite/sqlite.wasm', version: '3.42.0' },
+
+  // LINGUAGENS REMOTAS (Requerem Runtime-Server via WebSocket)
+  java: { type: 'remote', needsDownload: false, version: 'openjdk-17' },
+  csharp: { type: 'remote', needsDownload: false, version: 'dotnet-8' },
+  cpp: { type: 'remote', needsDownload: false, version: 'gcc-12' },
+  go: { type: 'remote', needsDownload: false, version: 'go-1.21' },
+  rust: { type: 'remote', needsDownload: false, version: '1.75' },
+  kotlin: { type: 'remote', needsDownload: false, version: '1.9' },
+  scala: { type: 'remote', needsDownload: false, version: '3.3' },
+  perl: { type: 'remote', needsDownload: false, version: '5.36' },
+  groovy: { type: 'remote', needsDownload: false, version: '4.0' },
+  swift: { type: 'remote', needsDownload: false, version: '5.9' },
+  dart: { type: 'remote', needsDownload: false, version: '3.1' },
+  matlab: { type: 'remote', needsDownload: false, version: 'r2023b' },
+  cobol: { type: 'remote', needsDownload: false, version: 'gnucobol-3.1' },
+  abap: { type: 'remote', needsDownload: false, version: 'open-abap' },
+  vhdl: { type: 'remote', needsDownload: false, version: 'ghdl' },
+  verilog: { type: 'remote', needsDownload: false, version: 'iverilog' },
+  fortran: { type: 'remote', needsDownload: false, version: 'gfortran' },
+  ada: { type: 'remote', needsDownload: false, version: 'gnat' },
+  lisp: { type: 'remote', needsDownload: false, version: 'sbcl' },
+  prolog: { type: 'remote', needsDownload: false, version: 'swi-prolog' },
+  smalltalk: { type: 'remote', needsDownload: false, version: 'pharo' },
+  scheme: { type: 'remote', needsDownload: false, version: 'guile' },
+  plsql: { type: 'remote', needsDownload: false, version: 'oracle-xe' },
+  solidity: { type: 'remote', needsDownload: false, version: '0.8.20' },
+  apex: { type: 'remote', needsDownload: false, version: 'salesforce' },
+  clojure: { type: 'remote', needsDownload: false, version: '1.11' },
+  fsharp: { type: 'remote', needsDownload: false, version: 'dotnet-8' },
+  vbnet: { type: 'remote', needsDownload: false, version: 'mono' },
+  delphi: { type: 'remote', needsDownload: false, version: 'fpc' },
+  objectivec: { type: 'remote', needsDownload: false, version: 'gnustep' },
+  powershell: { type: 'remote', needsDownload: false, version: '7.4' },
+  elixir: { type: 'remote', needsDownload: false, version: '1.15' },
+  haskell: { type: 'remote', needsDownload: false, version: 'ghc-9.4' },
+  r: { type: 'remote', needsDownload: false, version: '4.3' },
+  julia: { type: 'remote', needsDownload: false, version: '1.9' },
+  d: { type: 'remote', needsDownload: false, version: 'dmd' },
+  pascal: { type: 'remote', needsDownload: false, version: 'fpc' },
+  kotlinnative: { type: 'remote', needsDownload: false, version: '1.9' },
+  actionscript: { type: 'remote', needsDownload: false, version: 'air' },
+  wasm: { type: 'remote', needsDownload: false, version: 'generic' }
+};
