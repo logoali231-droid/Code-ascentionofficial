@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.5.18",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^22.15.21",
     "@types/prismjs": "^1.26.6",
     "@types/react": "^18.3.23",
@@ -39,6 +40,7 @@
     "@types/wicg-file-system-access": "^2023.10.7",
     "autoprefixer": "^10.5.0",
     "eslint": "^10.3.0",
+    "file-saver": "^2.0.5",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.8.3"
