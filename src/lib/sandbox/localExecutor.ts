@@ -2,6 +2,48 @@
 
 import { SYSTEM_CONFIG } from "@/config/system";
 
+// Gerenciador de Ciclo de Vida local
+class LocalWorkerManager {
+  private static worker: Worker | null = null;
+  private static workerUrl: string | null = null;
+
+  public static get(): Worker {
+    if (!this.worker) {
+      const workerCode = `
+        self.onmessage = function(e) {
+          const logs = [];
+          const customConsole = {
+            log: (...args) => logs.push(args.map(arg => typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)).join(" ")),
+            error: (...args) => logs.push("[ERROR] " + args.join(" "))
+          };
+          try {
+            const run = new Function("console", '"use strict"; ' + e.data.code);
+            run(customConsole);
+            self.postMessage({ success: true, output: logs });
+          } catch (err) {
+            self.postMessage({ success: false, error: err.message });
+          }
+        };
+      `;
+      const blob = new Blob([workerCode], { type: "application/javascript" });
+      this.workerUrl = URL.createObjectURL(blob);
+      this.worker = new Worker(this.workerUrl);
+    }
+    return this.worker;
+  }
+
+  public static terminate() {
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+      if (this.workerUrl) {
+        URL.revokeObjectURL(this.workerUrl);
+        this.workerUrl = null;
+      }
+    }
+  }
+}
+
 export async function runLocal(
   code: string,
   lang: string,
@@ -44,36 +86,28 @@ export async function runLocal(
       };
     `;
 
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    const workerUrl = URL.createObjectURL(blob);
-    const worker = new Worker(workerUrl);
+    // Usamos o Gerenciador em vez de instanciar direto
+    const worker = LocalWorkerManager.get();
 
-    // Handler de cancelamento ativo acionado pela troca de abas/contexto
+    // Handler de cancelamento ativo
     const abortHandler = () => {
-      // ==== ADICIONE ESTA LINHA AQUI ====
-      worker.postMessage({ type: "ABORT" }); // Avisa o Worker interno para aplicar os checkpoints de parada
-      // ==================================
-
-      cleanup(); // O cleanup vai chamar o worker.terminate() logo em seguida
+      // O manager agora controla o ciclo de vida
+      LocalWorkerManager.terminate(); 
+      
+      cleanup(); 
       resolve({
         output: [],
-        error:
-          "Execution intercepted and terminated actively (Context switched).",
+        error: "Execution intercepted and terminated actively (Context switched).",
       });
     };
 
-    if (signal) {
-      signal.addEventListener("abort", abortHandler);
-    }
-
-    // Limpeza de recursos
     const cleanup = () => {
       clearTimeout(timeoutId);
       if (signal) {
         signal.removeEventListener("abort", abortHandler);
       }
-      worker.terminate();
-      URL.revokeObjectURL(workerUrl);
+      // Não chamamos worker.terminate() aqui para não matar o singleton prematuramente
+      // Apenas garantimos que o processo terminou e removemos o listener do AbortSignal
     };
 
     // Resposta do Worker
