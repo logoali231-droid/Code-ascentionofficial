@@ -63,7 +63,7 @@ class RuntimeQueue {
 
     const execStart = performance.now(); // Início da execução real
     try {
-      const result = await task.execute(task.controller.signal);
+      const result = task.execute(task.controller.signal);
       const execTime = performance.now() - execStart; // Fim da execução
       
       console.log(`[Telemetry] Task: ${task.id} | Wait: ${waitTime.toFixed(2)}ms | Exec: ${execTime.toFixed(2)}ms`);
