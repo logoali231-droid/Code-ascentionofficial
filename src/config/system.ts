@@ -30,14 +30,16 @@ const SYSTEM_CONFIG = {
 
   // PARÂMETROS DA LLM (Inferência Local / WebLLM)
   LLM: {
-    context_window_size: 1536,
-    sliding_window_size: 1024,
-    attention_sink_size: 4,
-    max_tokens: 10, // Usado no Quick Benchmark
-    generation_max_tokens: 512, // Limite padrão para respostas de código
-    entropy_threshold: 0.85, // Threshold de entropia para amostragem/criatividade
-  },
+  context_window_size: 1536,
+  sliding_window_size: 1024,
+  attention_sink_size: 4,
 
+  // 🔥 ADICIONA ISSO:
+  MOBILE: {
+    context_window_size: 768,
+    sliding_window_size: 512,
+  }
+  }
   // PARÂMETROS DE CLEANUP (Limites físicos e controle de estado do app)
   CLEANUP: {
     MAX_EXPLANATIONS_TOTAL: 50, // Limite de explicações salvas/em cache por sessão
