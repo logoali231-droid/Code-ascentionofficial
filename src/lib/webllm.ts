@@ -71,9 +71,7 @@ if (isMobile && selectedModelId.includes("Phi-3")) {
         loadingPromise = null;
       };
       const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
-      const isMobile =
-  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
+      
 
 
 const isPhi = selectedModelId.includes("Phi");
