@@ -193,7 +193,10 @@ export async function* generate(
   };
   signal?.addEventListener("abort", abortHandler);
 
-  try {
+try {
+    const startTime = performance.now();
+    let isFirstToken = true;
+
     const currentEngine = await initEngine(undefined, onProgress);
 
     const stream = await currentEngine.chat.completions.create({
@@ -204,6 +207,14 @@ export async function* generate(
     } as any);
 
     for await (const chunk of stream as any) {
+      // Instrumentação de Telemetria Térmica (TTFT)
+      if (isFirstToken) {
+        const ttft = performance.now() - startTime;
+        // Importa e atualiza de forma assíncrona para não travar a geração
+        import('./thermal').then(({ thermalMonitor }) => thermalMonitor.updateTTFT(ttft));
+        isFirstToken = false;
+      }
+
       if (signal?.aborted) {
         throw new DOMException(
           "Generation aborted by system runtime request.",
@@ -227,7 +238,6 @@ export async function* generate(
   } finally {
     signal?.removeEventListener("abort", abortHandler);
     generationLock = false;
-  }
 }
 
 /* =========================================================
