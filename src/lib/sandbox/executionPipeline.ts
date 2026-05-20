@@ -3,9 +3,9 @@
 import { runSandbox } from "./sandboxRunner";
 
 import {
-  Language,
   ExecutionResult,
-} from "./types";
+  Language
+} from "./engines";
 
 export async function executeCode(
   code: string,

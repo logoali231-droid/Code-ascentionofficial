@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  IEngineExecutor,
   ExecutionResult,
-} from "./types";
+  IEngineExecutor
+} from "./engines";
 
 export class NeuralExecutor
-  implements IEngineExecutor
-{
+  implements IEngineExecutor {
   async execute(
     code: string,
     language: string,

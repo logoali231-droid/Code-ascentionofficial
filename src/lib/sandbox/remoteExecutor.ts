@@ -1,6 +1,6 @@
 "use client";
 
-import { IEngineExecutor, ExecutionResult } from "./types";
+import { ExecutionResult, IEngineExecutor } from "./engines";
 
 export class RemoteExecutor implements IEngineExecutor {
   async execute(

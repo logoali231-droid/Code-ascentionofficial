@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { computeLessonXp, calculateLevel } from "@/lib/others/level";
-import { getUser } from "@/lib/others/db";
-import CodeEditor from "./CodeEditor";
 import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { getAdaptiveMetrics } from "@/lib/others/adaptive";
-import { Language } from "@/lib/sandbox/types";
+import { getUser } from "@/lib/others/db";
+import { calculateLevel, computeLessonXp } from "@/lib/others/level";
+import { Language } from "@/lib/sandbox/engines";
+import { useEffect, useState } from "react";
+import CodeEditor from "./CodeEditor";
 
 const detector = new GibberishDetector();
 
@@ -297,11 +297,10 @@ export default function ExerciseRenderer({
             <button
               disabled={selectedTokens.length === 0}
               onClick={() => handleValidation(selectedTokens.join(" "))}
-              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
-                selectedTokens.length > 0
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${selectedTokens.length > 0
                   ? "bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/30 hover:bg-[#00ff88]/30 cursor-pointer"
                   : "bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed"
-              }`}
+                }`}
             >
               COMPILE_BLOCKS
             </button>
@@ -325,11 +324,10 @@ export default function ExerciseRenderer({
                   setSelectedOption(option);
                   setErrorMessage(null);
                 }}
-                className={`p-3 text-left text-xs rounded border transition-all ${
-                  selectedOption === option
+                className={`p-3 text-left text-xs rounded border transition-all ${selectedOption === option
                     ? "bg-[#00f2ff]/10 text-[#00f2ff] border-[#00f2ff]/40"
                     : "bg-black/20 text-slate-400 border-white/5 hover:border-white/10 hover:text-slate-200"
-                }`}
+                  }`}
               >
                 <span className="text-slate-600 mr-2 font-bold">[{index}]</span>{" "}
                 {option}
@@ -341,11 +339,10 @@ export default function ExerciseRenderer({
             <button
               disabled={!selectedOption}
               onClick={() => selectedOption && handleValidation(selectedOption)}
-              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
-                selectedOption
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-all ${selectedOption
                   ? "bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/30 hover:bg-[#00ff88]/30 cursor-pointer"
                   : "bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed"
-              }`}
+                }`}
             >
               SUBMIT_DECISION
             </button>

@@ -2,7 +2,7 @@
 
 import { loadPyodide } from "pyodide";
 
-import { IEngineExecutor, ExecutionResult } from "./types";
+import { ExecutionResult, IEngineExecutor } from "./engines";
 
 let pyodide: any = null;
 

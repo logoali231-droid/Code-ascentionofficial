@@ -1,6 +1,7 @@
 "use client";
 
-import { IEngineExecutor, ExecutionResult } from "./types";
+import { ExecutionResult, IEngineExecutor } from "./engines";
+import { sandboxOrchestrator } from "./sandboxOrchestrator";
 
 export class LocalExecutor implements IEngineExecutor {
   async execute(
@@ -8,86 +9,88 @@ export class LocalExecutor implements IEngineExecutor {
     language: string,
     signal?: AbortSignal,
   ): Promise<ExecutionResult> {
+    
     if (signal?.aborted) {
       return {
         output: [],
-        error: "Execution aborted.",
+        error: "Execution aborted by caller.",
       };
     }
 
-    return new Promise((resolve) => {
-      const workerCode = `
-        self.onmessage = async (e) => {
-          const logs = [];
+    return new Promise(async (resolve) => {
+      let worker: Worker;
+      // ID Único de execução para correlacionar mensagens e evitar vazamento/colisão de buffers
+      const executionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-          const console = {
-            log: (...args) => logs.push(args.join(" ")),
-            error: (...args) => logs.push("[ERROR] " + args.join(" "))
-          };
+      try {
+        // Consome a thread persistente gerenciada centralizadamente pelo Orquestrador
+        worker = await sandboxOrchestrator.bootLanguageRuntime(language);
+      } catch (err: any) {
+        return resolve({
+          output: [],
+          error: `Failed to initialize shared runtime sandbox: ${err.message}`,
+        });
+      }
 
-          try {
-            const fn = new Function(
-              "console",
-              '"use strict";\\n' + e.data.code
-            );
+      let handleMessage: (e: MessageEvent) => void;
+      let handleError: (err: ErrorEvent) => void;
+      let handleAbort: () => void;
 
-            await fn(console);
-
-            self.postMessage({
-              success: true,
-              output: logs
-            });
-
-          } catch (err) {
-            self.postMessage({
-              success: false,
-              error: err.message
-            });
-          }
-        };
-      `;
-
-      const blob = new Blob([workerCode], {
-        type: "application/javascript",
-      });
-
-      const workerUrl = URL.createObjectURL(blob);
-
-      const worker = new Worker(workerUrl);
-
-      const cleanup = () => {
-        worker.terminate();
-        URL.revokeObjectURL(workerUrl);
-      };
-
-      worker.onmessage = (e) => {
-        cleanup();
-
-        if (e.data.success) {
-          resolve({
-            output: e.data.output,
-            metrics: {
-              engine: "local",
-            },
-          });
-        } else {
-          resolve({
-            output: [],
-            error: e.data.error,
-          });
+      // Limpeza estrita apenas de listeners locais para manter o Worker persistente intacto
+      const removeListeners = () => {
+        if (worker) {
+          worker.removeEventListener("message", handleMessage);
+          worker.removeEventListener("error", handleError);
+        }
+        if (signal) {
+          signal.removeEventListener("abort", handleAbort);
         }
       };
 
-      worker.onerror = (err) => {
-        cleanup();
+      // Se der Abort/Timeout, o Worker pode estar preso em loop infinito. Forçamos a destruição física.
+      handleAbort = () => {
+        removeListeners();
+        sandboxOrchestrator.cleanUpMemoryAggressively();
+        resolve({
+          output: [],
+          error: "Execution Timeout / Process Aborted.",
+        });
+      };
 
+      handleMessage = (e: MessageEvent) => {
+        // Filtra a resposta estritamente pelo ID do ciclo atual
+        if (e.data && e.data.id === executionId) {
+          removeListeners();
+          if (e.data.success) {
+            resolve({
+              output: e.data.output,
+              metrics: { engine: "local" },
+            });
+          } else {
+            resolve({
+              output: [],
+              error: e.data.error,
+            });
+          }
+        }
+      };
+
+      handleError = (err: ErrorEvent) => {
+        removeListeners();
+        sandboxOrchestrator.cleanUpMemoryAggressively();
         resolve({
           output: [],
           error: err.message,
         });
       };
 
-      worker.postMessage({ code, language });
+      if (signal) {
+        signal.addEventListener("abort", handleAbort);
+      }
+
+      worker.addEventListener("message", handleMessage);
+      worker.addEventListener("error", handleError);
+      worker.postMessage({ id: executionId, code, language });
     });
   }
 }

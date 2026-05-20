@@ -1,27 +1,25 @@
 "use client";
 
 
+import { Language, ENGINE_REGISTRY, resolveEngine } from "@/lib/sandbox/engines";
+import { WorkspaceFile } from "@/lib/sandbox/workspace/types";
+import { exportWorkspace } from "@/lib/sandbox/workspace/workspaceExporter";
+import { workspaceManager } from "@/lib/sandbox/workspace/workspaceManager";
 import { runWorkspaceFile } from "@/lib/sandbox/workspace/workspaceRuntimeBridge";
-import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  Play,
-  FileCode,
   Download,
-  X,
-  Menu,
+  FileCode,
   Folder,
+  Menu,
+  Play,
   Plus,
   Terminal as TerminalIcon,
+  X,
 } from "lucide-react";
-import NeuralTerminal, { LogEntry } from "./NeuralTerminal";
-import { executeSandboxCode } from "@/lib/sandbox/sandboxRunner";
-import { exportWorkspace } from "@/lib/sandbox/workspace/workspaceExporter";
-import { Language } from "@/lib/sandbox/types";
 import prism from "prismjs";
-import { WorkspaceFile } from "@/lib/sandbox/workspace/types";
-import { workspaceManager } from "@/lib/sandbox/workspace/workspaceManager";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import NeuralTerminal, { LogEntry } from "./NeuralTerminal";
 
-import { file } from "jszip";
 
 export interface SandboxFile {
   id: string;
@@ -208,7 +206,7 @@ function NeuralRuntime({
     }
   }
 
-const handleRun = async () => {
+  const handleRun = async () => {
     if (isExecutingMutex.current) return;
     isExecutingMutex.current = true;
     setIsRunning(true);
@@ -599,58 +597,56 @@ export default function SandboxEditor() {
           {/* Runtime */}
           {activeFile && (
             <NeuralRuntime
-              key={
-                activeFile.path
-              }
+              key={activeFile.path}
               file={{
                 id: activeFile.path,
                 name: activeFile.path,
                 content: activeFile.content,
-                language:
-                  inferLanguageFromExtension(
-                    activeFile.path,
-                  ),
+                language: inferLanguageFromExtension(activeFile.path),
               }}
-              onExecute={async (
-                _code,
-                _lang,
-              ) => {
-                pushLog(
-                  `Invocando kernel de execução para: ${activeFile.path}`,
-                  "system",
-                );
+              onExecute={async (_code, _lang) => {
+                pushLog(`Invocando runtime polimórfico para: ${activeFile.path}`, "system");
 
-                const result =
-                  await runWorkspaceFile(
-                    activeFile.path,
-                  );
+                // Criação do controlador de aborto integrado com timeout estrito de 4000ms
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-                if (
-                  result.error
-                ) {
-                  pushLog(
-                    result.error,
-                    "error",
-                  );
+                try {
+                  // Resolve dinamicamente o motor do arquivo corrente (local, remote, wasm, neural)
+                  const engineType = resolveEngine(_lang);
+                  const executor = ENGINE_REGISTRY[engineType];
+
+                  if (!executor) {
+                    throw new Error(`Nenhum executor mapeado para o motor: ${engineType}`);
+                  }
+
+                  // Executa o buffer atual passador pelo editor de texto dinâmico (_code)
+                  const result = await executor.execute(_code, _lang, controller.signal);
+
+                  // Garante a sincronia interna e persistência segura em background
+                  await workspaceManager.updateFileContent(activeFile.path, _code);
+
+                  if (result.error) {
+                    pushLog(result.error, "error");
+                  }
+
+                  return {
+                    output: result.output || [],
+                    error: result.error,
+                  };
+                } catch (err: any) {
+                  pushLog(`Erro de Processamento: ${err.message}`, "error");
+                  return {
+                    output: [],
+                    error: err.message,
+                  };
+                } finally {
+                  clearTimeout(timeoutId); // Libera o cronômetro da memória
+                  refreshWorkspace();
                 }
-
-                return {
-                  output:
-                    result.output ||
-                    [],
-                  error:
-                    result.error,
-                };
               }}
-              onContentChange={async (
-                _id,
-                val,
-              ) => {
-                await workspaceManager.updateFileContent(
-                  activeFile.path,
-                  val,
-                );
-
+              onContentChange={async (_id, val) => {
+                await workspaceManager.updateFileContent(activeFile.path, val);
                 refreshWorkspace();
               }}
             />

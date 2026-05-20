@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import { Language } from "@/lib/sandbox/types";
+import { Language } from "@/lib/sandbox/engines";
 import prism from "prismjs";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Importações básicas do Prism para suporte estático e leve
-import "prismjs/components/prism-clike";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
-import "prismjs/components/prism-python";
-import "prismjs/components/prism-csharp";
-import "prismjs/components/prism-rust";
 import "prismjs/components/prism-c";
+import "prismjs/components/prism-clike";
 import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-csharp";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-rust";
 import "prismjs/components/prism-sql";
+import "prismjs/components/prism-typescript";
 
 interface Props {
   language?: Language | "plaintext";

@@ -1,4 +1,4 @@
- import { Language } from "@/lib/sandbox/types";
+import { Language } from "../engines";
 
 export interface WorkspaceFile {
   id: string;
@@ -23,21 +23,21 @@ export interface WorkspaceFile {
 }
 
 export interface SandboxWorkspace {
-    id: string;
+  id: string;
 
-    name: string;
+  name: string;
 
-    runtime: "local" | "remote";
+  runtime: "local" | "remote";
 
-    language: Language;
+  language: Language;
 
-    entrypoint: string;
+  entrypoint: string;
 
-    files: WorkspaceFile[];
+  files: WorkspaceFile[];
 
-    createdAt: number;
+  createdAt: number;
 
-    updatedAt: number;
+  updatedAt: number;
 
-    version: number;
+  version: number;
 }

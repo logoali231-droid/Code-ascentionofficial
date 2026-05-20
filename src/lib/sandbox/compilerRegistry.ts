@@ -1,4 +1,4 @@
-import { Language, Engine } from "./types";
+import { Engine, Language } from "./engines";
 
 export const COMPILER_MAP: Record<Language, Engine> = {
     javascript: "local",
