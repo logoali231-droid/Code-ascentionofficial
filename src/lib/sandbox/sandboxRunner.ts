@@ -7,9 +7,6 @@ export async function runSandbox(
   signal?: AbortSignal,
 ): Promise<ExecutionResult> {
   const proc = sandboxProcessManager.createProcess(language);
-
-  proc.pushLog(`[BOOT] Starting ${language} runtime`);
-
   const engineType = resolveEngine(language);
   const executor = ENGINE_REGISTRY[engineType];
 
@@ -19,21 +16,19 @@ export async function runSandbox(
     return { output: [], error: errorMsg };
   }
 
-  proc.pushLog(`[ENGINE] Resolved engine: ${engineType}`);
-
   try {
-    proc.pushLog(`[EXEC] Executing sandbox process`);
+    proc.pushLog(`[BOOT] Starting ${language} runtime`);
+    proc.pushLog(`[EXEC] Executing with ${engineType} engine`);
 
-    // Chamada única e correta, passando o callback tipado
-    const result = await executor.execute(code, language, signal, (chunk: string) => {
-      proc.pushLog(chunk);
-    });
-
-    if (result.output) {
-      for (const line of result.output) {
-        proc.pushLog(String(line));
-      }
-    }
+    // O fluxo é assíncrono: onLog alimenta a UI via proc.pushLog
+    const result = await executor.execute(
+  code, 
+  language, 
+  signal, 
+  (chunk: string, type: 'stdout' | 'stderr' | 'meta') => {
+    proc.pushLog(`[${type.toUpperCase()}] ${chunk}`);
+  }
+);
 
     if (result.error) {
       proc.crash(result.error);
@@ -45,9 +40,6 @@ export async function runSandbox(
     return result;
   } catch (err: any) {
     proc.crash(err.message);
-    return {
-      output: [],
-      error: err.message,
-    };
+    return { output: [], error: err.message };
   }
 }

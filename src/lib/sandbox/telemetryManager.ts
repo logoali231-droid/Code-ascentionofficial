@@ -3,13 +3,18 @@ import { saveTelemetryBatch, TelemetryMetric } from "../others/db";
 const BUFFER_SIZE = 50; // Tamanho do Ring Buffer em memória
 const SAMPLING_RATE = 0.3; // 30% de amostragem para evitar escrita massiva
 
-class RingBufferTelemetry {
+export class RingBufferTelemetry {
+  static record(arg0: { metric: string; value: number; context: { language: string; executionId?: string; status?: string;      // Adicionar opcionalmente
+  [key: string]: any; }; }) {
+    throw new Error("Method not implemented.");
+  }
   private buffer: TelemetryMetric[] = new Array(BUFFER_SIZE);
   private head = 0;
   private tail = 0;
   private count = 0;
   private isFlushScheduled = false;
 
+  
   /**
    * Adiciona uma métrica ao buffer usando amostragem (Sampling)
    */
@@ -58,7 +63,7 @@ class RingBufferTelemetry {
   /**
    * Executa a limpeza do buffer e joga em lote para o IndexedDB
    */
-  private async flush(deadline?: IdleDeadline) {
+ private async flush(deadline?: IdleDeadline) {
     if (this.count === 0) {
       this.isFlushScheduled = false;
       return;
@@ -66,28 +71,27 @@ class RingBufferTelemetry {
 
     const batchToPersist: TelemetryMetric[] = [];
 
-    // Retira os itens respeitando o tempo limite disponível na Main Thread
     while (this.count > 0) {
-      // Se o tempo limite do frame esgotar, interrompe e joga o resto no próximo ciclo ocioso
       if (deadline && deadline.timeRemaining() <= 1) {
         this.scheduleFlush();
         break;
       }
-
+      
       const item = this.buffer[this.tail];
-      if (item) {
-        batchToPersist.push(item);
-      }
-
+      if (item) batchToPersist.push(item);
+      
       this.tail = (this.tail + 1) % BUFFER_SIZE;
       this.count--;
     }
 
     if (batchToPersist.length > 0) {
-      await saveTelemetryBatch(batchToPersist);
+      try {
+        await saveTelemetryBatch(batchToPersist);
+      } catch (err) {
+        console.error("Falha ao persistir métricas de telemetria:", err);
+      }
     }
 
-    // Desativa a flag caso tenha conseguido limpar tudo
     if (this.count === 0) {
       this.isFlushScheduled = false;
     }

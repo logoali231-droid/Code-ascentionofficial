@@ -121,6 +121,6 @@ export interface IEngineExecutor {
     code: string,
     language: string,
     signal?: AbortSignal,
-    onLog?: (chunk: string) => void
+    onLog?: (chunk: string, type: 'stdout' | 'stderr' | 'meta') => void // Adicione o 'type' aqui
   ): Promise<ExecutionResult>;
 }
