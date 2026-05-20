@@ -1,4 +1,4 @@
-import { get, save } from "@/lib/db";
+import { get, save } from "@/lib/others/db";
 
 function today() {
   return new Date().toISOString().slice(0, 10);

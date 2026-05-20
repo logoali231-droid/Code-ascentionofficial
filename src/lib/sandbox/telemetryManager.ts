@@ -1,4 +1,4 @@
-import { saveTelemetryBatch, TelemetryMetric } from "../db";
+import { saveTelemetryBatch, TelemetryMetric } from "../others/db";
 
 const BUFFER_SIZE = 50; // Tamanho do Ring Buffer em memória
 const SAMPLING_RATE = 0.3; // 30% de amostragem para evitar escrita massiva

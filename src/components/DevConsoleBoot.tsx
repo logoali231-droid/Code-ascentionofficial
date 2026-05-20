@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 const loadDevConsole = async () => {
-  const mod = await import("@/lib/devConsole");
+  const mod = await import("@/lib/others/devConsole");
   return mod.initDevConsole;
 };
 export default function DevConsoleBoot() {

@@ -1,14 +1,14 @@
 "use client";
 
-import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
+import { unloadEngine } from "@/lib/others/modelManager"; // <-- ADICIONADO
 import { useEffect } from "react"; // <-- Garanta que useEffect está importado aqui
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, save } from "@/lib/db";
+import { db, save } from "@/lib/others/db";
 import { useRouter } from "next/navigation";
 import { Book, Cpu, Zap } from "lucide-react";
-import { calculateLevel } from "@/lib/level";
+import { calculateLevel } from "@/lib/others/level";
 import { PrestigeManager } from "@/lib/ranking/prestige";
 
 export default function Hub() {

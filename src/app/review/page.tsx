@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Brain, Sparkles, ArrowLeft, History } from "lucide-react";
-import { get, save } from "@/lib/db"; // Assumindo que seus helpers estão aqui
+import { get, save } from "@/lib/others/db"; // Assumindo que seus helpers estão aqui
 
 export default function ReviewPage() {
   const router = useRouter();

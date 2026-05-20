@@ -38,7 +38,7 @@ export class SandboxOrchestrator {
    * Inicializa o ambiente da linguagem escolhida sob demanda (Lazy Loading)
    */
   public async bootLanguageRuntime(language: string): Promise<Worker> {
-    const { thermalMonitor } = await import("../thermal");
+    const { thermalMonitor } = await import("../others/thermal");
     
     // 🔥 Adaptive Throttling: Dá 2 segundos de respiro para a CPU antes de subir novo worker
     if (thermalMonitor.getStatus() === 'THROTTLED') {

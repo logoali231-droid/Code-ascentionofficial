@@ -1,14 +1,14 @@
 "use client";
 
-import { getWeakTopics, getSuggestedTopics } from "@/lib/curriculumState"; // Mapeamento do curso atual
-import { getReviewConcepts } from "@/lib/mastery"; // Repetição espaçada global
+import { getWeakTopics, getSuggestedTopics } from "@/lib/others/curriculumState"; // Mapeamento do curso atual
+import { getReviewConcepts } from "@/lib/others/mastery"; // Repetição espaçada global
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { get, save } from "@/lib/db";
-import { generate } from "@/lib/webllm";
-import { buildCoursePrompt } from "@/lib/aiPrompt";
-import { suggestDifficulty } from "@/lib/learningState";
-import { playSound } from "@/lib/sounds";
+import { get, save } from "@/lib/others/db";
+import { generate } from "@/lib/others/webllm";
+import { buildCoursePrompt } from "@/lib/others/aiPrompt";
+import { suggestDifficulty } from "@/lib/others/learningState";
+import { playSound } from "@/lib/others/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
 
@@ -22,7 +22,7 @@ import {
   ChevronLeft,
   Loader2,
 } from "lucide-react";
-import { calculateLevel } from "@/lib/level";
+import { calculateLevel } from "@/lib/others/level";
 
 export default function NewCoursePage() {
   const router = useRouter();

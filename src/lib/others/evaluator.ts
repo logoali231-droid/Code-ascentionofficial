@@ -72,7 +72,7 @@ export async function evaluateExercise({
   const userFactionId = userStats?.factionId || "";
   const userXp = userStats?.xp || 0;
 
-  const { FactionManager } = await import("./ranking/factions");
+  const { FactionManager } = await import("../ranking/factions");
   const currentActiveBonuses = FactionManager.getActiveBonuses(
     userFactionId,
     userXp,

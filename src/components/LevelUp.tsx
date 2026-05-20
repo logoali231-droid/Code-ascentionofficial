@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { playSound } from "@/lib/sounds";
+import { playSound } from "@/lib/others/sounds";
 
 export default function LevelUp({
   level,

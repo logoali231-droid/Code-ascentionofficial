@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { get, save } from "@/lib/db";
+import { get, save } from "@/lib/others/db";
 
-import { performStorageCleanup } from "@/lib/db";
+import { performStorageCleanup } from "@/lib/others/db";
 
 export default function LoginPage() {
   const [id, setId] = useState("");

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { get } from "@/lib/db";
-import { playSound } from "@/lib/sounds";
+import { get } from "@/lib/others/db";
+import { playSound } from "@/lib/others/sounds";
 import {
   ShoppingCart,
   Zap,

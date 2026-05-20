@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { get } from "@/lib/db";
-import { useItem } from "@/lib/economy";
+import { get } from "@/lib/others/db";
+import { useItem } from "@/lib/others/economy";
 import {
   Vault,
   Cpu,

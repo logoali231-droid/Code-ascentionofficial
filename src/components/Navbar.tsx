@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getRecord } from "@/lib/db";
+import { getRecord } from "@/lib/others/db";
 import {
   Home,
   BookOpen,

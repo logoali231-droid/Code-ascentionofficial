@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { get, save } from "@/lib/db";
+import { get, save } from "@/lib/others/db";
 import { useRouter } from "next/navigation";
 import { FACTIONS } from "@/lib/ranking/factions";
 import { Shield, Zap, Target, Cpu, ChevronRight } from "lucide-react";
-import { calculateLevel } from "@/lib/level";
+import { calculateLevel } from "@/lib/others/level";
 
 export default function FactionsPage() {
   const [user, setUser] = useState<any>(null);

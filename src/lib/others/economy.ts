@@ -5,7 +5,7 @@ import { get, save, updateUser, db } from "./db";
 import { playSound } from "./sounds";
 import { calculateLevel } from "./level";
 import { InventoryItem, UserStats } from "@/types";
-import { FactionManager } from "./ranking/factions";
+import { FactionManager } from "../ranking/factions";
 import { syncScoreToCloud } from "./leaderboardService"; // Importação do worker de sincronização
 
 /**

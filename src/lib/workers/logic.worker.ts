@@ -1,4 +1,4 @@
-import { evaluateLogic } from "../evaluator.logic";
+import { evaluateLogic } from "../others/evaluator.logic";
 
 /**
  * Logic Worker - Code Ascension

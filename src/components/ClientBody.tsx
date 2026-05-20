@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { get, performStorageCleanup } from "@/lib/db";
+import { get, performStorageCleanup } from "@/lib/others/db";
 import { useRouter, usePathname } from "next/navigation";
 
 const ECO_KEY = "eco_telemetry_v1";

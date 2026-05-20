@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-import { save, get } from "../db";
+import { save, get } from "../others/db";
 
 let shopTransactionAborted = false;
 

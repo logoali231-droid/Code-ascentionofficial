@@ -14,8 +14,8 @@ import {
   ChevronLeft,
   Sparkles,
 } from "lucide-react";
-import { calculateLevel } from "@/lib/level";
-import { get } from "@/lib/db";
+import { calculateLevel } from "@/lib/others/level";
+import { get } from "@/lib/others/db";
 
 const DEFAULT_CODE = {
   javascript: `console.log("Hello JavaScript"); `,
@@ -147,7 +147,7 @@ export default function SandboxPage() {
         setStatus("EVALUATING_OUTPUT...");
 
         // Import relativo dinâmico para evitar quebras de build do Next.js/Webpack
-        const { evaluateExercise } = await import("../../lib/evaluator");
+        const { evaluateExercise } = await import("../../lib/others/evaluator");
 
         const evalResult = await evaluateExercise({
           exercise,

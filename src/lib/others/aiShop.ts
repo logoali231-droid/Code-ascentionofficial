@@ -1,7 +1,7 @@
 "use client";
 
-import { generate } from "@/lib/webllm";
-import { safeParse } from "@/lib/safeParse";
+import { generate } from "@/lib/others/webllm";
+import { safeParse } from "@/lib/others/safeParse";
 import { InventoryItem } from "@/types/core";
 
 /**

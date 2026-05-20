@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { get, save } from "@/lib/db";
-import { playSound } from "@/lib/sounds";
-import { fullClientCacheReset } from "@/lib/cleanCache";
+import { get, save } from "@/lib/others/db";
+import { playSound } from "@/lib/others/sounds";
+import { fullClientCacheReset } from "@/lib/others/cleanCache";
 
-import { precompileNeuralModules } from "@/lib/neuralBundler";
+import { precompileNeuralModules } from "@/lib/others/neuralBundler";
 import {
   ShieldAlert,
   Cpu,
@@ -18,10 +18,10 @@ import {
   Database,
 } from "lucide-react";
 
-import { detectSystemCapabilities } from "@/lib/modelManager";
+import { detectSystemCapabilities } from "@/lib/others/modelManager";
 import { SYSTEM_CONFIG, Model } from "@/config/system";
 const loadEngine = async () => {
-  const mod = await import("@/lib/webllm");
+  const mod = await import("@/lib/others/webllm");
   return mod.initEngine;
 };
 

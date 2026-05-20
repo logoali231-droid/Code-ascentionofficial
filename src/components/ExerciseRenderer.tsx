@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { computeLessonXp, calculateLevel } from "@/lib/level";
-import { getUser } from "@/lib/db";
+import { computeLessonXp, calculateLevel } from "@/lib/others/level";
+import { getUser } from "@/lib/others/db";
 import CodeEditor from "./CodeEditor";
 import { GibberishDetector } from "@/lib/anti-spam/gibberish-detector";
-import { getAdaptiveMetrics } from "@/lib/adaptive";
+import { getAdaptiveMetrics } from "@/lib/others/adaptive";
 import { Language } from "@/lib/sandbox/types";
 
 const detector = new GibberishDetector();

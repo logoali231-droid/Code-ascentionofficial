@@ -1,11 +1,11 @@
 "use client";
 
-import { unloadEngine } from "@/lib/modelManager"; // <-- ADICIONADO
+import { unloadEngine } from "@/lib/others/modelManager"; // <-- ADICIONADO
 
 import { useEffect, useState } from "react";
-import { getAll, get } from "@/lib/db";
-import { explainError } from "@/lib/explanationAI";
-import { generateReinforcement } from "@/lib/reinforce";
+import { getAll, get } from "@/lib/others/db";
+import { explainError } from "@/lib/others/explanationAI";
+import { generateReinforcement } from "@/lib/others/reinforce";
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 
 export default function ErrorsPage() {

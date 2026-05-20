@@ -1,6 +1,6 @@
 "use client";
 
-import { db } from "@/lib/db";
+import { db } from "@/lib/others/db";
 
 /**
  * Retorna a data de hoje em formato YYYY-MM-DD local.

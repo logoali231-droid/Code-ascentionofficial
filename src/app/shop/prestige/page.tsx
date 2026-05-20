@@ -1,6 +1,6 @@
 "use client";
 import { PRESTIGE_UPGRADES, PrestigeManager } from "@/lib/ranking/prestige";
-import { get, save } from "@/lib/db";
+import { get, save } from "@/lib/others/db";
 import { useState, useEffect } from "react";
 import { Zap, Shield, Brain } from "lucide-react";
 

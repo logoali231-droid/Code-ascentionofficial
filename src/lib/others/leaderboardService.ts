@@ -1,4 +1,4 @@
-import { get } from "@/lib/db";
+import { get } from "@/lib/others/db";
 
 export async function syncScoreToCloud(): Promise<boolean> {
   try {

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { exportUserMind } from "@/lib/memoryExport";
-import { importUserMind } from "@/lib/memoryImport";
-import { save, db, get, performStorageCleanup } from "@/lib/db";
+import { exportUserMind } from "@/lib/others/memoryExport";
+import { importUserMind } from "@/lib/others/memoryImport";
+import { save, db, get, performStorageCleanup } from "@/lib/others/db";
 
 /* ============================================================================
    COMPONENT: BANNED TERMS MANAGER (Anti-Cortex Filter)

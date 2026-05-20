@@ -1,6 +1,6 @@
 "use client";
 
-import { db, get, save, getAll } from "@/lib/db";
+import { db, get, save, getAll } from "@/lib/others/db";
 
 export type TopicNode = {
   courseId: string; // Acoplado para viabilizar indexação e queries relacionais no Dexie

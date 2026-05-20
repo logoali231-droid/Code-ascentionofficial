@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { get, save } from "@/lib/db";
+import { get, save } from "@/lib/others/db";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Cpu, Zap, Lock, CheckCircle2 } from "lucide-react";
 

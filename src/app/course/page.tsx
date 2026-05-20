@@ -1,15 +1,15 @@
 "use client";
 
 const loadEngine = async () => {
-  const mod = await import("@/lib/webllm");
+  const mod = await import("@/lib/others/webllm");
   return mod.initEngine;
 };
 
-import { unloadEngine } from "@/lib/modelManager";
+import { unloadEngine } from "@/lib/others/modelManager";
 import { useEffect, useState, useRef } from "react";
-import { updateUser, db, getErrorLogs, clearErrorLog, getUser, get } from "@/lib/db";
-import { streamLesson } from "@/lib/lessonStreamer";
-import { generateReinforcement } from "@/lib/reinforce";
+import { updateUser, db, getErrorLogs, clearErrorLog, getUser, get } from "@/lib/others/db";
+import { streamLesson } from "@/lib/others/lessonStreamer";
+import { generateReinforcement } from "@/lib/others/reinforce";
 import dynamic from "next/dynamic";
 
 const ExerciseRenderer = dynamic(
@@ -17,8 +17,8 @@ const ExerciseRenderer = dynamic(
   { ssr: false }
 );
 
-import { generateExplanationAI, explainError } from "@/lib/explanationAI";
-import { updateMemory } from "@/lib/userMemory";
+import { generateExplanationAI, explainError } from "@/lib/others/explanationAI";
+import { updateMemory } from "@/lib/others/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
 
 export default function CoursePage() {
@@ -241,9 +241,9 @@ export default function CoursePage() {
     /* ====================================
         XP & PROGRESSION
     ==================================== */
-    const { updateMastery, updateConfidence } = await import("@/lib/curriculumState");
-    const { addXP, addCoins } = await import("@/lib/economy");
-    const { saveMemorySummary, shouldUpdateSummary } = await import("@/lib/contextMemory");
+    const { updateMastery, updateConfidence } = await import("@/lib/others/curriculumState");
+    const { addXP, addCoins } = await import("@/lib/others/economy");
+    const { saveMemorySummary, shouldUpdateSummary } = await import("@/lib/others/contextMemory");
 
     if (correct) {
       setConsecutiveErrors(0);
