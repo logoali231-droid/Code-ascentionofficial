@@ -1,8 +1,10 @@
 import "./styles/globals.css";
 import type { Metadata } from "next";
+import Web3Provider from "@/providers/web3Provider";
 
 import ClientBody from "@/components/ClientBody";
 import DevConsoleBoot from "@/components/DevConsoleBoot";
+
 
 export const viewport = {
   width: "device-width",
@@ -58,6 +60,10 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
         <ClientBody>{children}</ClientBody>
+
+        <Web3Provider>
+          {children}
+        </Web3Provider>
 
         {process.env.NODE_ENV === "development" && <DevConsoleBoot />}
       </body>

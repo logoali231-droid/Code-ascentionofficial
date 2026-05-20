@@ -1,0 +1,36 @@
+"use client";
+
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+
+import {
+  WagmiProvider,
+} from "wagmi";
+
+import {
+  walletConfig,
+} from "../lib/web3/wallet";
+
+
+const queryClient =
+  new QueryClient();
+
+export default function Web3Provider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <WagmiProvider
+      config={walletConfig}
+    >
+      <QueryClientProvider
+        client={queryClient}
+      >
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
