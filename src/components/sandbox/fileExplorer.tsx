@@ -119,8 +119,8 @@ export default function FileExplorer({
   </span>
 
   <div className="flex items-center gap-2">
-    <button
-      onClick={exportWorkspace}
+    <button 
+  onClick={() => exportWorkspace(currentWorkspaceId)} 
       className="
         text-xs
         px-2
