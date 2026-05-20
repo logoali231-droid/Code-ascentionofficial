@@ -66,6 +66,7 @@ Depending on the selected language, execution may happen:
 * JavaScript / TypeScript via browser runtime
 * Python via Pyodide + WebAssembly
 * Neural execution fallback for unsupported languages
+* SANDBOX MODE IS STILL ON BETA
 
 ### Remotely
 
