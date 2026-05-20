@@ -36,6 +36,10 @@
     "viem": "^2.50.4",
     "wagmi": "^3.6.15"
   },
+  "overrides": {
+    "@wagmi/core": "2.12.0",
+    "wagmi": "2.12.0"
+  },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.5.18",
     "@types/file-saver": "^2.0.7",
