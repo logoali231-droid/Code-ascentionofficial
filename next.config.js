@@ -8,6 +8,12 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig = {
   output: "standalone",
   reactStrictMode: false,
+  distDir: '.next',
+  
+  // GARANTA que o build não trave por causa de otimização de imagem no build-time
+  images: {
+    unoptimized: true, 
+  },
 
   // Otimização de build: Adicionamos transpilePackages para evitar problemas
   // de compatibilidade com módulos ESM em workers (comum no web-llm e runtimes WASM)
@@ -33,6 +39,15 @@ const nextConfig = {
       asyncWebAssembly: true,
       layers: true,
     };
+
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+        stream: false,
+      };
 
     return config;
   },
