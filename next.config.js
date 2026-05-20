@@ -32,6 +32,12 @@ const nextConfig = {
       layers: true,
     };
 
+    config.resolve.alias = {
+    ...config.resolve.alias,
+    'pino-pretty': false,
+    'encoding': false,
+  };
+
     return config;
   },
 
