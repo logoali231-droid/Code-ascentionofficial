@@ -1,0 +1,61 @@
+import { Language, Engine } from "./types";
+
+export const COMPILER_MAP: Record<Language, Engine> = {
+    javascript: "local",
+    typescript: "local",
+    html: "local",
+    shell: "local",
+
+    python: "wasm",
+    lua: "wasm",
+    ruby: "wasm",
+    scheme: "wasm",
+    lisp: "wasm",
+    perl: "wasm",
+    rust: "wasm",
+    go: "wasm",
+    cpp: "wasm",
+    dart: "wasm",
+    kotlin: "wasm",
+    "kotlin-native": "wasm",
+
+    java: "remote",
+    csharp: "remote",
+    scala: "remote",
+    php: "remote",
+    swift: "remote",
+    "objective-c": "remote",
+    groovy: "remote",
+    elixir: "remote",
+    haskell: "remote",
+    r: "remote",
+    julia: "remote",
+    d: "remote",
+    cobol: "remote",
+    abap: "remote",
+    fortran: "remote",
+    ada: "remote",
+    plsql: "remote",
+    apex: "remote",
+    fsharp: "remote",
+    vbnet: "remote",
+    delphi: "remote",
+    powershell: "remote",
+    solidity: "remote",
+    sql: "remote",
+
+    verilog: "neural",
+    vhdl: "neural",
+    matlab: "neural",
+    scratch: "neural",
+    smalltalk: "neural",
+    prolog: "neural",
+    actionscript: "neural",
+    pascal: "neural",
+    clojure: "wasm",
+    wasm: "wasm"
+};
+
+export function getCompilerEngine(lang: Language): Engine {
+    return COMPILER_MAP[lang] ?? "neural";
+}

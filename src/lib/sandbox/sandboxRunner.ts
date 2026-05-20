@@ -1,6 +1,6 @@
 "use client";
 
-import { ENGINE_MAP } from "./engines";
+import { ENGINE_MAP, getEngine } from "./engines";
 import { runLocal } from "./localExecutor";
 import { runRemote } from "./remoteExecutor";
 import { runNeural } from "./neuralExecutor";
@@ -133,8 +133,7 @@ export async function executeSandboxCode(
   if (signal?.aborted) {
     throw new DOMException("Execution aborted before starting.", "AbortError");
   }
-
-  const engine = ENGINE_MAP[language];
+  const engine = getEngine(language);
   const startTime = performance.now();
   let success = false;
 

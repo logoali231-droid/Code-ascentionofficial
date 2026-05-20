@@ -1,4 +1,7 @@
-"use client";
+export interface SandboxResult {
+  output: string[];
+  error?: string;
+}
 
 export type Language =
   | "python"
@@ -52,15 +55,5 @@ export type Language =
   | "actionscript"
   | "wasm";
 
-export type EngineType = "local" | "remote" | "wasm" | "neural";
-
-
-export interface SandboxResult {
-  output: string[];
-  error?: string;
-}
-
-// O contrato que todos os engines DEVEM seguir
-export interface IEngineExecutor {
-  execute(code: string, language: string): Promise<SandboxResult>;
-}
+export type Engine = "local" | "wasm" | "remote" | "neural";
+export type EngineType = "local" | "wasm" | "remote" | "neural"; // Garanta que este tipo existe aqui ou em engines.ts

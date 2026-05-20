@@ -72,4 +72,4 @@ export interface EditorConfig {
 }
 
 export type Language = SupportedLanguage;
-export type EngineType = "local" | "wasm" | "remote" | "neural"; // Garanta que este tipo existe aqui ou em engines.ts
+
