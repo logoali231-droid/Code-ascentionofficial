@@ -1,13 +1,13 @@
 "use client";
 
 import { IEngineExecutor } from "./types";
-import { LocalExecutor } from "./engines/LocalExecutor";
-import { WasmExecutor } from "./engines/WasmExecutor";
-import { RemoteExecutor } from "./engines/RemoteExecutor";
-import { NeuralExecutor } from "./engines/NeuralExecutor";
+import { LocalExecutor } from "./engines/localExecutor";
+import { WasmExecutor } from "./engines/wasmExecutor";
+import { RemoteExecutor } from "./engines/remoteExecutor";
+import { NeuralExecutor } from "./engines/neuralExecutor";
 
 // 1. Instanciamos os Singletons. 
-// O Registry mantém apenas UMA instância viva de cada executor.
+// O Registry mantém apenas UMA instância viva de cada executor para garantir performance.
 const EXECUTOR_REGISTRY: Record<string, IEngineExecutor> = {
   local: new LocalExecutor(),
   wasm: new WasmExecutor(),
@@ -16,8 +16,8 @@ const EXECUTOR_REGISTRY: Record<string, IEngineExecutor> = {
 };
 
 // 2. Mapeamento de Linguagem -> Chave do Registry
+// Normalizado para minúsculas para evitar erros de case-sensitivity na chamada
 const LANGUAGE_MAP: Record<string, string> = {
-  // Local
   javascript: "local",
   typescript: "local",
   html: "local",
@@ -26,11 +26,9 @@ const LANGUAGE_MAP: Record<string, string> = {
   actionscript: "local",
   coffeescript: "local",
 
-  // Wasm
   python: "wasm",
   ruby: "wasm",
 
-  // Remote (Cluster Docker)
   java: "remote",
   csharp: "remote",
   cpp: "remote",
@@ -68,7 +66,6 @@ const LANGUAGE_MAP: Record<string, string> = {
   ada: "remote",
   fsharp: "remote",
 
-  // Neural (Fallback)
   swift: "neural",
   dart: "neural",
   matlab: "neural",
@@ -87,11 +84,11 @@ const LANGUAGE_MAP: Record<string, string> = {
 
 /**
  * Registry de Execução: O cérebro do orquestrador.
- * Ele retorna a implementação da estratégia (executor) 
- * baseada na linguagem solicitada.
+ * Resolve a estratégia (executor) baseada na linguagem solicitada.
  */
 export const getExecutor = (lang: string): IEngineExecutor => {
-  const engineKey = LANGUAGE_MAP[lang] || "neural";
+  const normalizedLang = lang.toLowerCase();
+  const engineKey = LANGUAGE_MAP[normalizedLang] || "neural";
   const executor = EXECUTOR_REGISTRY[engineKey];
   
   if (!executor) {
