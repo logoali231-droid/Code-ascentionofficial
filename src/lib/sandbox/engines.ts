@@ -1,7 +1,7 @@
 "use client";
 
 import { IEngineExecutor } from "./types";
-import { LocalWorkerManager } from "./localExecutor";
+import { LocalExecutor } from "./localExecutor";
 import { runWasm } from "./wasmExecutor";
 import { runRemote } from "./remoteExecutor";
 import { NeuralExecutor } from "./neuralExecutor";
@@ -9,7 +9,7 @@ import { NeuralExecutor } from "./neuralExecutor";
 // 1. Instanciamos os Singletons. 
 // O Registry mantém apenas UMA instância viva de cada executor para garantir performance.
 const EXECUTOR_REGISTRY: Record<string, IEngineExecutor> = {
-  local: new LocalWorkerManager(),
+  local: new LocalExecutor(),
   wasm: new runWasm(),
   remote: new runRemote(),
   neural: new NeuralExecutor(),
