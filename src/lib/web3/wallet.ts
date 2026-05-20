@@ -1,6 +1,8 @@
 "use client";
 
 import { createConfig, http } from "wagmi";
+import { getWalletClient } from "@wagmi/core";
+
 
 import {
   mainnet,
@@ -63,3 +65,9 @@ export const walletConfig =
       ),
     },
   });
+
+export async function getSigner() {
+  const client = await getWalletClient(walletConfig);
+  if (!client) return null;
+  return client;
+}

@@ -12,7 +12,7 @@ import {
   createWorkspaceSnapshot,
 } from "./workspaceSnapshot";
 
-export async function exportWorkspace() {
+export async function exportWorkspace(workspaceId: string) {
   const workspace =
     workspaceManager.getWorkspace();
 
