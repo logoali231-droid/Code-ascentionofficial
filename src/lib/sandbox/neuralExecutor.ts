@@ -1,4 +1,4 @@
-import { IEngineExecutor } from "./types";
+import { IEngineExecutor } from "./engines";
 export class NeuralExecutor implements IEngineExecutor {
   async execute(code: string, language: string, signal?: AbortSignal) {
     return runNeural(code, language, signal);
