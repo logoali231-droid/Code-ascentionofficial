@@ -1,3 +1,4 @@
+import { SandboxResult } from "./types";
 export interface IEngineExecutor {
   execute(
     code: string,
