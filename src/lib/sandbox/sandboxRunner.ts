@@ -1,18 +1,7 @@
 "use client";
 
-import {
-  ENGINE_REGISTRY,
-  resolveEngine,
-} from "./engines";
-
-import {
-  sandboxProcessManager,
-} from "./sandboxProcessManager";
-
-import {
-  ExecutionResult,
-  Language
-} from "./engines";
+import { ENGINE_REGISTRY, resolveEngine, Language, ExecutionResult } from "./engines";
+import { sandboxProcessManager } from "./sandboxProcessManager";
 
 /* =========================================================
    CORE SANDBOX ORCHESTRATOR
@@ -23,47 +12,30 @@ export async function runSandbox(
   language: Language,
   signal?: AbortSignal,
 ): Promise<ExecutionResult> {
-  const proc =
-    sandboxProcessManager.createProcess(
-      language,
-    );
+  const proc = sandboxProcessManager.createProcess(language);
 
-  proc.pushLog(
-    `[BOOT] Starting ${language} runtime`,
-  );
+  proc.pushLog(`[BOOT] Starting ${language} runtime`);
 
-  const engineType =
-    resolveEngine(language);
+  const engineType = resolveEngine(language);
+  proc.pushLog(`[ENGINE] Resolved engine: ${engineType}`);
 
-  proc.pushLog(
-    `[ENGINE] Resolved engine: ${engineType}`,
-  );
-
-  const executor =
-    ENGINE_REGISTRY[engineType];
+  const executor = ENGINE_REGISTRY[engineType];
 
   if (!executor) {
-    proc.crash(
-      `No executor found for ${engineType}`,
-    );
+    const errorMsg = `No executor found for ${engineType}`;
+    proc.crash(errorMsg);
 
     return {
       output: [],
-      error: `No executor found for ${engineType}`,
+      error: errorMsg,
     };
   }
 
   try {
-    proc.pushLog(
-      `[EXEC] Executing sandbox process`,
-    );
+    proc.pushLog(`[EXEC] Executing sandbox process`);
 
-    const result =
-      await executor.execute(
-        code,
-        language,
-        signal,
-      );
+    // Acopla o sinal para interrupções sob demanda ou timeouts da Etapa 1
+    const result = await executor.execute(code, language, signal);
 
     if (result.output) {
       for (const line of result.output) {
@@ -75,10 +47,7 @@ export async function runSandbox(
       proc.crash(result.error);
     } else {
       proc.stop();
-
-      proc.pushLog(
-        `[EXIT] Process finished successfully`,
-      );
+      proc.pushLog(`[EXIT] Process finished successfully`);
     }
 
     return result;
@@ -96,5 +65,4 @@ export async function runSandbox(
    BACKWARD COMPATIBILITY LAYER
 ========================================================= */
 
-export const executeSandboxCode =
-  runSandbox;
+export const executeSandboxCode = runSandbox;

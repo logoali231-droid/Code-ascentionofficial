@@ -1,6 +1,6 @@
 "use client";
 
-import { db, getUser, get } from "./db";
+import { db, getUser } from "./db";
 import {
   UserStats,
   MemoryLog,
@@ -9,10 +9,13 @@ import {
 } from "@/types/index";
 import { calculateLevel } from "./level";
 
+// 🌟 CORREÇÃO: Adicionado os campos necessários para a telemetria do roteador inteligente
 interface RewardMultiplier {
   xpMultiplier: number;
   coinMultiplier: number;
   difficulty: number;
+  routingStrategy?: "LOW_LATENCY_LOCAL" | "HIGH_COMPUTATION_CLOUD" | "BALANCED";
+  rawProfile?: string;
 }
 
 export async function getAdaptiveMetrics(
@@ -47,10 +50,10 @@ export async function getAdaptiveMetrics(
       ? topicLogs.filter((h) => h.success).length / topicLogs.length
       : 0.7;
 
-  // Define a dificuldade base de forma puramente matemática alinhada ao nível real
+  // Define a dificuldade base alinhada ao nível real do usuário
   let baseDifficulty = currentDifficulty || Math.min(5, userLevel * 0.1 + 1.5);
 
-  // CORREÇÃO: O cálculo agora ocorre de forma centralizada e amortecida sem dupla taxação externa
+  // Cálculo de forma centralizada e amortecida
   let finalDifficulty = calculateGranularDifficulty(
     baseDifficulty,
     successRate,
@@ -61,6 +64,14 @@ export async function getAdaptiveMetrics(
   const isADHD = normalizedProfile === "tdah";
   const streakBonus = Math.min(2, 1 + streak * 0.05);
 
+  // 🧠 Estratégia de Roteamento Baseada em Perfil Cognitivo e Complexidade
+  let recommendedStrategy: "LOW_LATENCY_LOCAL" | "HIGH_COMPUTATION_CLOUD" | "BALANCED" = "BALANCED";
+  if (isADHD) {
+    recommendedStrategy = "LOW_LATENCY_LOCAL"; // TDAH demanda feedback instantâneo local (WASM)
+  } else if (finalDifficulty > 4.2) {
+    recommendedStrategy = "HIGH_COMPUTATION_CLOUD"; // Algoritmos complexos exigem processamento cloud
+  }
+
   return {
     difficulty: finalDifficulty,
     xpMultiplier: parseFloat(
@@ -69,6 +80,10 @@ export async function getAdaptiveMetrics(
     coinMultiplier: Math.floor(finalDifficulty * 10 * (1 + userLevel * 0.05)),
     focusMode: isADHD && (finalDifficulty > 3.8 || avgAttempts > 2),
     style: getCognitiveFormattingRules(normalizedProfile),
+    
+    // ✅ Propriedades agora reconhecidas perfeitamente pelo compilador do TypeScript
+    routingStrategy: recommendedStrategy,
+    rawProfile: normalizedProfile,
   };
 }
 
@@ -85,7 +100,6 @@ export function getCognitiveFormattingRules(profile: string): string {
   return rules[profile] || rules["standard"];
 }
 
-// CORREÇÃO: Função centralizada com amortecimento linear (Evita o efeito dente de serra na UI)
 function calculateGranularDifficulty(
   base: number,
   successRate: number,
@@ -93,14 +107,10 @@ function calculateGranularDifficulty(
 ): number {
   let variance = 0;
 
-  // Ajustes de taxa de sucesso equilibrados e sem saltos bruscos
   if (successRate > 0.85) variance += 0.3;
   if (successRate < 0.4) variance -= 0.4;
 
-  // Penalização por esforço excessivo controlada
   if (avgAttempts > 3) variance -= 0.3;
-  
-  // Recompensa sutil para performance limpa/impecável
   if (successRate > 0.95 && avgAttempts <= 1.2) variance += 0.1;
 
   const finalValue = base + variance;

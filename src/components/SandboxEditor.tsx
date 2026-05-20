@@ -479,15 +479,22 @@ export default function SandboxEditor() {
           </div>
         </div>
 
-        <button
-          onClick={async () => {
-            await exportWorkspace();
-          }}
-          className="flex items-center gap-2 bg-white/5 text-[10px] text-slate-400 px-3 py-1.5 rounded border border-white/10 hover:border-cyan-500/40 hover:text-cyan-400 transition-all"
-        >
-          <Download size={14} />
-          EXPORT_WORKSPACE
-        </button>
+       <button
+  onClick={async () => {
+    // ID do workspace ativo no momento do clique
+    const activeWorkspace = workspaceManager.getWorkspace();
+    
+    if (activeWorkspace) {
+      await exportWorkspace(activeWorkspace.id);
+    } else {
+      console.error("Nenhum workspace ativo para exportar.");
+    }
+  }}
+  className="flex items-center gap-2 bg-white/5 text-[10px] text-slate-400 px-3 py-1.5 rounded border border-white/10 hover:border-cyan-500/40 hover:text-cyan-400 transition-all"
+>
+  <Download size={14} />
+  EXPORT_WORKSPACE
+</button>
       </div>
 
       <div className="flex flex-1 overflow-hidden relative">
