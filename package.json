@@ -19,7 +19,7 @@
     "@mlc-ai/web-llm": "^0.2.83",
     "@tailwindcss/postcss": "^4.3.0",
     "@tanstack/react-query": "^5.100.11",
-    "@wagmi/core": "^3.4.12",
+    "@wagmi/core": "2.12.0",
     "@walletconnect/ethereum-provider": "^2.23.9",
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
@@ -33,11 +33,7 @@
     "pyodide": "^0.29.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "viem": "^2.50.4",
-    "wagmi": "^3.6.15"
-  },
-  "overrides": {
-    "@wagmi/core": "2.12.0",
+    "viem": "2.17.0",
     "wagmi": "2.12.0"
   },
   "devDependencies": {
