@@ -6,7 +6,7 @@ import { SYSTEM_CONFIG } from "@/config/system";
  * Gerenciador de Ciclo de Vida do Worker (Singleton)
  * Mantém o worker ativo para evitar overhead de criação (GC Pressure)
  */
-class LocalWorkerManager {
+export class LocalWorkerManager {
   private static worker: Worker | null = null;
   private static workerUrl: string | null = null;
 
