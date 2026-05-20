@@ -2,7 +2,7 @@
 
 import { IEngineExecutor } from "./types";
 import { LocalWorkerManager } from "./localExecutor";
-import { WasmExecutor } from "./wasmExecutor";
+import { runWasm } from "./wasmExecutor";
 import { RemoteExecutor } from "./remoteExecutor";
 import { NeuralExecutor } from "./neuralExecutor";
 
