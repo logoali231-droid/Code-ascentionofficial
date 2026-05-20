@@ -2,199 +2,126 @@
 
 ## Overview
 
-Code Ascension is an experimental offline-first educational platform focused on programming learning through local AI inference, adaptive curriculum generation, and hybrid code execution.
+Code Ascension is a modular local development environment and browser-native workspace operating system developed under an offline-first hybrid architecture. The platform integrates localized artificial intelligence inference, adaptive curriculum generation, and an isolated multi-engine code execution pipeline. 
 
-The project explores the practical limits of running Large Language Models (LLMs) directly inside the browser using WebGPU, eliminating continuous dependency on cloud inference APIs while preserving responsiveness, privacy, and low operational cost.
-
-Instead of treating AI as a remote service, Code Ascension treats the browser as a local cognitive runtime.
+The system relies on browser-native protocols to execute software and run large language models directly on the client device: WebGPU handles Large Language Model (LLM) inference without remote API communication overhead, the Origin Private File System (OPFS) processes persistent file input/output tasks directly inside the host browser's private directory allocation, and Web3 protocols manage cryptographic workspace state identity tracking.
 
 ---
 
-# Core Goals
+## Core Goals
 
-* Provide AI-assisted programming education without recurring inference costs.
-* Reduce dependency on centralized cloud providers.
-* Preserve user privacy by processing educational interactions locally.
-* Explore adaptive learning systems powered by local LLM inference.
-* Investigate hybrid execution models combining browser-native runtimes and isolated remote containers.
-
----
-
-# Architecture
-
-Code Ascension follows a hybrid offline-first architecture.
-
-## Learn Mode
-
-The educational and cognitive layer operates primarily on-device.
-
-After the initial model download, the platform can continue generating lessons, explanations, exercises, and adaptive feedback fully offline using WebLLM and WebGPU.
-
-### Local Components
-
-* WebLLM (`@mlc-ai/web-llm`)
-* WebGPU accelerated inference
-* IndexedDB persistence (Dexie)
-* Context summarization and memory compression
-* Adaptive curriculum generation
-* Vector-based lightweight retrieval
-* Reinforcement and spaced repetition systems
-
-### Offline Capabilities
-
-After models are cached locally, the following systems operate without network dependency:
-
-* Lesson generation
-* Theory explanations
-* Adaptive difficulty
-* Error analysis
-* Reinforcement loops
-* Progress persistence
-* Knowledge graph traversal
-* Local memory retrieval
+* Provide AI-assisted programming education without recurring cloud inference operational costs.
+* Eliminate structural dependency on centralized remote server providers for core educational workflows.
+* Enforce absolute client privacy by maintaining and processing interaction contexts fully on-device.
+* Deliver a fully offline development workspace featuring native file-tree traversal, isolated code execution, and terminal process emulation.
+* Bridge client-side sandboxed runtimes with blockchain verification layers to preserve immutable project snapshots and identifier tracking.
 
 ---
 
-## Sandbox Mode
+## Architecture
 
-The Sandbox subsystem uses a multi-engine execution architecture.
+Code Ascension functions as a split architecture composed of a browser-native client workspace layer and an automated containerized remote runtime gateway.
 
-Depending on the selected language, execution may happen:
+### 1. Workspace & Persistent Filesystem Subsystem
 
-### Locally
+The application utilizes a persistent local filesystem layer built over the Origin Private File System (OPFS) via the `navigator.storage.getDirectory()` browser standard, replacing volatile in-memory file abstractions.
 
-* JavaScript / TypeScript via browser runtime
-* Python via Pyodide + WebAssembly
-* Neural execution fallback for unsupported languages
-* SANDBOX MODE IS STILL ON BETA
+The system architecture located within `src/lib/sandbox/workspace/` encompasses:
+* `workspaceStorage.ts`: Handles low-level directory creation, recursive folder parsing, and file read/write operations utilizing native `FileSystemDirectoryHandle` references.
+* `workspaceManager.ts`: Governs the runtime active file states, folder tree updates, and synchronization pipelines fed into the `fileExplorer.tsx` tree component.
+* `workspaceSnapshot.ts` and `workspaceManifest.ts`: Document structural changes, version histories, and track file integrity verification hashes across project states.
+* `exportProject.ts` and `importProject.ts`: Coordinate the compilation and decompression of full OPFS workspace volumes into standard exportable `.zip` structures via `jszip`.
 
-### Remotely
+### 2. Sandbox Execution Engine Architecture
 
-Compiled and system-level languages are executed through isolated Docker containers hosted on Azure infrastructure.
+Code execution sequences are completely decoupled via a strictly defined typed execution abstraction implemented under the `IEngineExecutor` interface. Every executor handles code evaluation via the `execute` methodology, consuming the target code stream, language identifier string, and an optional `AbortSignal` to terminate runaway executions or loops before they block the UI. All executors return a promise resolving to a uniform typed `SandboxResult` payload.
 
-Examples:
+The execution framework runs four distinct executor modules located in `src/lib/sandbox/`:
+* **`LocalExecutor`**: Evaluates interpreted client environments (such as JavaScript and TypeScript) natively using the core browser engine or isolated thread contexts.
+* **`WasmExecutor`**: Directs code evaluation through client-side WebAssembly environments, running isolated languages (such as Python code blocks via Pyodide) locally.
+* **`RemoteExecutor`**: Proxies execution steps across secure connections to containerized servers when native browser execution is unavailable for a target language.
+* **`NeuralExecutor`**: Provides model-driven fallback runtime simulations and syntactic feedback mechanisms for complex syntax structures.
 
-* Java
-* C++
-* Kotlin
-* Rust
-* Go
+### 3. Remote Runtime Container Infrastructure
 
-The remote runtime is only activated during Sandbox usage and is completely decoupled from the educational inference pipeline.
+For software environments requiring native host compilation or system-level binary execution, the project incorporates a standalone server component located in `runtime-server/`.
+* **Server Orchestration**: Implements a dedicated execution queue (`queue.js`) and a runtime instance engine (`factory.js`) running a secure WebSocket/HTTP gateway server (`server.js`) to process tasks without container collision.
+* **Container Environment**: Built via an Ubuntu-based Dockerfile (`node:20-bookworm`) that isolates development tooling natively.
+* **Supported Environment Runtimes**: Configured via explicit platform targets inside `runtime-server/languages/`, mapping native runtime binaries including:
+  * Systems & Compiled: Java (OpenJDK 17), Kotlin (1.9.23 via manual kotlinc deployment), Rust (rustc/cargo), Go, C/C++ (GCC/G++), .NET 8 (C#, F#, VB.NET), Free Pascal, Assembly (NASM), GNU COBOL, Haskell (GHC).
+  * Scripting & Logic: Node.js/TypeScript, Python 3, PHP CLI, Ruby, Perl, Lua 5.4, Tcl, Clojure, Common Lisp (SBCL), R, Julia, Elixir, Erlang.
+  * Domain/Database: Solidity (`solc`), SWI-Prolog, SQLite3.
 
----
+### 4. Cryptographic Identity & Web3 Layer
 
-# Technical Stack
+The project maintains secure workspaces by enforcing identity abstraction over core cryptographic APIs inside `src/lib/web3/`:
+* `workspaceIdentity.ts`: Compiles deterministic structural tracking hashes representing the complete physical layout of the OPFS storage tree.
+* `bridge.ts` and `wallet.ts`: Interface with external decentralized wallet infrastructures and blockchain environments, creating a verification bridge between sandboxed states and on-chain record tracking.
 
-## Frontend
+### 5. Learn Mode & Adaptive Subsystems
 
-* React
-* Next.js
-* TypeScript
-* TailwindCSS
-
-## AI Runtime
-
-* WebLLM
-* WebGPU
-* Web Workers
-* WASM / Pyodide
-
-## Persistence
-
-* IndexedDB
-* Dexie
-
-## Remote Runtime
-
-* Docker
-* Azure Virtual Machines
-* Containerized execution
+The educational system runs fully decentralized on the client device after resource instantiation:
+* **Local Inference Pipeline**: Executes model instructions directly over WebGPU via WebLLM (`@mlc-ai/web-llm`) enclosed inside an isolated background Web Worker (`webllm.worker.ts`) to isolate heavy compute steps from UI drawing routines.
+* **Structured Local Storage**: Application settings, knowledge graphs, and progression trees map to IndexedDB through a Dexie data access layer (`src/lib/lib/db.ts`).
+* **Input and Environment Sanitation**: Validates student inputs via strict heuristic pipelines, utilizing statistical validation arrays, a gibberish verification subsystem (`gibberish-detector.ts`), and concept constraint validation models to enforce system consistency.
 
 ---
 
-# Adaptive Learning System
+## Technical Stack
 
-The platform includes multiple educational subsystems designed to dynamically adapt content generation and reinforcement.
+### Core Frontend & Layout
+* React 18 / Next.js 15 (Configured with standalone distribution output (`output: "standalone"`) and webpack optimization paths)
+* TypeScript 5.8
+* TailwindCSS 4.3 (Leveraging `@tailwindcss/postcss`)
 
-Current systems include:
+### Local AI & Client Runtime
+* WebLLM v0.2.83 (WebGPU model orchestration)
+* Pyodide v0.29.4 (WebAssembly compiled Python execution layer)
+* Web Workers API (`webllm.worker.ts`, `pythonWorker.ts`, `sandbox.worker.ts`, `logic.worker.ts`)
 
-* Adaptive difficulty scaling
-* Knowledge graph prerequisites
-* Spaced repetition
-* Reinforcement exercise generation
-* Long-term local memory
-* Context compression
-* Curriculum synchronization
-* Concept constraint heuristics
-* AI-assisted code evaluation
+### Persistent Data Abstractions
+* Native File System Access API (Origin Private File System handles via `FileSystemDirectoryHandle`)
+* Dexie v4.4 / IndexedDB / `idb` v8.0 (Relational schema modeling and progress cache)
+* JSZip v3.10 & FileSaver v2.0 (Workspace data packing and archive generation)
 
-The objective is to maintain longitudinal pedagogical consistency while minimizing cognitive overload.
+### Remote Infrastructure
+* Docker Core Engine / Ubuntu bookworm system images
+* Node.js v20 (Runtime microserver engine)
+* Azure Cloud Services Infrastructure VM instances
+* Azure Cosmos DB SDK (`@azure/cosmos`)
 
----
-
-# Performance Philosophy
-
-Code Ascension is designed with low-end and mid-range hardware in mind.
-
-The runtime includes:
-
-* Hardware-aware model selection
-* VRAM tier detection
-* Worker-based task offloading
-* Lazy runtime initialization
-* Aggressive memory cleanup
-* Mobile-oriented optimizations
-
-The project is actively tested on intermediate Android devices to validate practical WebGPU inference viability outside high-end hardware environments.
+### Web3 Identity Verification
+* Ethers v6.16 / Viem v2.50
+* Wagmi v3.6 / WalletConnect Ethereum Provider
 
 ---
 
-# Privacy
+## Subsystems and Features
 
-Educational interactions are processed locally whenever possible.
-
-Unlike traditional cloud-based AI platforms:
-
-* prompts are not continuously transmitted to external inference APIs;
-* lesson generation can operate fully offline after model caching;
-* user memory and progress remain stored locally in the browser.
-
-Remote infrastructure is only required for:
-
-* initial model download;
-* optional future synchronization systems;
-* remote sandbox execution for compiled languages.
+The application environment splits operational context across multiple interface routers found under `src/app/`:
+* `course/` & `review/`: Generates and reviews localized curricula dynamically based on underlying mastery vectors.
+* `factions/` & `skills/`: Tracks user-selected educational focuses and progression graphs.
+* `sandbox/`: Contains the IDE terminal and multi-tab code surface (`EditorTabs.tsx`, `SandboxTerminal.tsx`).
+* `hub/` & `leaderboard/`: Aggregates structural completion metrics and decentralized progression scaling.
+* `vault/`: Interfaces with secure Web3 wallets and structural identity components.
 
 ---
 
-# Limitations
+## Privacy & Operational Limits
 
-Because the platform depends heavily on modern browser capabilities, some features may be unavailable depending on:
+### Hardware Constraints
+Features depend strictly on active hardware support profiles:
+* WebGPU functionality requires compatible graphic driver extensions and assigned client VRAM profiles.
+* Thermal status tracking (`thermal.ts`) dynamically gauges execution parameters under mobile workloads to match system-level constraints.
 
-* WebGPU support;
-* available VRAM;
-* browser implementation quality;
-* mobile thermal constraints.
-
-Certain Sandbox languages also require active internet connectivity due to remote container execution.
-
----
-
-# Current Status
-
-The project is currently in active development as:
-
-* a research environment for local-first AI systems;
-* a study platform for adaptive programming education;
-* an experimental runtime for browser-native LLM inference.
-
-The architecture and APIs are still evolving and may change frequently.
+### Isolated Pipeline Compliance
+* Client prompt data remains entirely inside the localized browser sandbox and is not transmitted to external cloud systems.
+* Network access requirements are constrained entirely to remote runtime execution commands for non-native languages, initial deep model caching procedures, and Web3 consensus calls.
 
 ---
 
-# References
+## References
 
-* [WebLLM GitHub Repository](https://github.com/mlc-ai/web-llm?utm_source=chatgpt.com)
-* [WebLLM Research Paper (arXiv)](https://arxiv.org/abs/2412.15803?utm_source=chatgpt.com)
-* [WebGPU Specification (W3C)](https://www.w3.org/TR/webgpu/?utm_source=chatgpt.com)
+* [WebLLM GitHub Repository](https://github.com/mlc-ai/web-llm)
+* [WebLLM Research Paper (arXiv)](https://arxiv.org/abs/2412.15803)
+* [WebGPU Specification (W3C)](https://www.w3.org/TR/webgpu/)
