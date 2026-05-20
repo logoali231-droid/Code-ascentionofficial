@@ -4,6 +4,7 @@ import JSZip from "jszip";
 
 import { saveAs } from "file-saver";
 
+
 import {
   workspaceManager,
 } from "./workspaceManager";
@@ -26,8 +27,12 @@ export async function exportWorkspace(workspaceId: string): Promise<Blob> {
 
   zip.file("workspace.json", JSON.stringify(snapshot.manifest, null, 2));
 
-  for (const file of snapshot.files) {
-    zip.file(file.path, file.content);
+  for (const fileSnapshot of snapshot.files) {
+    // Busca o conteúdo real do workspace original, não do snapshot
+    const originalFile = workspace.files.find(f => f.path === fileSnapshot.path);
+    if (originalFile) {
+        zip.file(fileSnapshot.path, originalFile.content);
+    }
   }
 
   zip.file(".ascension-meta.json", JSON.stringify({

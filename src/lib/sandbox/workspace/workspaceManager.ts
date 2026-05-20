@@ -120,13 +120,13 @@ export class WorkspaceManager {
   setActiveFile(path: string) {
     this.activeFile = path;
   }
-
+  private writeLock: Promise<void> = Promise.resolve();
   async updateFile(
     path: string,
     content: string
   ) {
     if (!this.workspace) {
-      return;
+      return this.writeLock;
     }
 
     const file =
