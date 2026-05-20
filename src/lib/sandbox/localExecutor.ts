@@ -3,20 +3,21 @@
 import { ExecutionResult, IEngineExecutor } from "./engines";
 import { sandboxOrchestrator } from "./sandboxOrchestrator";
 
+// Alteração sugerida no LocalExecutor.ts
 export class LocalExecutor implements IEngineExecutor {
+  // Adicionamos um callback opcional para streaming
   async execute(
     code: string,
     language: string,
     signal?: AbortSignal,
+    onOutput?: (chunk: string) => void 
   ): Promise<ExecutionResult> {
-    
     if (signal?.aborted) {
       return {
         output: [],
         error: "Execution aborted by caller.",
       };
     }
-
     return new Promise(async (resolve) => {
       let worker: Worker;
       // ID Único de execução para correlacionar mensagens e evitar vazamento/colisão de buffers
@@ -57,23 +58,16 @@ export class LocalExecutor implements IEngineExecutor {
         });
       };
 
-      handleMessage = (e: MessageEvent) => {
-        // Filtra a resposta estritamente pelo ID do ciclo atual
-        if (e.data && e.data.id === executionId) {
-          removeListeners();
-          if (e.data.success) {
-            resolve({
-              output: e.data.output,
-              metrics: { engine: "local" },
-            });
-          } else {
-            resolve({
-              output: [],
-              error: e.data.error,
-            });
-          }
-        }
-      };
+     handleMessage = (e: MessageEvent) => {
+      if (e.data.type === "stdout" || e.data.type === "stderr") {
+        onOutput?.(e.data.content); // Envia o pedaço imediatamente
+      }
+      
+      if (e.data.id === executionId && e.data.type === "finish") {
+        removeListeners();
+        resolve({ output: e.data.output, metrics: { engine: "local" } });
+      }
+    };
 
       handleError = (err: ErrorEvent) => {
         removeListeners();

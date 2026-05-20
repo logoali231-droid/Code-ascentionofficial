@@ -120,6 +120,7 @@ export interface IEngineExecutor {
   execute(
     code: string,
     language: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onLog?: (chunk: string) => void
   ): Promise<ExecutionResult>;
 }

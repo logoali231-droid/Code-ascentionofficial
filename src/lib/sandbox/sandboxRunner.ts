@@ -1,15 +1,9 @@
-"use client";
-
-import { ENGINE_REGISTRY, resolveEngine, Language, ExecutionResult } from "./engines";
+import { ExecutionResult, resolveEngine, ENGINE_REGISTRY } from "./engines";
 import { sandboxProcessManager } from "./sandboxProcessManager";
-
-/* =========================================================
-   CORE SANDBOX ORCHESTRATOR
-========================================================= */
 
 export async function runSandbox(
   code: string,
-  language: Language,
+  language: string,
   signal?: AbortSignal,
 ): Promise<ExecutionResult> {
   const proc = sandboxProcessManager.createProcess(language);
@@ -17,25 +11,23 @@ export async function runSandbox(
   proc.pushLog(`[BOOT] Starting ${language} runtime`);
 
   const engineType = resolveEngine(language);
-  proc.pushLog(`[ENGINE] Resolved engine: ${engineType}`);
-
   const executor = ENGINE_REGISTRY[engineType];
 
   if (!executor) {
     const errorMsg = `No executor found for ${engineType}`;
     proc.crash(errorMsg);
-
-    return {
-      output: [],
-      error: errorMsg,
-    };
+    return { output: [], error: errorMsg };
   }
+
+  proc.pushLog(`[ENGINE] Resolved engine: ${engineType}`);
 
   try {
     proc.pushLog(`[EXEC] Executing sandbox process`);
 
-    // Acopla o sinal para interrupções sob demanda ou timeouts da Etapa 1
-    const result = await executor.execute(code, language, signal);
+    // Chamada única e correta, passando o callback tipado
+    const result = await executor.execute(code, language, signal, (chunk: string) => {
+      proc.pushLog(chunk);
+    });
 
     if (result.output) {
       for (const line of result.output) {
@@ -53,16 +45,9 @@ export async function runSandbox(
     return result;
   } catch (err: any) {
     proc.crash(err.message);
-
     return {
       output: [],
       error: err.message,
     };
   }
 }
-
-/* =========================================================
-   BACKWARD COMPATIBILITY LAYER
-========================================================= */
-
-export const executeSandboxCode = runSandbox;
