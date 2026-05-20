@@ -1,56 +1,28 @@
-"use client";
+// src/lib/sandbox/engines/LocalExecutor.ts
+import { IEngineExecutor, SandboxResult } from "./types";
+import { LocalWorkerManager, runLocal } from "./sandboxRunner"; // Ajuste o path conforme sua estrutura
 
-import { SYSTEM_CONFIG } from "@/config/system";
-
-/**
- * Gerenciador de Ciclo de Vida do Worker (Singleton)
- * Mantém o worker ativo para evitar overhead de criação (GC Pressure)
- */
-export class LocalWorkerManager {
-  private static worker: Worker | null = null;
-  private static workerUrl: string | null = null;
-
-  public static get(): Worker {
-    if (!this.worker) {
-      const workerCode = `
-        self.onmessage = function(e) {
-          const logs = [];
-          const customConsole = {
-            log: (...args) => logs.push(args.map(arg => typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)).join(" ")),
-            error: (...args) => logs.push("[ERROR] " + args.join(" "))
-          };
-          try {
-            const run = new Function("console", '"use strict"; ' + e.data.code);
-            run(customConsole);
-            self.postMessage({ success: true, output: logs });
-          } catch (err) {
-            self.postMessage({ success: false, error: err.message });
-          }
-        };
-      `;
-      const blob = new Blob([workerCode], { type: "application/javascript" });
-      this.workerUrl = URL.createObjectURL(blob);
-      this.worker = new Worker(this.workerUrl);
-    }
-    return this.worker;
-  }
-
-  public static terminate() {
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
-      if (this.workerUrl) {
-        URL.revokeObjectURL(this.workerUrl);
-        this.workerUrl = null;
+export class LocalExecutor implements IEngineExecutor {
+  async execute(code: string, language: string, signal?: AbortSignal): Promise<SandboxResult> {
+    // Delega a execução para a sua função runLocal que já possui a fila e a telemetria
+    const result = await runLocal(code, language, signal);
+    
+    return {
+      output: result.output,
+      error: result.error,
+      metrics: {
+        // Você pode expandir isso futuramente para incluir métricas do worker
+        execTime: 0, 
       }
-    }
+    };
   }
 }
+
 
 /**
  * Fila de Execução com Telemetria (Mutex)
  */
-class ExecutionQueue {
+export class ExecutionQueue {
   private static chain: Promise<any> = Promise.resolve();
 
   public static enqueue<T>(task: () => Promise<T>, taskName: string): Promise<T> {
