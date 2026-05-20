@@ -138,6 +138,7 @@ function NeuralRuntime({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
+  const isExecutingMutex = useRef(false);
 
   useEffect(() => {
     setLocalContent(file.content);
@@ -207,7 +208,9 @@ function NeuralRuntime({
     }
   }
 
-  const handleRun = async () => {
+const handleRun = async () => {
+    if (isExecutingMutex.current) return;
+    isExecutingMutex.current = true;
     setIsRunning(true);
     setLocalOutput([
       "[SYSTEM] Kernel inicializado...",
@@ -227,6 +230,7 @@ function NeuralRuntime({
       setLocalOutput((prev) => [...prev, `[FATAL] ${err.message}`]);
     } finally {
       setIsRunning(false);
+      isExecutingMutex.current = false;
     }
   };
 

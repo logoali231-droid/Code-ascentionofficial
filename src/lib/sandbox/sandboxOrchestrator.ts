@@ -77,14 +77,17 @@ export class SandboxOrchestrator {
    */
   public cleanUpMemoryAggressively() {
     if (this.activeWorker) {
-      console.log(
-        `[Memory Purge] Destruindo Worker da linguagem: ${this.currentLanguage}`,
-      );
-      this.activeWorker.terminate();
-      this.activeWorker = null;
+        try {
+            console.log("[Safari Guard / Sandbox] Interrompendo execução e purgando Worker...");
+            this.activeWorker.terminate();
+        } catch (error) {
+            console.error("[Sandbox Guard] Erro fatal ao finalizar Worker:", error);
+        } finally {
+            // SOLUÇÃO: Força o reset atômico do ponteiro para nulo
+            this.activeWorker = null; 
+            console.log("[Sandbox Guard] Ponteiro limpo. Garbage collector liberado.");
+        }
     }
-
-    // Força o Garbage Collector do JavaScript a coletar referências soltas
     this.currentLanguage = "";
-  }
+}
 }
