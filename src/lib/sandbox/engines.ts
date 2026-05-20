@@ -1,10 +1,10 @@
 "use client";
 
 import { IEngineExecutor } from "./types";
-import { LocalExecutor } from "./engines/localExecutor";
-import { WasmExecutor } from "./engines/wasmExecutor";
-import { RemoteExecutor } from "./engines/remoteExecutor";
-import { NeuralExecutor } from "./engines/neuralExecutor";
+import { LocalExecutor } from "./localExecutor";
+import { WasmExecutor } from "./wasmExecutor";
+import { RemoteExecutor } from "./remoteExecutor";
+import { NeuralExecutor } from "./neuralExecutor";
 
 // 1. Instanciamos os Singletons. 
 // O Registry mantém apenas UMA instância viva de cada executor para garantir performance.
