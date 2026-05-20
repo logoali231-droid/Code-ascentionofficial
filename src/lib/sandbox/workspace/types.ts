@@ -1,17 +1,25 @@
  import { Language } from "@/lib/sandbox/types";
 
 export interface WorkspaceFile {
-    id: string;
+  id: string;
 
-    path: string;
+  path: string;
 
-    content: string;
+  name: string;
 
-    language: string;
+  type: "file" | "directory";
 
-    updatedAt: number;
+  parent?: string;
 
-    size?: number;
+  content: string;
+
+  language: string;
+
+  updatedAt: number;
+
+  createdAt: number;
+
+  size?: number;
 }
 
 export interface SandboxWorkspace {

@@ -1,3 +1,4 @@
+import { file } from "jszip";
 import {
   SandboxWorkspace,
   WorkspaceFile,
@@ -55,9 +56,7 @@ export class WorkspaceManager {
         workspaceId
       );
 
-    const files: WorkspaceFile[] = [];
-
-    for (const path of filePaths) {
+    const filesMap = new Map<string, WorkspaceFile>(); for (const path of filePaths) {
       if (
         path === "metadata.json"
       ) {
@@ -70,18 +69,35 @@ export class WorkspaceManager {
           path
         );
 
-      files.push({
-          path,
-          content,
-          language: this.detectLanguage(path),
-          updatedAt: Date.now(),
-          id: ""
+      filesMap.set(path, {
+        id: crypto.randomUUID(),
+
+        path,
+
+        name: path.split("/").pop() || path,
+
+        type: "file",
+
+        parent:
+          path.includes("/")
+            ? path.split("/").slice(0, -1).join("/")
+            : undefined,
+
+        content,
+
+        language: this.detectLanguage(path),
+
+        updatedAt: Date.now(),
+
+        createdAt: Date.now(),
+
+        size: content.length,
       });
     }
 
     this.workspace = {
       ...metadata,
-      files,
+      files: Array.from(filesMap.values()),
     };
 
     return this.workspace;
@@ -150,11 +166,14 @@ export class WorkspaceManager {
     }
 
     const file: WorkspaceFile = {
-        path,
-        content,
-        language: this.detectLanguage(path),
-        updatedAt: Date.now(),
-        id: ""
+      path,
+      content,
+      language: this.detectLanguage(path),
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+      id: "",
+      name: "",
+      type: "file"
     };
 
     this.workspace.files.push(
@@ -226,28 +245,28 @@ export class WorkspaceManager {
   }
 
   async updateFileContent(
-  path: string,
-  content: string
-) {
-  const workspace =
-    this.getWorkspace();
+    path: string,
+    content: string
+  ) {
+    const workspace =
+      this.getWorkspace();
 
-  if (!workspace) {
-    return;
-  }
+    if (!workspace) {
+      return;
+    }
 
-  workspace.files =
-    workspace.files.map((file) =>
-      file.path === path
-        ? {
+    workspace.files =
+      workspace.files.map((file) =>
+        file.path === path
+          ? {
             ...file,
             content,
           }
-        : file
-    );
+          : file
+      );
 
-  this.workspace = workspace;
-}
+    this.workspace = workspace;
+  }
 }
 
 

@@ -5,7 +5,6 @@ export const COMPILER_MAP: Record<Language, Engine> = {
     typescript: "local",
     html: "local",
     shell: "local",
-
     python: "wasm",
     lua: "wasm",
     ruby: "wasm",
@@ -53,7 +52,8 @@ export const COMPILER_MAP: Record<Language, Engine> = {
     actionscript: "neural",
     pascal: "neural",
     clojure: "wasm",
-    wasm: "wasm"
+    wasm: "wasm",
+    c: "wasm"
 };
 
 export function getCompilerEngine(lang: Language): Engine {

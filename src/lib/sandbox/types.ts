@@ -1,47 +1,31 @@
-export interface SandboxResult {
-  output: string[];
-  error?: string;
-}
-
 export type Language =
-  | "python"
   | "javascript"
-  | "java"
   | "typescript"
-  | "csharp"
   | "html"
-  | "cpp"
-  | "go"
-  | "rust"
-  | "php"
-  | "lua"
+  | "python"
+  | "shell"
   | "ruby"
+  | "java"
+  | "cpp"
+  | "c"
+  | "rust"
+  | "go"
   | "kotlin"
   | "scala"
-  | "shell"
-  | "perl"
-  | "groovy"
+  | "csharp"
+  | "php"
   | "swift"
-  | "dart"
   | "matlab"
-  | "cobol"
-  | "abap"
-  | "vhdl"
-  | "verilog"
+  | "lua"
   | "scratch"
-  | "fortran"
-  | "ada"
-  | "lisp"
-  | "prolog"
-  | "smalltalk"
   | "scheme"
-  | "plsql"
-  | "solidity"
-  | "apex"
-  | "clojure"
-  | "fsharp"
-  | "vbnet"
-  | "delphi"
+  | "lisp"
+  | "smalltalk"
+  | "prolog"
+
+  | "perl"
+  | "dart"
+  | "kotlin-native"
   | "objective-c"
   | "powershell"
   | "elixir"
@@ -50,10 +34,50 @@ export type Language =
   | "julia"
   | "d"
   | "pascal"
-  | "kotlin-native"
-  | "sql"
+  | "groovy"
+  | "cobol"
+  | "abap"
+  | "fortran"
+  | "ada"
+  | "plsql"
+  | "apex"
+  | "fsharp"
+  | "vbnet"
+  | "delphi"
+  | "solidity"
+  | "verilog"
+  | "vhdl"
+  | "matlab"
+  | "scratch"
+  | "smalltalk"
+  | "prolog"
   | "actionscript"
-  | "wasm";
+  | "clojure"
+  | "wasm"
+  | "sql";
 
-export type Engine = "local" | "wasm" | "remote" | "neural";
-export type EngineType = "local" | "wasm" | "remote" | "neural"; // Garanta que este tipo existe aqui ou em engines.ts
+export type Engine =
+  | "local"
+  | "wasm"
+  | "remote"
+  | "neural";
+
+export interface SandboxResult {
+  output: string[];
+  error?: string;
+  metrics?: {
+    executionTime?: number;
+    memoryUsage?: number;
+    engine?: string;
+  };
+}
+
+export type ExecutionResult = SandboxResult;
+
+export interface IEngineExecutor {
+  execute(
+    code: string,
+    language: string,
+    signal?: AbortSignal,
+  ): Promise<ExecutionResult>;
+}

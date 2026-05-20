@@ -1,7 +1,63 @@
 import Dexie, { type Table } from "dexie";
+const CLOUD_SYNC_URL = "/api/cloud/sync";
 
-const CLOUDFLARE_WORKER_URL =
-  "https://code-ascension-api.logoali231.workers.dev/save-progress";
+import { NextResponse } from "next/server";
+
+import { cosmosContainers } from "@/lib/server/cosmos";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const {
+      store,
+      payload,
+      userId,
+      timestamp,
+    } = body;
+
+    const container =
+      cosmosContainers[
+        store as keyof typeof cosmosContainers
+      ];
+
+    if (!container) {
+      return NextResponse.json(
+        {
+          error: `Invalid store: ${store}`,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const document = {
+      id:
+        payload.id ||
+        `${userId}_${Date.now()}`,
+
+      userId,
+      timestamp,
+      ...payload,
+    };
+
+    await container.items.upsert(document);
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        error: err.message,
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
 const syncChannel =
   typeof window !== "undefined" &&
   typeof BroadcastChannel !== "undefined"
@@ -141,7 +197,7 @@ async function syncToCloud(storeName: string, data: any): Promise<void> {
       timestamp: Date.now(),
     };
 
-    const res = await fetch(CLOUDFLARE_WORKER_URL, {
+    const res = await fetch(CLOUD_SYNC_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

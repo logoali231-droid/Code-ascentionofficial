@@ -11,7 +11,8 @@ export interface WorkspaceManifest {
 
   runtime:
     | "local"
-    | "remote";
+    | "remote"
+    | "neural";
 
   language: string;
 

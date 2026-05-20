@@ -1,47 +1,52 @@
 "use client";
 
-import { SandboxResult } from "./types";
-import { connectSandboxSocket } from "./sandboxSocket";
+import { IEngineExecutor, ExecutionResult } from "./types";
 
-export async function runRemote(
-  code: string,
-  language: string,
-  signal?: AbortSignal,
-): Promise<SandboxResult> {
-  const socket = await connectSandboxSocket();
-
-  return new Promise((resolve) => {
-    const cleanup = () => {
-      signal?.removeEventListener("abort", abort);
-    };
-
-    const abort = () => {
-      cleanup();
-      socket.send(JSON.stringify({ type: "abort" }));
-
-      resolve({
+export class RemoteExecutor implements IEngineExecutor {
+  async execute(
+    code: string,
+    language: string,
+    signal?: AbortSignal,
+  ): Promise<ExecutionResult> {
+    if (signal?.aborted) {
+      return {
         output: [],
-        error: "Aborted",
-      });
+        error: "Execution aborted.",
+      };
+    }
+
+    const response = await fetch("/api/runtime/execute", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        code,
+        language,
+      }),
+
+      signal,
+    });
+
+    if (!response.ok) {
+      return {
+        output: [],
+        error: "Remote runtime failure.",
+      };
+    }
+
+    const data = await response.json();
+
+    return {
+      output: data.output || [],
+      error: data.error,
+
+      metrics: {
+        engine: "remote",
+        executionTime: data.executionTime,
+      },
     };
-
-    signal?.addEventListener("abort", abort);
-
-    socket.onmessage = (e) => {
-      cleanup();
-      const data = JSON.parse(e.data);
-
-      resolve({
-        output: data.output ?? [],
-        error: data.error,
-      });
-    };
-
-    socket.onerror = () => {
-      cleanup();
-      resolve({ output: [], error: "Socket error" });
-    };
-
-    socket.send(JSON.stringify({ type: "run", code, language }));
-  });
+  }
 }

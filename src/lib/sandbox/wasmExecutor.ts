@@ -1,36 +1,46 @@
 "use client";
 
-import { SandboxResult } from "./types";
+import { loadPyodide } from "pyodide";
 
-export async function runWasm(
-  code: string,
-  language: string,
-  signal?: AbortSignal,
-): Promise<SandboxResult> {
-  if (signal?.aborted) {
-    return { output: [], error: "Aborted" };
-  }
+import { IEngineExecutor, ExecutionResult } from "./types";
 
-  return new Promise((resolve) => {
-    const worker = new Worker(
-      new URL("../workers/logic.worker.ts", import.meta.url),
-    );
+let pyodide: any = null;
 
-    const timeout = setTimeout(() => {
-      worker.terminate();
-      resolve({ output: [], error: "WASM timeout" });
-    }, 10000);
+export class WasmExecutor implements IEngineExecutor {
+  async execute(
+    code: string,
+    language: string,
+    signal?: AbortSignal,
+  ): Promise<ExecutionResult> {
+    if (signal?.aborted) {
+      return {
+        output: [],
+        error: "Execution aborted.",
+      };
+    }
 
-    worker.onmessage = (e) => {
-      clearTimeout(timeout);
-      worker.terminate();
-
-      resolve({
-        output: e.data.output ?? [],
-        error: e.data.error,
+    if (!pyodide) {
+      pyodide = await loadPyodide({
+        indexURL:
+          "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/",
       });
-    };
+    }
 
-    worker.postMessage({ code, language });
-  });
+    try {
+      const result = await pyodide.runPythonAsync(code);
+
+      return {
+        output: [String(result)],
+
+        metrics: {
+          engine: "wasm",
+        },
+      };
+    } catch (err: any) {
+      return {
+        output: [],
+        error: err.message,
+      };
+    }
+  }
 }
