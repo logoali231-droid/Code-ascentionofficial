@@ -239,6 +239,7 @@ try {
     signal?.removeEventListener("abort", abortHandler);
     generationLock = false;
 }
+}
 
 /* =========================================================
    MOBILE VISIBILITY & BACKGROUND CYCLE LIFECYCLE
