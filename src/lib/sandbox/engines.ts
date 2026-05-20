@@ -1,7 +1,7 @@
 "use client";
 
 import { IEngineExecutor } from "./types";
-import { LocalExecutor } from "./localExecutor";
+import { LocalWorkerManager } from "./localExecutor";
 import { WasmExecutor } from "./wasmExecutor";
 import { RemoteExecutor } from "./remoteExecutor";
 import { NeuralExecutor } from "./neuralExecutor";
