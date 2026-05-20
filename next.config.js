@@ -8,46 +8,29 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig = {
   output: "standalone",
   reactStrictMode: false,
-  distDir: '.next',
   
-  // GARANTA que o build não trave por causa de otimização de imagem no build-time
-  images: {
-    unoptimized: true, 
-  },
-
-  // Otimização de build: Adicionamos transpilePackages para evitar problemas
-  // de compatibilidade com módulos ESM em workers (comum no web-llm e runtimes WASM)
+  // Essencial para evitar erros de build com bibliotecas ESM
   transpilePackages: ["@mlc-ai/web-llm"],
 
-  experimental: {
-    optimizePackageImports: ["@mlc-ai/web-llm", "lucide-react"],
+  images: {
+    unoptimized: true,
   },
 
   webpack: (config, { isServer }) => {
-    // 1. Resolver conflitos de módulos nativos no client-side
+    // Resolve falhas de módulos Node que não existem no browser
     config.resolve.fallback = {
-      ...config.resolve.fallback,
       fs: false,
       path: false,
       crypto: false,
       stream: false,
     };
 
-    // 2. Correção de carga de WASM para evitar problemas de MIME type em worker threads
+    // Habilita suporte a WebAssembly
     config.experiments = {
       ...config.experiments,
       asyncWebAssembly: true,
       layers: true,
     };
-
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        crypto: false,
-        stream: false,
-      };
 
     return config;
   },
@@ -57,15 +40,12 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          // Necessário para COOP/COEP (SharedArrayBuffer/WASM Threads)
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" }, 
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
     ];
   },
-
-  compress: true,
 };
 
 export default withBundleAnalyzer(nextConfig);
