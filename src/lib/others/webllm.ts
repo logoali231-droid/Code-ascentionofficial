@@ -55,7 +55,7 @@ if (isMobile && selectedModelId.includes("Phi-3")) {
         worker = null;
       }
 
-      worker = new Worker(new URL("./workers/webllm.worker", import.meta.url), {
+      worker = new Worker(new URL("../workers/webllm.worker", import.meta.url), {
         type: "module",
       });
 
