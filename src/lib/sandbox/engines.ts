@@ -9,9 +9,9 @@ import { NeuralExecutor } from "./neuralExecutor";
 // 1. Instanciamos os Singletons. 
 // O Registry mantém apenas UMA instância viva de cada executor para garantir performance.
 const EXECUTOR_REGISTRY: Record<string, IEngineExecutor> = {
-  local: new LocalExecutor(),
-  wasm: new WasmExecutor(),
-  remote: new RemoteExecutor(),
+  local: new LocalWorkerManager(),
+  wasm: new runWasm(),
+  remote: new runRemote(),
   neural: new NeuralExecutor(),
 };
 
