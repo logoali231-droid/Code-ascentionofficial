@@ -1,55 +1,28 @@
-// languages/factory.js
+// runtime-server/languages/factory.js
+const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
-const { LANGUAGE_METADATA } = require("./meta.js");
 
-function escapeCode(code, escapeBacktick = false) {
-  let escaped = code
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, "\\$");
-  if (escapeBacktick) {
-    escaped = escaped.replace(/`/g, "\\`");
-  }
-  return escaped;
-}
-
-function buildRuntime(language, code) {
-  const meta = LANGUAGE_METADATA[language.toLowerCase()];
-
-  if (!meta) {
-    throw new Error(`Unsupported language engine: ${language}`);
-  }
-
-  // Cria o ID único para a Sandbox desta execução específica
+async function buildRuntime(language, code) {
+  // 1. Carregamento Dinâmico (Plugin-based)
+  // Isso remove a necessidade de importar meta.js manualmente
+  const langModule = require(`./${language.toLowerCase()}.js`);
+  
   const id = uuidv4();
-  const tempDir = path.resolve(
-    __dirname,
-    `../temp-${language.toLowerCase()}-${id}`,
-  );
-
-  // Garante que a pasta temporária isolada exista no disco do container
+  const tempDir = path.resolve(__dirname, `../temp-${language}-${id}`);
   fs.mkdirSync(tempDir, { recursive: true });
 
-  // Se for padrão de Linha de Comando direta (Interpretadas locais/runtimes simples)
-  if (meta.type === "cli") {
-    const escaped = escapeCode(code, meta.escapeBacktick);
-    const command = meta.cmd(escaped);
-    return { command, tempDir };
+  // 2. Execução Polimórfica
+  // O factory não sabe o que está acontecendo dentro, apenas chama o contrato.
+  let command;
+  if (langModule.type === "cli") {
+     const escaped = escapeCode(code); // Sua função utilitária
+     command = langModule.buildCommand(escaped);
+  } else if (langModule.type === "temp") {
+     const filePath = path.join(tempDir, langModule.ext || 'main.code');
+     fs.writeFileSync(filePath, code);
+     command = langModule.buildCommand(tempDir);
   }
 
-  // Se for padrão que exige compilação (C++, C#, Java, Go, Rust...)
-  if (meta.type === "temp") {
-    const filePath = path.join(tempDir, meta.ext);
-    fs.writeFileSync(filePath, code);
-
-    // O comando roda de forma isolada dentro da pasta que acabamos de criar
-    // Exemplo: cd /app/temp-cpp-123 && g++ main.cpp -o main && ./main
-    const command = `cd "${tempDir}" && ${meta.cmd}`;
-
-    return { command, tempDir };
-  }
+  return { command, tempDir };
 }
-
-module.exports = { buildRuntime };
