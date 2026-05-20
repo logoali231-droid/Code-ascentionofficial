@@ -3,7 +3,7 @@
 import { IEngineExecutor } from "./types";
 import { LocalWorkerManager } from "./localExecutor";
 import { runWasm } from "./wasmExecutor";
-import { RemoteExecutor } from "./remoteExecutor";
+import { runRemote } from "./remoteExecutor";
 import { NeuralExecutor } from "./neuralExecutor";
 
 // 1. Instanciamos os Singletons. 
