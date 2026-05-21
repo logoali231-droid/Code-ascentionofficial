@@ -1,5 +1,7 @@
 "use client";
 
+import { saveAs } from 'file-saver';
+
 import {
   exportWorkspace,
 } from "@/lib/sandbox/workspace/workspaceExporter";
