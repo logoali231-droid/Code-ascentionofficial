@@ -2,8 +2,8 @@
 
 let socket: WebSocket | null = null;
 
-const WS_URL = process.env.NEXT_PUBLIC_SANDBOX_WS || "ws://localhost:8080";
-
+// Altere para wss:// (Secure)
+const WS_URL = process.env.NEXT_PUBLIC_SANDBOX_WS || "wss://code-ascention.kindsand-c67711f7.brazilsouth.azurecontainerapps.io/";
 export function connectSandboxSocket() {
   return new Promise<WebSocket>((resolve, reject) => {
     if (socket?.readyState === WebSocket.OPEN) {
