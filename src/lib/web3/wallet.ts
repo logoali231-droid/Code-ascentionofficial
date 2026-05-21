@@ -1,7 +1,7 @@
 "use client";
 
 import { createConfig, http } from "wagmi";
-import { getWalletClient } from "@wagmi/core";
+import { getWalletClient, type Config } from '@wagmi/core';
 
 // ...
 
