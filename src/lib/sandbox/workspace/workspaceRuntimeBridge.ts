@@ -5,7 +5,7 @@ import {
 } from "./workspaceManager";
 
 import {
-  executeSandboxCode,
+  runSandbox,
 } from "../sandboxRunner";
 
 export async function runWorkspace() {
@@ -60,7 +60,7 @@ export async function runWorkspaceFile(
     );
   }
 
-  return await executeSandboxCode(
+  return await runSandbox(
     file.content,
     file.language as any
   );
