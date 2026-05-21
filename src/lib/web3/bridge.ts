@@ -1,6 +1,6 @@
 import { exportWorkspace } from '../sandbox/workspace/workspaceExporter';
 import { generateSovereignIdentity } from './workspaceIdentity';
-import { runSandbox } from "./sandbox/sandboxRunner"; // Correto
+import { runSandbox } from "../sandbox/sandboxRunner"; // Correto
 
 
 export interface DecentraspaceBridgeResult {
