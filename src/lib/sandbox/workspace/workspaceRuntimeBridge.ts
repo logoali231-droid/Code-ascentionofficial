@@ -31,7 +31,7 @@ export async function runWorkspace() {
     );
   }
 
-  return await executeSandboxCode(
+  return await runSandbox(
     entry.content,
     workspace.language
   );
