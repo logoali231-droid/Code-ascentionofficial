@@ -1,5 +1,5 @@
 // lib/sandbox/eventBus.ts
-type Subscriber = (event: SandboxEvent) => void;
+type Subscriber = (event: SandboxEventBus) => void;
 
 class SandboxEventBus {
   private subscribers: Subscriber[] = [];
