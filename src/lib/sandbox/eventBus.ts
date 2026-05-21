@@ -4,7 +4,7 @@ type Subscriber = (event: SandboxEvent) => void;
 class SandboxEventBus {
   private subscribers: Subscriber[] = [];
 
-  publish(event: SandboxEvent) {
+  publish(event: SandboxEventBus) {
     this.subscribers.forEach(sub => sub(event));
   }
 
