@@ -71,7 +71,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 ENV HOME=/tmp
 
 # 10. Expõe a porta do gateway WebSocket configurada no seu server.js
-EXPOSE 3001
+EXPOSE 4000
 
 # Dispara a sandbox monolítica na nuvem da Azure
 CMD ["node", "server.js"]
