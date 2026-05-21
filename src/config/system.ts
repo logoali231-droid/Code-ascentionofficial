@@ -10,7 +10,7 @@ export interface Model {
 }
 
 const SYSTEM_CONFIG = {
-  PORT: 4000,
+  PORT: 3001,
 
   // PARÂMETROS DE RUNTIME (Docker / Sandbox de Execução)
   LIMITS: {
