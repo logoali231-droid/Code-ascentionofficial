@@ -2,78 +2,66 @@
 
 import { getWalletClient, type Config } from '@wagmi/core';
 import { createConfig, http } from "wagmi";
-
-
-import {
-  arbitrum,
-  base,
-  mainnet,
-  polygon,
-} from "wagmi/chains";
-
-import {
-  injected,
-  walletConnect,
-} from "wagmi/connectors";
+import { arbitrum, base, mainnet, polygon } from "wagmi/chains";
+import { injected, walletConnect } from "wagmi/connectors";
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
 
-
 if (!projectId) {
   throw new Error(
-    "Missing WalletConnect Project ID"
+    "Critical Configuration Error: Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID"
   );
 }
 
-export const walletConfig =
-  createConfig({
-    chains: [
-      mainnet,
-      polygon,
-      arbitrum,
-      base,
-    ],
 
-    connectors: [
-      injected(),
+const validateRpcUrl = (envUrl: string | undefined, fallbackUrl: string): string => {
+  if (!envUrl) return fallbackUrl;
+  try {
+    // Test if the string can be parsed as a valid URL structure
+    new URL(envUrl);
+    return envUrl;
+  } catch (error) {
+    console.warn(`Malformed RPC URL detected: "${envUrl}". Reverting to fallback: "${fallbackUrl}"`);
+    return fallbackUrl;
+  }
+};
 
-      walletConnect({
-        projectId,
-      }),
-    ],
+export const walletConfig = createConfig({
+  chains: [
+    mainnet,
+    polygon,
+    arbitrum,
+    base,
+  ],
 
-    transports: {
-      [mainnet.id]: http(
-        process.env
-          .NEXT_PUBLIC_ETH_RPC
-      ),
+  connectors: [
+    injected(),
+    walletConnect({
+      projectId,
+    }),
+  ],
 
-      [polygon.id]: http(
-        process.env
-          .NEXT_PUBLIC_POLYGON_RPC
-      ),
+  transports: {
+    [mainnet.id]: http(
+      validateRpcUrl(process.env.NEXT_PUBLIC_ETH_RPC, "https://cloudflare-eth.com")
+    ),
 
-      [arbitrum.id]: http(
-        process.env
-          .NEXT_PUBLIC_ARBITRUM_RPC
-      ),
+    [polygon.id]: http(
+      validateRpcUrl(process.env.NEXT_PUBLIC_POLYGON_RPC, "https://polygon-rpc.com")
+    ),
 
-      [base.id]: http(
-        process.env
-          .NEXT_PUBLIC_BASE_RPC
-      ),
-    },
-  });
+    [arbitrum.id]: http(
+      validateRpcUrl(process.env.NEXT_PUBLIC_ARBITRUM_RPC, "https://arb1.arbitrum.io/rpc")
+    ),
+
+    [base.id]: http(
+      validateRpcUrl(process.env.NEXT_PUBLIC_BASE_RPC, "https://mainnet.base.org")
+    ),
+  },
+});
 
 export async function getSigner() {
   const client = await getWalletClient(walletConfig as unknown as Config);
   if (!client) return null;
   return client;
 }
-
-console.log({
-  ETH: process.env.NEXT_PUBLIC_ETH_RPC,
-  POLYGON: process.env.NEXT_PUBLIC_POLYGON_RPC,
-  ARBITRUM: process.env.NEXT_PUBLIC_ARBITRUM_RPC,
-  BASE: process.env.NEXT_PUBLIC_BASE_RPC,
-});
