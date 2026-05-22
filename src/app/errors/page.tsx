@@ -1,11 +1,9 @@
 "use client";
 
-import { unloadEngine } from "@/lib/others/modelManager"; // <-- ADICIONADO
-
 import { useEffect, useState } from "react";
+
 import { getAll, get } from "@/lib/others/db";
-import { explainError } from "@/lib/others/explanationAI";
-import { generateReinforcement } from "@/lib/others/reinforce";
+
 import ExerciseRenderer from "@/components/ExerciseRenderer";
 
 export default function ErrorsPage() {
@@ -19,12 +17,23 @@ export default function ErrorsPage() {
     load();
   }, []);
 
-  // Limpa o Web Worker do WebLLM se o usuário sair da página de Erros no meio de uma geração
+  // Cleanup do WebLLM ao sair da página
   useEffect(() => {
     return () => {
-      unloadEngine().catch((err) =>
-        console.error("[ERRORS UNLOAD ERROR]", err),
-      );
+      (async () => {
+        try {
+          const { unloadEngine } = await import(
+            "@/lib/others/modelManager"
+          );
+
+          await unloadEngine();
+        } catch (err) {
+          console.error(
+            "[ERRORS UNLOAD ERROR]",
+            err,
+          );
+        }
+      })();
     };
   }, []);
 
@@ -34,47 +43,135 @@ export default function ErrorsPage() {
   }
 
   async function openError(err: any) {
-    setSelected(err);
-    setExplanation(""); // Limpa a explicação anterior
+    try {
+      setSelected(err);
+      setExplanation("");
+      setExercise(null);
 
-    const user = await get("user", "main");
-    let course = await get("courses", user.activeCourse);
-    if (!course) {
-      const all =
-        (await get("courses", "all")) || (await getAll("courses")) || [];
-      const arr = Array.isArray(all) ? all : all || [];
-      course = arr.find((c: any) => c.id === user.activeCourse);
-    }
+      const user = await get("user", "main");
 
-    // 1. Obtém o stream da IA
-    const expStream: any = await explainError({
-      question: err.question,
-      correct: err.correct,
-      userAnswer: err.userAnswer,
-      userExplanation: err.userExplanation,
-      user,
-      course,
-    });
+      let course = await get(
+        "courses",
+        user.activeCourse,
+      );
 
-    // 2. Consome o stream para atualizar o texto gradualmente
-    let fullText = "";
-    if (expStream && typeof expStream[Symbol.asyncIterator] === "function") {
-      for await (const chunk of expStream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        fullText += content;
-        setExplanation(fullText); // Atualiza a UI a cada pedaço de texto
+      if (!course) {
+        const all =
+          (await get("courses", "all")) ||
+          (await getAll("courses")) ||
+          [];
+
+        const arr = Array.isArray(all)
+          ? all
+          : all || [];
+
+        course = arr.find(
+          (c: any) =>
+            c.id === user.activeCourse,
+        );
       }
-    } else {
-      // Fallback caso a função retorne uma string simples
-      setExplanation(String(expStream));
+
+      setActiveCourse(course);
+
+      // Lazy imports para evitar build crash
+      const [
+        explanationModule,
+        reinforceModule,
+      ] = await Promise.all([
+        import("@/lib/others/explanationAI"),
+        import("@/lib/others/reinforce"),
+      ]);
+
+      const explainError =
+        explanationModule.explainError;
+
+      const generateReinforcement =
+        reinforceModule.generateReinforcement;
+
+      // Stream da IA
+      const expStream: any =
+        await explainError({
+          question: err.question,
+          correct: err.correct,
+          userAnswer: err.userAnswer,
+          userExplanation:
+            err.userExplanation,
+          user,
+          course,
+        });
+
+      // Streaming incremental
+      let fullText = "";
+
+      if (
+        expStream &&
+        typeof expStream[
+          Symbol.asyncIterator
+        ] === "function"
+      ) {
+        for await (const chunk of expStream) {
+          const content =
+            chunk.choices?.[0]?.delta
+              ?.content || "";
+
+          fullText += content;
+
+          setExplanation(fullText);
+        }
+      } else {
+        setExplanation(String(expStream));
+      }
+
+      // Exercício de reforço
+      const ex =
+        await generateReinforcement(
+          err,
+          course,
+        );
+
+      setExercise(ex);
+    } catch (err) {
+      console.error(
+        "[OPEN ERROR FAILED]",
+        err,
+      );
+
+      setExplanation(
+        "Failed to generate explanation.",
+      );
     }
-    setActiveCourse(course); // ADICIONADO
-    const ex = await generateReinforcement(err, course);
-    setExercise(ex);
   }
+
+  async function retryExercise() {
+    try {
+      const reinforceModule =
+        await import(
+          "@/lib/others/reinforce"
+        );
+
+      const generateReinforcement =
+        reinforceModule.generateReinforcement;
+
+      const retry =
+        await generateReinforcement(
+          selected,
+          activeCourse,
+        );
+
+      setExercise(retry);
+    } catch (err) {
+      console.error(
+        "[RETRY EXERCISE FAILED]",
+        err,
+      );
+    }
+  }
+
   return (
     <div className="p-4 pb-24">
-      <h1 className="text-xl mb-3">Mistakes</h1>
+      <h1 className="text-xl mb-3">
+        Mistakes
+      </h1>
 
       {/* LISTA */}
       {!selected &&
@@ -91,26 +188,39 @@ export default function ErrorsPage() {
       {/* DETALHE */}
       {selected && (
         <div>
-          <button onClick={() => setSelected(null)}>← Back</button>
+          <button
+            onClick={() =>
+              setSelected(null)
+            }
+          >
+            ← Back
+          </button>
 
-          <h2 className="mt-2 font-bold">Explanation</h2>
+          <h2 className="mt-2 font-bold">
+            Explanation
+          </h2>
+
           <div className="bg-slate-800 p-2 rounded whitespace-pre-wrap">
-            {explanation || "Thinking..."}
+            {explanation ||
+              "Thinking..."}
           </div>
 
-          <h2 className="mt-4 font-bold">Practice</h2>
+          <h2 className="mt-4 font-bold">
+            Practice
+          </h2>
+
           {exercise && (
             <ExerciseRenderer
               rawExercise={exercise}
-              onNext={async (correct: boolean) => {
+              onNext={async (
+                correct: boolean,
+              ) => {
                 if (!correct) {
-                  const retry = await generateReinforcement(
-                    selected,
-                    activeCourse,
-                  );
-                  setExercise(retry);
+                  await retryExercise();
                 } else {
-                  alert("Nice. You fixed this mistake 🎯");
+                  alert(
+                    "Nice. You fixed this mistake 🎯",
+                  );
                 }
               }}
               isStreaming={false}
