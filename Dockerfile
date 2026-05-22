@@ -3,7 +3,6 @@ FROM node:20-bookworm
 # Evita que instaladores travem o terminal com prompts interativos
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1. Atualização e instalação de todas as ferramentas nativas mapeadas no seu tipo SupportedLanguage
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     build-essential \
@@ -28,7 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     swi-prolog \
     sbcl \
     r-base \
-    julia \
     elixir \
     erlang \
     ghc \
@@ -37,6 +35,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# 2. Install Julia using the official installer
+RUN curl -fsSL https://install.julialang.org | sh -s -- -y
+ENV PATH="/root/.julia/bin:/root/.juliaup/bin:$PATH"
+
 
 # 2. Instalação oficial do ecossistema .NET 8 (Garante C#, F# e VB.NET nativos)
 RUN apt-get update && apt-get install -y --no-install-recommends \
