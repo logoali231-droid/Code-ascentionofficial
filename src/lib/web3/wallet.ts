@@ -1,15 +1,14 @@
 "use client";
 
-import { createConfig, http } from "wagmi";
 import { getWalletClient, type Config } from '@wagmi/core';
+import { createConfig, http } from "wagmi";
 
-// ...
 
 import {
-  mainnet,
-  polygon,
   arbitrum,
   base,
+  mainnet,
+  polygon,
 } from "wagmi/chains";
 
 import {
@@ -72,3 +71,10 @@ export async function getSigner() {
   if (!client) return null;
   return client;
 }
+
+console.log({
+  ETH: process.env.NEXT_PUBLIC_ETH_RPC,
+  POLYGON: process.env.NEXT_PUBLIC_POLYGON_RPC,
+  ARBITRUM: process.env.NEXT_PUBLIC_ARBITRUM_RPC,
+  BASE: process.env.NEXT_PUBLIC_BASE_RPC,
+});
