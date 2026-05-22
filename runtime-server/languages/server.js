@@ -15,6 +15,8 @@ const app = express();
 // Injeta o suporte a WebSockets dentro do app Express
 const expressWs = require("express-ws")(app);
 
+
+
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 

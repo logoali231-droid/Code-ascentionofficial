@@ -157,22 +157,22 @@ class CodeAscensionDB extends Dexie {
   curriculum!: Table<any>;
   telemetry!: Table<TelemetryMetric>;
 
-  constructor() {
-    super("codeascent_db");
-    // Incrementado para a Versão 4 devido às mudanças estruturais de fragmentação
-    this.version(4).stores({
-      user: "id",
-      courses: "id",
-      lessons: "id, courseId", // Indexado por courseId para buscas eficientes
-      errors: "++id, timestamp, courseId",
-      explanations: "++id, timestamp",
-      shop: "id",
-      daily: "id",
-      memory: "id, timestamp",
-      curriculum: "id, courseId", // Ajustado para aceitar chaves compostas e query relacional
-      telemetry: "++id, timestamp, type",
-    });
-  }
+constructor() {
+  super("codeascent_db");
+  this.version(5).stores({
+    user: "id",
+    courses: "id",
+    lessons: "id, courseId",
+    errors: "++id, timestamp, courseId",
+    explanations: "++id, timestamp",
+    shop: "id",
+    daily: "id",
+    memory: "id, timestamp",
+    curriculum: "id, courseId",
+    telemetry: "++id, timestamp, type",
+    mastery: "id, timestamp", // NEW TABLE
+  });
+}
 }
 
 export const db = new CodeAscensionDB();

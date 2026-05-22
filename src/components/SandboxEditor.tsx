@@ -20,6 +20,20 @@ import prism from "prismjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import NeuralTerminal, { LogEntry } from "./NeuralTerminal";
 
+const PRISM_LANGUAGE_MAP: Record<string, () => Promise<any>> = {
+  javascript: () => import("prismjs/components/prism-javascript"),
+  typescript: () => import("prismjs/components/prism-typescript"),
+  python: () => import("prismjs/components/prism-python"),
+  c: () => import("prismjs/components/prism-c"),
+  cpp: () => import("prismjs/components/prism-cpp"),
+  rust: () => import("prismjs/components/prism-rust"),
+  sql: () => import("prismjs/components/prism-sql"),
+  csharp: () => import("prismjs/components/prism-csharp"),
+};
+
+
+
+
 
 export interface SandboxFile {
   id: string;
@@ -39,6 +53,15 @@ const CLOSURE_PAIRS: Record<string, string> = {
   "[": "]",
   '"': '"',
 };
+
+const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  const checkMobile = () => setIsMobile(window.innerWidth < 768);
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+  return () => window.removeEventListener('resize', checkMobile);
+}, []);
 
 async function loadPrismLanguage(language: string) {
   switch (language) {
@@ -137,8 +160,13 @@ function NeuralRuntime({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const isExecutingMutex = useRef(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  
 
   useEffect(() => {
+
+    
     setLocalContent(file.content);
   }, [file.id, file.content]);
 
@@ -171,7 +199,7 @@ function NeuralRuntime({
         return "clike";
     }
   }, [file.language]);
-
+  
   const highlightedCode = useMemo(() => {
     const grammars = prism.languages[prismLang] || prism.languages.clike;
     return prism.highlight(localContent, grammars, prismLang);
@@ -207,6 +235,8 @@ function NeuralRuntime({
   }
 
   const handleRun = async () => {
+
+    if (navigator.vibrate) navigator.vibrate(50);
     if (isExecutingMutex.current) return;
     isExecutingMutex.current = true;
     setIsRunning(true);
@@ -342,6 +372,16 @@ function NeuralRuntime({
   );
 }
 
+interface SandboxEditorProps {
+  file: { 
+    language: string; 
+    [key: string]: any; 
+  };
+  prismLang: string;
+  prism: any;
+  loadPrismLanguage: (lang: string) => Promise<void>;
+}
+
 export default function SandboxEditor() {
   const [files, setFiles] =
     useState<WorkspaceFile[]>([]);
@@ -350,6 +390,33 @@ export default function SandboxEditor() {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [terminalLogs, setTerminalLogs] = useState<LogEntry[]>([]);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+
+  const SandboxEditor = ({ file, prismLang, prism, loadPrismLanguage }: SandboxEditorProps) => {
+  
+  // Use apenas este estado local
+  const [isLoaded, setIsLoaded] = useState(false); 
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    const initLanguage = async () => {
+      if (prism.languages[prismLang]) {
+        setIsLoaded(true);
+        return;
+      }
+
+      setIsLoaded(false);
+      await loadPrismLanguage(file.language);
+      
+      if (isMounted) {
+        setIsLoaded(true);
+      }
+    };
+
+    initLanguage();
+
+    return () => { isMounted = false; };
+  }, [prismLang, prism, file.language, loadPrismLanguage]);
   const activeFile = useMemo(() => {
     return (
       files.find(
@@ -454,237 +521,189 @@ export default function SandboxEditor() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#050505] text-slate-300 font-mono overflow-hidden">
-      {/* Header Superior */}
-      <div className="h-12 flex items-center justify-between px-4 bg-[#0a0a0a] border-b border-white/5 z-30">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() =>
-              setSidebarOpen(
-                !isSidebarOpen,
-              )
-            }
-            className="p-1.5 hover:bg-white/5 rounded text-cyan-500 border border-transparent hover:border-cyan-500/20"
-          >
-            <Menu size={18} />
-          </button>
+  <div className="flex flex-col h-screen bg-[#050505] text-slate-300 font-mono overflow-hidden">
+    {/* Header Superior */}
+    <div className="h-12 flex items-center justify-between px-4 bg-[#0a0a0a] border-b border-white/5 z-30">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setSidebarOpen(!isSidebarOpen)}
+          className="p-1.5 hover:bg-white/5 rounded text-cyan-500 border border-transparent hover:border-cyan-500/20"
+        >
+          <Menu size={18} />
+        </button>
 
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_#06b6d4]" />
-
-            <span className="text-[11px] font-black tracking-[0.2em] text-white">
-              NEURAL_EDITOR
-              [SANDBOX]
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_#06b6d4]" />
+          <span className="text-[11px] font-black tracking-[0.2em] text-white">
+            NEURAL_EDITOR [SANDBOX]
+          </span>
         </div>
-
-       <button
-  onClick={async () => {
-    // ID do workspace ativo no momento do clique
-    const activeWorkspace = workspaceManager.getWorkspace();
-    
-    if (activeWorkspace) {
-      await exportWorkspace(activeWorkspace.id);
-    } else {
-      console.error("Nenhum workspace ativo para exportar.");
-    }
-  }}
-  className="flex items-center gap-2 bg-white/5 text-[10px] text-slate-400 px-3 py-1.5 rounded border border-white/10 hover:border-cyan-500/40 hover:text-cyan-400 transition-all"
->
-  <Download size={14} />
-  EXPORT_WORKSPACE
-</button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar */}
-        {isSidebarOpen && (
-          <div className="w-56 bg-[#080808] border-r border-white/5 flex flex-col shrink-0 z-20 animate-in slide-in-from-left duration-200">
-            <div className="p-4 border-b border-white/5 text-[10px] uppercase font-black text-slate-500 tracking-widest flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Folder size={12} />
-                Project_Files
-              </span>
+      <button
+        onClick={async () => {
+          const activeWorkspace = workspaceManager.getWorkspace();
+          if (activeWorkspace) {
+            await exportWorkspace(activeWorkspace.id);
+          } else {
+            console.error("Nenhum workspace ativo para exportar.");
+          }
+        }}
+        className="flex items-center gap-2 bg-white/5 text-[10px] text-slate-400 px-3 py-1.5 rounded border border-white/10 hover:border-cyan-500/40 hover:text-cyan-400 transition-all"
+      >
+        <Download size={14} />
+        EXPORT_WORKSPACE
+      </button>
+    </div>
 
-              <button
-                onClick={
-                  handleCreateFile
-                }
-                className="p-1 hover:bg-cyan-500/10 text-cyan-400 rounded border border-cyan-500/20 transition-all"
-              >
-                <Plus size={12} />
-              </button>
-            </div>
-
-            <div className="flex-1 py-2 overflow-y-auto custom-scrollbar">
-              {files.map((f) => (
-                <div
-                  key={f.path}
-                  onClick={() => {
-                    workspaceManager.setActiveFile(
-                      f.path,
-                    );
-
-                    setActiveFilePath(
-                      f.path,
-                    );
-                  }}
-                  className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-all ${activeFilePath ===
-                    f.path
-                    ? "bg-cyan-500/5 text-cyan-400 border-r-2 border-cyan-500"
-                    : "text-slate-500 hover:bg-white/5"
-                    }`}
-                >
-                  <FileCode
-                    size={14}
-                    className={
-                      activeFilePath ===
-                        f.path
-                        ? "text-cyan-400"
-                        : "text-slate-600"
-                    }
-                  />
-
-                  <span className="text-xs truncate flex-1">
-                    {f.path}
-                  </span>
-
-                  {files.length >
-                    1 && (
-                      <X
-                        size={12}
-                        className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
-                        onClick={(
-                          e,
-                        ) => {
-                          e.stopPropagation();
-
-                          handleDeleteFile(
-                            f.path,
-                          );
-                        }}
-                      />
-                    )}
-                </div>
-              ))}
-            </div>
+    <div className="flex flex-1 overflow-hidden relative">
+      {/* Sidebar: Lógica corrigida com parênteses */}
+      {(isSidebarOpen || !isMobile) && (
+        <div className={`${isMobile ? "fixed inset-0 z-50 bg-[#050505]" : "w-56"} border-r border-white/5 flex flex-col shrink-0`}>
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} className="p-4 text-white">FECHAR</button>
+          )}
+          <div className="p-4 border-b border-white/5 text-[10px] uppercase font-black text-slate-500 tracking-widest flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Folder size={12} />
+              Project_Files
+            </span>
+            <button
+              onClick={handleCreateFile}
+              className="p-1 hover:bg-cyan-500/10 text-cyan-400 rounded border border-cyan-500/20 transition-all"
+            >
+              <Plus size={12} />
+            </button>
           </div>
-        )}
 
-        {/* Área Central */}
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          {/* Tabs */}
-          <div className="flex bg-[#0a0a0a] border-b border-white/5 overflow-x-auto no-scrollbar z-20">
+          <div className="flex-1 py-2 overflow-y-auto custom-scrollbar">
             {files.map((f) => (
               <div
                 key={f.path}
                 onClick={() => {
-                  workspaceManager.setActiveFile(
-                    f.path,
-                  );
-
-                  setActiveFilePath(
-                    f.path,
-                  );
+                  workspaceManager.setActiveFile(f.path);
+                  setActiveFilePath(f.path);
                 }}
-                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-35 border-r border-white/5 transition-all ${activeFilePath ===
-                  f.path
-                  ? "bg-[#050505] text-cyan-400 border-t-2 border-t-cyan-500"
-                  : "opacity-50 bg-[#0c0c0c]"
-                  }`}
+                className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-all ${
+                  activeFilePath === f.path
+                    ? "bg-cyan-500/5 text-cyan-400 border-r-2 border-cyan-500"
+                    : "text-slate-500 hover:bg-white/5"
+                }`}
               >
-                <span className="font-bold tracking-tight">
-                  {f.path.toUpperCase()}
-                </span>
+                <FileCode
+                  size={14}
+                  className={activeFilePath === f.path ? "text-cyan-400" : "text-slate-600"}
+                />
+                <span className="text-xs truncate flex-1">{f.path}</span>
+                {files.length > 1 && (
+                  <X
+                    size={12}
+                    className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteFile(f.path);
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>
-
-          {/* Runtime */}
-          {activeFile && (
-            <NeuralRuntime
-              key={activeFile.path}
-              file={{
-                id: activeFile.path,
-                name: activeFile.path,
-                content: activeFile.content,
-                language: inferLanguageFromExtension(activeFile.path),
-              }}
-              onExecute={async (_code, _lang) => {
-                pushLog(`Invocando runtime polimórfico para: ${activeFile.path}`, "system");
-
-                // Criação do controlador de aborto integrado com timeout estrito de 4000ms
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-                try {
-                  // Resolve dinamicamente o motor do arquivo corrente (local, remote, wasm, neural)
-                  const engineType = resolveEngine(_lang);
-                  const executor = ENGINE_REGISTRY[engineType];
-
-                  if (!executor) {
-                    throw new Error(`Nenhum executor mapeado para o motor: ${engineType}`);
-                  }
-
-                  // Executa o buffer atual passador pelo editor de texto dinâmico (_code)
-                  const result = await executor.execute(_code, _lang, controller.signal);
-
-                  // Garante a sincronia interna e persistência segura em background
-                  await workspaceManager.updateFileContent(activeFile.path, _code);
-
-                  if (result.error) {
-                    pushLog(result.error, "error");
-                  }
-
-                  return {
-                    output: result.output || [],
-                    error: result.error,
-                  };
-                } catch (err: any) {
-                  pushLog(`Erro de Processamento: ${err.message}`, "error");
-                  return {
-                    output: [],
-                    error: err.message,
-                  };
-                } finally {
-                  clearTimeout(timeoutId); // Libera o cronômetro da memória
-                  refreshWorkspace();
-                }
-              }}
-              onContentChange={async (_id, val) => {
-                await workspaceManager.updateFileContent(activeFile.path, val);
-                refreshWorkspace();
-              }}
-            />
-          )}
         </div>
-      </div>
+      )}
 
-      <NeuralTerminal
-        logs={terminalLogs}
-        onClear={() =>
-          setTerminalLogs([])
-        }
-        isOpen={isTerminalOpen}
-        setIsOpen={
-          setIsTerminalOpen
-        }
-        activeFile={
-          activeFile
-            ? {
+      {/* Área Central */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Tabs */}
+        <div className="flex bg-[#0a0a0a] border-b border-white/5 overflow-x-auto no-scrollbar z-20">
+          {files.map((f) => (
+            <div
+              key={f.path}
+              onClick={() => {
+                workspaceManager.setActiveFile(f.path);
+                setActiveFilePath(f.path);
+              }}
+              className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer text-[10px] min-w-35 border-r border-white/5 transition-all ${
+                activeFilePath === f.path
+                  ? "bg-[#050505] text-cyan-400 border-t-2 border-t-cyan-500"
+                  : "opacity-50 bg-[#0c0c0c]"
+              }`}
+            >
+              <span className="font-bold tracking-tight">{f.path.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Runtime */}
+        {activeFile && (
+          <NeuralRuntime
+            key={activeFile.path}
+            file={{
+              id: activeFile.path,
               name: activeFile.path,
-              content:
-                activeFile.content,
-              language:
-                inferLanguageFromExtension(
-                  activeFile.path,
-                ),
-            }
-            : undefined
-        }
-      />
-    </div>
-  );
-}
+              content: activeFile.content,
+              language: inferLanguageFromExtension(activeFile.path),
+            }}
+            onExecute={async (_code, _lang) => {
+              pushLog(`Invocando runtime polimórfico para: ${activeFile.path}`, "system");
 
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+              try {
+                const engineType = resolveEngine(_lang);
+                const executor = ENGINE_REGISTRY[engineType];
+
+                if (!executor) {
+                  throw new Error(`Nenhum executor mapeado para o motor: ${engineType}`);
+                }
+
+                const result = await executor.execute(_code, _lang, controller.signal);
+                await workspaceManager.updateFileContent(activeFile.path, _code);
+
+                if (result.error) {
+                  pushLog(result.error, "error");
+                }
+
+                return {
+                  output: result.output || [],
+                  error: result.error,
+                };
+              } catch (err: any) {
+                pushLog(`Erro de Processamento: ${err.message}`, "error");
+                return {
+                  output: [],
+                  error: err.message,
+                };
+              } finally {
+                clearTimeout(timeoutId);
+                refreshWorkspace();
+              }
+            }}
+            onContentChange={async (_id, val) => {
+              await workspaceManager.updateFileContent(activeFile.path, val);
+              refreshWorkspace();
+            }}
+          />
+        )}
+      </div>
+    </div>
+
+    <NeuralTerminal
+      logs={terminalLogs}
+      onClear={() => setTerminalLogs([])}
+      isOpen={isTerminalOpen}
+      setIsOpen={setIsTerminalOpen}
+      activeFile={
+        activeFile
+          ? {
+              name: activeFile.path,
+              content: activeFile.content,
+              language: inferLanguageFromExtension(activeFile.path),
+            }
+          : undefined
+      }
+    />
+  </div>
+);
+}
+}

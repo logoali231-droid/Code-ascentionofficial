@@ -1,0 +1,22 @@
+{
+  "javascript": { "image": "node:20-alpine", "runCmd": "node -e" },
+  "typescript": { "image": "node:20-alpine", "runCmd": "npx ts-node -e" },
+  "python": { "image": "python:3.11-slim", "runCmd": "python3 -c" },
+  "java": { "image": "openjdk:17-alpine", "runCmd": "java Main.java" },
+  "cpp": { "image": "gcc:latest", "runCmd": "g++ -x c++ - -o /tmp/app && /tmp/app" },
+  "c": { "image": "gcc:latest", "runCmd": "gcc -x c - -o /tmp/app && /tmp/app" },
+  "rust": { "image": "rust:1-alpine", "runCmd": "rustc - -o /tmp/app && /tmp/app" },
+  "go": { "image": "golang:1-alpine", "runCmd": "go run -" },
+  "php": { "image": "php:8-cli-alpine", "runCmd": "php -r" },
+  "ruby": { "image": "ruby:3-alpine", "runCmd": "ruby -e" },
+  "lua": { "image": "lua:5.4-alpine", "runCmd": "lua -e" },
+  "perl": { "image": "perl:5.38-alpine", "runCmd": "perl -e" },
+  "sql": { "image": "postgres:15-alpine", "runCmd": "psql -c" },
+  "haskell": { "image": "haskell:9-slim", "runCmd": "runhaskell" },
+  "r": { "image": "r-base:latest", "runCmd": "Rscript -" },
+  "elixir": { "image": "elixir:1.15-alpine", "runCmd": "elixir -e" },
+  "kotlin": { "image": "zenika/kotlin", "runCmd": "kotlinc -script" },
+  "csharp": { "image": "mcr.microsoft.com/dotnet/sdk:8.0-alpine", "runCmd": "dotnet script" },
+  "dart": { "image": "dart:stable", "runCmd": "dart run" },
+  "swift": { "image": "swift:5.9-slim", "runCmd": "swift" }
+}

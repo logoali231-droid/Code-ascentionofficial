@@ -1,6 +1,6 @@
 "use client";
 
-import { get, save } from "./db";
+import { db, get, save } from "./db";
 import { CognitiveProfile } from "@/types";
 
 /**
@@ -104,12 +104,11 @@ export async function suggestDifficulty(
  * Útil para liberar itens especiais na loja.
  */
 export async function getMasteredTopics(): Promise<string[]> {
-  const dbName = "codeascent_db";
-  // Como getAll no seu db.ts é genérico, filtramos manualmente
-  const allMastery = (await get<any>("memory", "all")) as any;
-  // Nota: dependendo da implementação do seu getAll, pode ser necessário iterar as chaves
-
-  // Fallback: se não houver um getAll fácil para chaves específicas, retornamos array vazio
-  // ou implementamos uma busca por prefixo se necessário.
-  return [];
+  // Acessamos a tabela 'memory' diretamente para filtrar chaves que começam com 'mastery_'
+  // Isso é mais performático que tentar adivinhar chaves
+  const allMemoryItems = await db.memory.toArray(); 
+  
+  return allMemoryItems
+    .filter(item => item.id?.startsWith("mastery_") && item.level > 80)
+    .map(item => item.topic);
 }
