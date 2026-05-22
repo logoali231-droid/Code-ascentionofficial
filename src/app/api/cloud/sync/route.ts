@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { cosmosContainers } from "@/lib/server/cosmos";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +14,10 @@ export async function POST(req: Request) {
       timestamp,
     } = body;
 
+    const { cosmosContainers } = await import(
+      "@/lib/server/cosmos"
+    );
+
     const container =
       cosmosContainers[
         store as keyof typeof cosmosContainers
@@ -24,8 +29,7 @@ export async function POST(req: Request) {
           error: `Invalid store: ${store}`,
         },
         {
-          status: 400,
-        },
+          status: 400 },
       );
     }
 
