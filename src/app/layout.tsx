@@ -1,20 +1,28 @@
 import "./styles/globals.css";
-import type { Metadata } from "next";
+
+import type {
+  Metadata,
+  Viewport,
+} from "next";
+
 import Web3Provider from "@/providers/web3Provider";
 
 import ClientBody from "@/components/ClientBody";
 import DevConsoleBoot from "@/components/DevConsoleBoot";
 
-
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+
+  themeColor: "#000000",
 };
 
 export const metadata: Metadata = {
   title: "Code Ascension",
-  description: "Offline AI-powered cyberpunk learning roguelike.",
+
+  description:
+    "Offline AI-powered cyberpunk learning roguelike.",
 
   manifest: "/manifest.json",
 
@@ -42,11 +50,11 @@ export const metadata: Metadata = {
     ],
   },
 
-  themeColor: "#000000",
-
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle:
+      "black-translucent",
+
     title: "Code Ascension",
   },
 };
@@ -59,13 +67,16 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
-        <ClientBody>{children}</ClientBody>
+        <ClientBody>
+          <Web3Provider>
+            {children}
+          </Web3Provider>
+        </ClientBody>
 
-        <Web3Provider>
-          {children}
-        </Web3Provider>
-
-        {process.env.NODE_ENV === "development" && <DevConsoleBoot />}
+        {process.env.NODE_ENV ===
+          "development" && (
+          <DevConsoleBoot />
+        )}
       </body>
     </html>
   );
