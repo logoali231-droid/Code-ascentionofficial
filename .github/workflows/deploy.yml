@@ -1,32 +1,26 @@
-name: Build and Deploy to Azure Container Apps
+name: Build and Push to Docker Hub
 
 on:
   push:
     branches:
-      - main # Altere se sua branch principal for outra
+      - main
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Login no Azure Container Registry
-        uses: azure/docker-login@v1
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
         with:
-          login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build e Push da Imagem Docker
-        run: |
-          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/code-ascension:${{ github.sha }} .
-          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/code-ascension:${{ github.sha }}
-
-      - name: Deploy no Container App
-        uses: azure/container-apps-deploy-action@v2
+      - name: Build and push da Imagem
+        uses: docker/build-push-action@v5
         with:
-          containerAppName: code-ascention
-          resourceGroup: code-ascension-group
-          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/code-ascension:${{ github.sha }}
+          context: .
+          push: true
+          tags: logoali231/code-ascention:latest
