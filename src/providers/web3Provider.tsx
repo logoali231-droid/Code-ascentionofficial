@@ -11,7 +11,7 @@ import {
 
 import {
   walletConfig,
-} from "../lib/web3/wallet";
+} from "../lib/server/wallet";
 
 
 const queryClient =

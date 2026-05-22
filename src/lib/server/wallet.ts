@@ -43,19 +43,19 @@ export const walletConfig = createConfig({
 
   transports: {
     [mainnet.id]: http(
-      validateRpcUrl(process.env.NEXT_PUBLIC_ETH_RPC, "https://cloudflare-eth.com")
+      validateRpcUrl(process.env.NEXT_PUBLIC_ETH_RPC, "https://eth-mainnet.g.alchemy.com")
     ),
 
     [polygon.id]: http(
-      validateRpcUrl(process.env.NEXT_PUBLIC_POLYGON_RPC, "https://polygon-rpc.com")
+      validateRpcUrl(process.env.NEXT_PUBLIC_POLYGON_RPC, "https://polygon-mainnet.g.alchemy.com")
     ),
 
     [arbitrum.id]: http(
-      validateRpcUrl(process.env.NEXT_PUBLIC_ARBITRUM_RPC, "https://arb1.arbitrum.io/rpc")
+      validateRpcUrl(process.env.NEXT_PUBLIC_ARBITRUM_RPC, "https://arb-mainnet.g.alchemy.com")
     ),
 
     [base.id]: http(
-      validateRpcUrl(process.env.NEXT_PUBLIC_BASE_RPC, "https://mainnet.base.org")
+      validateRpcUrl(process.env.NEXT_PUBLIC_BASE_RPC, "https://base-mainnet.g.alchemy.com")
     ),
   },
 });

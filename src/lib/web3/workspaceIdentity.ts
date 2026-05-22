@@ -1,6 +1,6 @@
-import { loadWorkspaceMetadata } from '../sandbox/workspace/workspaceStorage';
 import { generateManifest } from '../sandbox/workspace/workspaceManifest';
-import { getSigner } from './wallet';
+import { loadWorkspaceMetadata } from '../sandbox/workspace/workspaceStorage';
+import { getSigner } from '../server/wallet';
 
 export interface WorkspaceSignatureProof {
   workspaceId: string;
@@ -23,7 +23,7 @@ async function generateSHA256(message: string): Promise<string> {
  */
 export async function generateSovereignIdentity(workspaceId: string): Promise<WorkspaceSignatureProof> {
 
-  
+
   // 1. Carrega os metadados do OPFS
   const workspace = await loadWorkspaceMetadata(workspaceId);
   if (!workspace) {
@@ -36,7 +36,7 @@ export async function generateSovereignIdentity(workspaceId: string): Promise<Wo
 
   // 3. Recupera o client da carteira via Wagmi Core
   const client = await getSigner();
-  
+
   if (!client) {
     throw new Error("[Web3Identity] Nenhuma carteira criptográfica ativa conectada.");
   }
@@ -51,11 +51,11 @@ export async function generateSovereignIdentity(workspaceId: string): Promise<Wo
     timestamp
   });
   // workspaceIdentity.ts - Dentro de generateSovereignIdentity
-const chainId = await client.getChainId();
-// Exemplo: Permitir apenas mainnet (1) ou arbitrum (42161)
-if (chainId !== 1 && chainId !== 42161) {
+  const chainId = await client.getChainId();
+  // Exemplo: Permitir apenas mainnet (1) ou arbitrum (42161)
+  if (chainId !== 1 && chainId !== 42161) {
     throw new Error(`[Web3Identity] Assinatura bloqueada em rede não autorizada (ChainID: ${chainId})`);
-}
+  }
 
   console.log(`[Web3Identity] Solicitando assinatura para o Hash: ${manifestHash}`);
 
