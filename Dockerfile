@@ -15,7 +15,7 @@ RUN npm install --production
 COPY . .
 
 # 4. Expose the port
-EXPOSE 4000
+EXPOSE 3001
 
 # 5. Start your server
 CMD ["node", "runtime-server/server.js"]

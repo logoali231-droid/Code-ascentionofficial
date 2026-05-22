@@ -1,6 +1,6 @@
 // config.js
 const CONFIG = {
-  PORT: 3002,
+  PORT: 3001,
   LIMITS: {
     memory_light: "256m",
     memory_heavy: "512m", // Kotlin / Java precisam de mais fôlego no JRE
