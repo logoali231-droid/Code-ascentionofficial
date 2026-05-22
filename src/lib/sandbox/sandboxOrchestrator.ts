@@ -1,113 +1,140 @@
 import { thermalMonitor } from "../others/thermal";
 
 /**
- * Core Sandbox Orchestrator - Code Ascension
- * Padrão de Ciclo de Vida Efêmero / Persistente Adaptativo com Escuta Reativa de Telemetria
+ * SandboxOrchestrator: O Cérebro da Execução
+ * Responsável por:
+ * 1. Persistência de Worker (Singleton)
+ * 2. Gestão Térmica (Thermal Spikes)
+ * 3. Ponte de Streaming (Hot Reload)
+ * 4. Isolamento Atômico (AbortSignal)
  */
 export class SandboxOrchestrator {
   private activeWorker: Worker | null = null;
   private currentLanguage: string = "";
+  private executionId: string = "";
 
   constructor() {
     if (typeof window !== "undefined") {
       window.addEventListener("visibilitychange", () => this.handleVisibilityChange());
       window.addEventListener("pagehide", () => this.cleanUpMemoryAggressively());
-      
-      // 🛠️ ACOPLAMENTO COM TELEMETRIA: Assina o monitor térmico/latência para agir em Background
       thermalMonitor.subscribe(() => this.handleTelemetryPulse());
     }
   }
 
   private handleVisibilityChange() {
     if (document.visibilityState === "hidden") {
-      console.log("[Safari Guard] Aba oculta detectada. Salvando estado e purgando runtimes...");
+      this.cleanUpMemoryAggressively();
+    }
+  }
+
+  private handleTelemetryPulse() {
+    const status = thermalMonitor.getStatus();
+    if (status === "THERMAL_CRITICAL") {
+      console.warn("[Orchestrator] Alerta Crítico Térmico: Forçando desligamento de Workers.");
       this.cleanUpMemoryAggressively();
     }
   }
 
   /**
-   * Resposta imediata a mudanças de telemetria locais
+   * Método de Execução Unificado
+   * Agora o Orchestrator age como o ponto de entrada único.
    */
-  private handleTelemetryPulse() {
-    const status = thermalMonitor.getStatus();
-    if (status === "THROTTLED" || status === "THERMAL_CRITICAL") {
-      console.warn(`[Orchestrator Hub] Telemetria emitiu alerta (${status}). Desalocando runtimes ociosos preventivamente.`);
-      // Se o sistema entrar em colapso térmico, limpa o worker em background imediatamente para poupar RAM/CPU
-      this.cleanUpMemoryAggressively();
-    }
+  public async execute(
+    code: string,
+    language: string,
+    signal?: AbortSignal,
+    onLog?: (chunk: string, type: 'stdout' | 'stderr' | 'meta') => void
+  ): Promise<any> {
+    const worker = await this.bootLanguageRuntime(language);
+
+    this.executionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    return new Promise((resolve, reject) => {
+      const handleAbort = () => {
+        worker.removeEventListener("message", handleMessage);
+        worker.removeEventListener("error", handleError);
+        this.cleanUpMemoryAggressively();
+        reject(new Error("Execution aborted by user."));
+      };
+
+      const handleMessage = (e: MessageEvent) => {
+        if (e.data.id === this.executionId) {
+          if (e.data.success) {
+            onLog?.(JSON.stringify(e.data.output), 'stdout');
+            resolve(e.data.output);
+          } else {
+            onLog?.(e.data.error, 'stderr');
+            reject(new Error(e.data.error));
+          }
+        }
+      };
+
+      const handleError = (err: ErrorEvent) => {
+        onLog?.(err.message, 'stderr');
+        reject(err);
+      };
+
+      signal?.addEventListener("abort", handleAbort);
+
+      worker.addEventListener("message", handleMessage);
+      worker.addEventListener("error", handleError);
+
+      worker.postMessage({ id: this.executionId, code, language });
+    });
   }
 
   public async bootLanguageRuntime(language: string): Promise<Worker> {
     const normalizedLang = language.toLowerCase();
 
+    // Reutilização de Runtime (Padrão Singleton)
     if (this.activeWorker && this.currentLanguage === normalizedLang) {
       return this.activeWorker;
     }
 
-    const thermalState = thermalMonitor.getStatus();
-    
-    // 🎚️ Amortecimento Térmico Proativo Dinâmico
-    if (thermalState === "THROTTLED") {
-      console.warn("[THERMAL] Dispositivo instável. Aplicando cooldown adaptativo de 2s antes do escalonamento...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    } else if (thermalState === "THERMAL_CRITICAL") {
-      throw new Error("Compilação local suspensa por segurança de hardware. Chaveando via Smart Routing.");
+    // Cooldown térmico
+    if (thermalMonitor.getStatus() === "THROTTLED") {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     this.cleanUpMemoryAggressively();
     this.currentLanguage = normalizedLang;
 
-    if (normalizedLang === "javascript" || normalizedLang === "typescript" || normalizedLang === "html") {
-      const workerCode = `
-        self.onmessage = async (e) => {
-          const { id, code } = e.data;
-          const logs = [];
-          const console = {
-            log: (...args) => logs.push(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(" ")),
-            error: (...args) => logs.push("[ERROR] " + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(" "))
-          };
-          try {
-            const fn = new Function("console", '"use strict";\\n' + code);
-            await fn(console);
-            self.postMessage({ id, success: true, output: logs });
-          } catch (err) {
-            self.postMessage({ id, success: false, error: err.message });
-          }
-        };
-      `;
-      const blob = new Blob([workerCode], { type: "application/javascript" });
-      const workerUrl = URL.createObjectURL(blob);
-      this.activeWorker = new Worker(workerUrl);
-      (this.activeWorker as any)._blobUrl = workerUrl;
+    // Configuração de Runtime (Worker Factory)
+    if (["javascript", "typescript", "html"].includes(normalizedLang)) {
+      this.activeWorker = this.createLocalWorker();
     } else {
-      let workerURL = "";
-      switch (normalizedLang) {
-        case "python": workerURL = "./pythonWasmWorker.ts"; break;
-        case "lua": workerURL = "./luaWasmWorker.ts"; break;
-        default: workerURL = "./simulatedEngineWorker.ts";
-      }
-      this.activeWorker = new Worker(new URL(workerURL, import.meta.url), {
-        type: "module",
-      });
+      // Implementação de WASM/Remote será roteada aqui
+      throw new Error(`Runtime para ${normalizedLang} ainda requer configuração de roteamento.`);
     }
 
     return this.activeWorker;
   }
 
+  private createLocalWorker(): Worker {
+    const workerCode = `
+      self.onmessage = async (e) => {
+        const { id, code } = e.data;
+        const console = {
+          log: (...args) => self.postMessage({ id, success: true, output: args.join(" ") }),
+          error: (...args) => self.postMessage({ id, success: false, error: args.join(" ") })
+        };
+        try {
+          const fn = new Function("console", '"use strict";\\n' + code);
+          await fn(console);
+        } catch (err) {
+          self.postMessage({ id, success: false, error: err.message });
+        }
+      };
+    `;
+    const blob = new Blob([workerCode], { type: "application/javascript" });
+    const workerUrl = URL.createObjectURL(blob);
+    return new Worker(workerUrl);
+  }
+
   public cleanUpMemoryAggressively() {
     if (this.activeWorker) {
-      try {
-        console.log("[Safari Guard / Sandbox] Interrompendo execução e purgando Worker...");
-        this.activeWorker.terminate();
-        if ((this.activeWorker as any)._blobUrl) {
-          URL.revokeObjectURL((this.activeWorker as any)._blobUrl);
-        }
-      } catch (error) {
-        console.error("[Sandbox Guard] Erro fatal ao finalizar Worker:", error);
-      } finally {
-        this.activeWorker = null;
-        console.log("[Sandbox Guard] Ponteiro limpo da memória.");
-      }
+      this.activeWorker.terminate();
+      this.activeWorker = null;
     }
     this.currentLanguage = "";
   }

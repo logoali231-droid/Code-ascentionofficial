@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     const container =
       cosmosContainers[
-        store as keyof typeof cosmosContainers
+      store as keyof typeof cosmosContainers
       ];
 
     if (!container) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 }
 const syncChannel =
   typeof window !== "undefined" &&
-  typeof BroadcastChannel !== "undefined"
+    typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("code_ascension_sync")
     : null;
 
@@ -138,6 +138,8 @@ export interface TelemetryMetric {
   duration: number;
   success: boolean;
   timestamp: number;
+  value: number | string; // Adjust the type as needed
+  context: Record<string, any>; // Using Record<string, any> allows flexible metadata
 }
 
 /* =========================================================
@@ -259,14 +261,14 @@ export async function save(
     const dataToSave =
       typeof value === "object"
         ? {
-            ...value,
-            id: key,
-            timestamp: Date.now(),
-          }
+          ...value,
+          id: key,
+          timestamp: Date.now(),
+        }
         : value;
 
     const bufferKey = `${storeName}:${key}`;
-    
+
     // 1. Atualização instantânea na memória para consistência de UI (L1 Cache)
     localWriteBuffer.set(bufferKey, { store: storeName, data: dataToSave });
 
@@ -343,13 +345,13 @@ export async function get<T = any>(
 export async function getAll<T = any>(storeName: string): Promise<T[]> {
   try {
     const rawArray = await (db as any)[storeName].toArray();
-    
+
     // Mescla itens que ainda estão em memória aguardando o flush
     const mergedMap = new Map<string, T>();
     for (const item of rawArray) {
       if (item && item.id) mergedMap.set(item.id, item);
     }
-    
+
     for (const [bufKey, bufVal] of localWriteBuffer.entries()) {
       if (bufVal.store === storeName) {
         const id = bufKey.split(":")[1];
@@ -558,4 +560,4 @@ export async function performStorageCleanup(): Promise<void> {
 
 export function useAutoCleanup() {
   return performStorageCleanup;
-    }
+}

@@ -4,8 +4,12 @@ const BUFFER_SIZE = 50; // Tamanho do Ring Buffer em memória
 const SAMPLING_RATE = 0.3; // 30% de amostragem para evitar escrita massiva
 
 export class RingBufferTelemetry {
-  static record(arg0: { metric: string; value: number; context: { language: string; executionId?: string; status?: string;      // Adicionar opcionalmente
-  [key: string]: any; }; }) {
+  static record(arg0: {
+    metric: string; value: number; context: {
+      language: string; executionId?: string; status?: string;      // Adicionar opcionalmente
+      [key: string]: any;
+    };
+  }) {
     throw new Error("Method not implemented.");
   }
   private buffer: TelemetryMetric[] = new Array(BUFFER_SIZE);
@@ -14,7 +18,7 @@ export class RingBufferTelemetry {
   private count = 0;
   private isFlushScheduled = false;
 
-  
+
   /**
    * Adiciona uma métrica ao buffer usando amostragem (Sampling)
    */
@@ -23,7 +27,9 @@ export class RingBufferTelemetry {
     if (Math.random() > SAMPLING_RATE) return;
 
     const fullMetric: TelemetryMetric = {
+
       ...metric,
+
       timestamp: Date.now(),
     };
 
@@ -63,7 +69,7 @@ export class RingBufferTelemetry {
   /**
    * Executa a limpeza do buffer e joga em lote para o IndexedDB
    */
- private async flush(deadline?: IdleDeadline) {
+  private async flush(deadline?: IdleDeadline) {
     if (this.count === 0) {
       this.isFlushScheduled = false;
       return;
@@ -76,10 +82,10 @@ export class RingBufferTelemetry {
         this.scheduleFlush();
         break;
       }
-      
+
       const item = this.buffer[this.tail];
       if (item) batchToPersist.push(item);
-      
+
       this.tail = (this.tail + 1) % BUFFER_SIZE;
       this.count--;
     }
