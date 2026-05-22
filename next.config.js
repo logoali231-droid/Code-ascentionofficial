@@ -6,18 +6,22 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig = {
-  output: "standalone",
-  reactStrictMode: false,
   
-  // Essencial para evitar erros de build com bibliotecas ESM
-  transpilePackages: ["@mlc-ai/web-llm"],
+  reactStrictMode: false,
+
+  experimental: {
+    esmExternals: "loose",
+  },
+
+  transpilePackages: [
+    "@mlc-ai/web-llm",
+  ],
 
   images: {
     unoptimized: true,
   },
 
   webpack: (config, { isServer }) => {
-    // Resolve falhas de módulos Node que não existem no browser
     config.resolve.fallback = {
       fs: false,
       path: false,
@@ -25,7 +29,6 @@ const nextConfig = {
       stream: false,
     };
 
-    // Habilita suporte a WebAssembly
     config.experiments = {
       ...config.experiments,
       asyncWebAssembly: true,
@@ -33,10 +36,18 @@ const nextConfig = {
     };
 
     config.resolve.alias = {
-    ...config.resolve.alias,
-    'pino-pretty': false,
-    'encoding': false,
-  };
+      ...config.resolve.alias,
+      "pino-pretty": false,
+      encoding: false,
+    };
+
+    
+    if (isServer) {
+      config.externals.push({
+        "@huggingface/transformers":
+          "commonjs @huggingface/transformers",
+      });
+    }
 
     return config;
   },
@@ -46,12 +57,20 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
+          },
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
+          },
         ],
       },
     ];
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withBundleAnalyzer(
+  nextConfig,
+);
