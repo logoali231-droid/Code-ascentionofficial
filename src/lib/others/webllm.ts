@@ -30,7 +30,10 @@ const isMobile =
   /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
 // 🔥 FORÇA fallback inteligente no mobile fraco
-let selectedModelId = modelId || specs.recommended.model_id;
+const selectedModelId =
+  modelId ??
+  specs?.recommended?.model_id ??
+  SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;;
 
 if (isMobile && selectedModelId.includes("Phi-3")) {
   console.warn("[WEBLLM] Mobile detected → Phi risk mode enabled");
@@ -90,6 +93,10 @@ const isPhi = selectedModelId.includes("Phi");
 
 if (isMobile && isPhi) {
   console.warn("[WEBLLM] Mobile + Phi detected → enabling SAFE INIT MODE");
+}
+
+if (!SYSTEM_CONFIG.AVAILABLE_MODELS.some(m => m.model_id === selectedModelId)) {
+  throw new Error(`Invalid model_id: ${selectedModelId}`);
 }
 
 engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
