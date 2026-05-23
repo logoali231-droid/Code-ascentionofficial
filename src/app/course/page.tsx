@@ -514,6 +514,7 @@ function ErrorsTab({ course }: { course: any }) {
     async function loadErrors() {
       const e = await getErrorLogs(course.id);
       const last = e.slice(-5);
+
       setErrors(last);
 
       const results: string[] = [];
@@ -524,6 +525,7 @@ function ErrorsTab({ course }: { course: any }) {
             ...err,
             course,
           });
+
           results.push(
             typeof explanation === "string"
               ? explanation
@@ -535,6 +537,7 @@ function ErrorsTab({ course }: { course: any }) {
       }
 
       const map: Record<number, string> = {};
+
       results.forEach((res, i) => {
         map[i] = res ?? "";
       });
@@ -555,7 +558,11 @@ function ErrorsTab({ course }: { course: any }) {
           <p className="text-xs text-red-400 font-bold mb-2">
             ❌ {err.question}
           </p>
-          <p className="text-green-400 text-xs">✔ {err.correct}</p>
+
+          <p className="text-green-400 text-xs">
+            ✔ {err.correct}
+          </p>
+
           {aiExplanations[i] && (
             <p className="text-cyan-300 text-xs mt-3 whitespace-pre-wrap">
               🧠 {aiExplanations[i]}
@@ -571,4 +578,4 @@ function ErrorsTab({ course }: { course: any }) {
       )}
     </div>
   );
-     
+}
