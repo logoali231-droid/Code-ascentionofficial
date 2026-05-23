@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 const loadEngine = async () => {
   const mod = await import("@/lib/others/webllm");
