@@ -60,7 +60,9 @@ const validateRpcUrl = (
   );
 };
 
-const connectors = [injected()];
+const connectors = [
+  injected(),
+] as any[];
 
 if (projectId) {
   connectors.push(
