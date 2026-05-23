@@ -498,7 +498,7 @@ export default function CoursePage() {
       {tab === "errors" && <ErrorsTab course={course} />}
     </div>
   );
-}
+
 
 /* =========================================================
    ERRORS TAB
