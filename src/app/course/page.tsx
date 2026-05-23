@@ -439,7 +439,7 @@ export default function CoursePage() {
         <p>[{isGeneratingExercises ? "..." : "✓"}] exercises</p>
       </div>
 
-      /* TABS */
+      {/* TABS */}
       <div className="flex gap-2 mb-5">
         {["practice", "theory", "errors"].map((t) => (
           <button
