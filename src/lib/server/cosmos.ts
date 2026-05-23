@@ -1,11 +1,20 @@
 import { CosmosClient } from "@azure/cosmos";
 
-const cosmos = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT!,
-  key: process.env.COSMOS_KEY!,
-});
+function getCosmosClient() {
+  const endpoint = process.env.COSMOS_ENDPOINT;
+  const key = process.env.COSMOS_KEY;
 
-const database = cosmos.database("codeascension");
+  if (!endpoint || !key) {
+    throw new Error("Missing COSMOS env vars");
+  }
+
+  return new CosmosClient({
+    endpoint,
+    key,
+  });
+}
+
+const database = getCosmosClient().database("codeascension");
 
 export const cosmosContainers = {
   users: database.container("users"),

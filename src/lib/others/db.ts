@@ -1,63 +1,8 @@
 import Dexie, { type Table } from "dexie";
 const CLOUD_SYNC_URL = "/api/cloud/sync";
 
-import { NextResponse } from "next/server";
 
-import { cosmosContainers } from "@/lib/server/cosmos";
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-
-    const {
-      store,
-      payload,
-      userId,
-      timestamp,
-    } = body;
-
-    const container =
-      cosmosContainers[
-      store as keyof typeof cosmosContainers
-      ];
-
-    if (!container) {
-      return NextResponse.json(
-        {
-          error: `Invalid store: ${store}`,
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const document = {
-      id:
-        payload.id ||
-        `${userId}_${Date.now()}`,
-
-      userId,
-      timestamp,
-      ...payload,
-    };
-
-    await container.items.upsert(document);
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        error: err.message,
-      },
-      {
-        status: 500,
-      },
-    );
-  }
-}
 const syncChannel =
   typeof window !== "undefined" &&
     typeof BroadcastChannel !== "undefined"
@@ -157,22 +102,22 @@ class CodeAscensionDB extends Dexie {
   curriculum!: Table<any>;
   telemetry!: Table<TelemetryMetric>;
 
-constructor() {
-  super("codeascent_db");
-  this.version(5).stores({
-    user: "id",
-    courses: "id",
-    lessons: "id, courseId",
-    errors: "++id, timestamp, courseId",
-    explanations: "++id, timestamp",
-    shop: "id",
-    daily: "id",
-    memory: "id, timestamp",
-    curriculum: "id, courseId",
-    telemetry: "++id, timestamp, type",
-    mastery: "id, timestamp", // NEW TABLE
-  });
-}
+  constructor() {
+    super("codeascent_db");
+    this.version(5).stores({
+      user: "id",
+      courses: "id",
+      lessons: "id, courseId",
+      errors: "++id, timestamp, courseId",
+      explanations: "++id, timestamp",
+      shop: "id",
+      daily: "id",
+      memory: "id, timestamp",
+      curriculum: "id, courseId",
+      telemetry: "++id, timestamp, type",
+      mastery: "id, timestamp", // NEW TABLE
+    });
+  }
 }
 
 export const db = new CodeAscensionDB();

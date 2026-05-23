@@ -1,3 +1,4 @@
+import { cosmosContainers } from "@/lib/server/cosmos";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
 
     const container =
       cosmosContainers[
-        store as keyof typeof cosmosContainers
+      store as keyof typeof cosmosContainers
       ];
 
     if (!container) {
@@ -29,7 +30,8 @@ export async function POST(req: Request) {
           error: `Invalid store: ${store}`,
         },
         {
-          status: 400 },
+          status: 400
+        },
       );
     }
 
