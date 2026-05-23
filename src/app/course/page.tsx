@@ -1,5 +1,5 @@
 "use client";
-export const dynamic = "force-dynamic";
+import nextDynamic from "next/dynamic";
 
 const loadEngine = async () => {
   const mod = await import("@/lib/others/webllm");
@@ -13,7 +13,7 @@ import { streamLesson } from "@/lib/others/lessonStreamer";
 import { generateReinforcement } from "@/lib/others/reinforce";
 import dynamic from "next/dynamic";
 
-const ExerciseRenderer = dynamic(
+const ExerciseRenderer = nextDynamic(
   () => import("@/components/ExerciseRenderer"),
   { ssr: false }
 );
