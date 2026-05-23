@@ -434,25 +434,32 @@ export default function CoursePage() {
       </div>
 
       {/* STATUS */}
-      <div className="mb-5 text-xs space-y-1 opacity-80">
-        <p>[{isGeneratingExplanation ? "..." : "✓"}] explanation</p>
-        <p>[{isGeneratingExercises ? "..." : "✓"}] exercises</p>
-      </div>
+<div className="mb-5 text-xs space-y-1 opacity-80">
+  <p>
+    [{isGeneratingExplanation ? "..." : "✓"}] explanation
+  </p>
 
-      {/* TABS */}
-      <div className="flex gap-2 mb-5">
-        {["practice", "theory", "errors"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t as any)}
-            className={`flex-1 p-2 rounded-xl capitalize transition-all ${
-              tab === t ? "bg-cyan-600" : "bg-slate-800"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+  <p>
+    [{isGeneratingExercises ? "..." : "✓"}] exercises
+  </p>
+</div>
+
+{/* TABS */}
+<div className="flex gap-2 mb-5">
+  {["practice", "theory", "errors"].map((t) => (
+    <button
+      key={t}
+      onClick={() => setTab(t as any)}
+      className={`flex-1 p-2 rounded-xl capitalize transition-all ${
+        tab === t
+          ? "bg-cyan-600"
+          : "bg-slate-800"
+      }`}
+    >
+      {t}
+    </button>
+  ))}
+</div>
 
       {/* PRACTICE */}
       {tab === "practice" && (
@@ -561,4 +568,4 @@ function ErrorsTab({ course }: { course: any }) {
       )}
     </div>
   );
-            }
+     }
