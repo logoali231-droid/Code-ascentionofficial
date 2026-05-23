@@ -24,8 +24,29 @@ import {
 
 const projectId =
   process.env
-    .NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
-  "development";
+    .NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+const appUrl =
+  process.env
+    .NEXT_PUBLIC_APP_URL ||
+  "https://code-ascention.com.br";
+
+const validateUrl = (
+  url: string,
+  fallback: string,
+) => {
+  try {
+    new URL(url);
+
+    return url;
+  } catch {
+    console.warn(
+      `[INVALID URL] ${url}`,
+    );
+
+    return fallback;
+  }
+};
 
 const validateRpcUrl = (
   envUrl: string | undefined,
@@ -33,18 +54,44 @@ const validateRpcUrl = (
 ): string => {
   if (!envUrl) return fallbackUrl;
 
-  try {
-    new URL(envUrl);
-
-    return envUrl;
-  } catch {
-    console.warn(
-      `Malformed RPC URL detected: "${envUrl}". Reverting to fallback.`,
-    );
-
-    return fallbackUrl;
-  }
+  return validateUrl(
+    envUrl,
+    fallbackUrl,
+  );
 };
+
+const connectors = [injected()];
+
+if (projectId) {
+  connectors.push(
+    walletConnect({
+      projectId,
+
+      metadata: {
+        name: "Code Ascension",
+
+        description:
+          "Offline AI-powered cyberpunk learning roguelike",
+
+        url: validateUrl(
+          appUrl,
+          "https://code-ascention.com.br",
+        ),
+
+        icons: [
+          validateUrl(
+            `${appUrl}/icons/icon-192.png`,
+            "https://code-ascention.com.br/icons/icon-192.png",
+          ),
+        ],
+      },
+    }),
+  );
+} else {
+  console.warn(
+    "[WALLETCONNECT DISABLED] Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
+  );
+}
 
 export const walletConfig =
   createConfig({
@@ -55,29 +102,7 @@ export const walletConfig =
       base,
     ],
 
-    connectors: [
-      injected(),
-
-      walletConnect({
-        projectId,
-
-        metadata: {
-          name: "Code Ascension",
-
-          description:
-            "Offline AI-powered cyberpunk learning roguelike",
-
-          url:
-            process.env
-              .NEXT_PUBLIC_APP_URL ||
-            "http://localhost:3001",
-
-          icons: [
-            "http://localhost:3001/icons/icon-192.png",
-          ],
-        },
-      }),
-    ],
+    connectors,
 
     transports: {
       [mainnet.id]: http(
