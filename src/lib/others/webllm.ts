@@ -55,9 +55,21 @@ if (isMobile && selectedModelId.includes("Phi-3")) {
         worker = null;
       }
 
-      worker = new Worker(new URL("../workers/webllm.worker", import.meta.url), {
-        type: "module",
-      });
+       if (typeof window === "undefined") {
+  throw new Error(
+    "WebLLM worker cannot initialize during SSR.",
+  );
+       }
+
+      worker = new Worker(
+  new URL(
+    "../workers/webllm.worker.ts",
+    import.meta.url,
+  ),
+  {
+    type: "module",
+  },
+);
 
       worker.onerror = async (err) => {
         console.error(
@@ -300,4 +312,6 @@ function setupVisibilityHandler() {
   );
 }
 
-setupVisibilityHandler();
+if (typeof window !== "undefined") {
+  setupVisibilityHandler();
+}
