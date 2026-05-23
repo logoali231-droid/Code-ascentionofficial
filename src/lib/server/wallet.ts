@@ -1,157 +1,103 @@
 "use client";
 
-import {
-  getWalletClient,
-  type Config,
-} from "@wagmi/core";
+import { getWalletClient, type Config } from "@wagmi/core";
+import { createConfig, http } from "wagmi";
+import { arbitrum, base, mainnet, polygon } from "wagmi/chains";
+import { injected, walletConnect } from "wagmi/connectors";
 
-import {
-  createConfig,
-  http,
-} from "wagmi";
+/* -----------------------------
+   SAFE ENV HELPERS
+------------------------------*/
 
-import {
-  arbitrum,
-  base,
-  mainnet,
-  polygon,
-} from "wagmi/chains";
+const safeUrl = (url: string | undefined, fallback: string) => {
+  if (!url) return fallback;
 
-import {
-  injected,
-  walletConnect,
-} from "wagmi/connectors";
-
-const projectId =
-  process.env
-    .NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-
-const appUrl =
-  process.env
-    .NEXT_PUBLIC_APP_URL ||
-  "https://code-ascention.com.br";
-
-const validateUrl = (
-  url: string,
-  fallback: string,
-) => {
   try {
-    new URL(url);
-
-    return url;
+    const parsed = new URL(url);
+    return parsed.toString();
   } catch {
-    console.warn(
-      `[INVALID URL] ${url}`,
-    );
-
+    console.warn("[INVALID URL]", url);
     return fallback;
   }
 };
 
-const validateRpcUrl = (
-  envUrl: string | undefined,
-  fallbackUrl: string,
-): string => {
-  if (!envUrl) return fallbackUrl;
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
-  return validateUrl(
-    envUrl,
-    fallbackUrl,
-  );
-};
+const appUrl = safeUrl(
+  process.env.NEXT_PUBLIC_APP_URL,
+  "https://code-ascention.com.br"
+);
 
-const connectors = [
-  injected(),
-] as any[];
+/* -----------------------------
+   CONNECTORS (SAFE INIT)
+------------------------------*/
 
-if (projectId) {
+const connectors: any[] = [injected()];
+
+if (projectId && projectId.trim().length > 5) {
   connectors.push(
     walletConnect({
       projectId,
-
       metadata: {
         name: "Code Ascension",
-
-        description:
-          "Offline AI-powered cyberpunk learning roguelike",
-
-        url: validateUrl(
-          appUrl,
-          "https://code-ascention.com.br",
-        ),
-
-        icons: [
-          validateUrl(
-            `${appUrl}/icons/icon-192.png`,
-            "https://code-ascention.com.br/icons/icon-192.png",
-          ),
-        ],
+        description: "Offline AI-powered cyberpunk learning roguelike",
+        url: appUrl,
+        icons: [safeUrl(`${appUrl}/icons/icon-192.png`, `${appUrl}/icons/icon-192.png`)],
       },
-    }),
+    })
   );
 } else {
-  console.warn(
-    "[WALLETCONNECT DISABLED] Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
-  );
+  console.warn("[WALLETCONNECT DISABLED] Missing or invalid projectId");
 }
 
-export const walletConfig =
-  createConfig({
-    chains: [
-      mainnet,
-      polygon,
-      arbitrum,
-      base,
-    ],
+/* -----------------------------
+   RPC TRANSPORT SAFE WRAPPER
+------------------------------*/
 
-    connectors,
+const rpc = (env: string | undefined, fallback: string) =>
+  http(safeUrl(env, fallback));
 
-    transports: {
-      [mainnet.id]: http(
-        validateRpcUrl(
-          process.env
-            .NEXT_PUBLIC_ETH_RPC,
+/* -----------------------------
+   WALLET CONFIG
+------------------------------*/
 
-          "https://eth-mainnet.g.alchemy.com",
-        ),
-      ),
+export const walletConfig = createConfig({
+  chains: [mainnet, polygon, arbitrum, base],
+  connectors,
 
-      [polygon.id]: http(
-        validateRpcUrl(
-          process.env
-            .NEXT_PUBLIC_POLYGON_RPC,
+  transports: {
+    [mainnet.id]: rpc(
+      process.env.NEXT_PUBLIC_ETH_RPC,
+      "https://eth-mainnet.g.alchemy.com"
+    ),
 
-          "https://polygon-mainnet.g.alchemy.com",
-        ),
-      ),
+    [polygon.id]: rpc(
+      process.env.NEXT_PUBLIC_POLYGON_RPC,
+      "https://polygon-rpc.com"
+    ),
 
-      [arbitrum.id]: http(
-        validateRpcUrl(
-          process.env
-            .NEXT_PUBLIC_ARBITRUM_RPC,
+    [arbitrum.id]: rpc(
+      process.env.NEXT_PUBLIC_ARBITRUM_RPC,
+      "https://arb1.arbitrum.io/rpc"
+    ),
 
-          "https://arb-mainnet.g.alchemy.com",
-        ),
-      ),
+    [base.id]: rpc(
+      process.env.NEXT_PUBLIC_BASE_RPC,
+      "https://mainnet.base.org"
+    ),
+  },
+});
 
-      [base.id]: http(
-        validateRpcUrl(
-          process.env
-            .NEXT_PUBLIC_BASE_RPC,
-
-          "https://base-mainnet.g.alchemy.com",
-        ),
-      ),
-    },
-  });
+/* -----------------------------
+   SAFE SIGNER
+------------------------------*/
 
 export async function getSigner() {
-  const client =
-    await getWalletClient(
-      walletConfig as unknown as Config,
-    );
-
-  if (!client) return null;
-
-  return client;
+  try {
+    const client = await getWalletClient(walletConfig as unknown as Config);
+    return client ?? null;
+  } catch (err) {
+    console.error("[Wallet] getSigner failed:", err);
+    return null;
+  }
 }

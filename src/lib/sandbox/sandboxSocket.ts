@@ -2,32 +2,51 @@
 
 let socket: WebSocket | null = null;
 
-// Altere para wss:// (Secure)
-const WS_URL = process.env.NEXT_PUBLIC_SANDBOX_WS || "wss://code-ascention.kindsand-c67711f7.brazilsouth.azurecontainerapps.io/";
+const WS_URL =
+  process.env.NEXT_PUBLIC_SANDBOX_WS ||
+  "wss://code-ascention.kindsand-c67711f7.brazilsouth.azurecontainerapps.io/ws";
+
 export function connectSandboxSocket() {
   return new Promise<WebSocket>((resolve, reject) => {
-    if (socket?.readyState === WebSocket.OPEN) {
-      return resolve(socket);
+    try {
+      if (socket?.readyState === WebSocket.OPEN) {
+        return resolve(socket);
+      }
+
+      if (typeof window === "undefined") {
+        return reject(new Error("WebSocket only runs on client"));
+      }
+
+      socket = new WebSocket(WS_URL);
+
+      socket.onopen = () => {
+        console.log("[SANDBOX] connected");
+        resolve(socket!);
+      };
+
+      socket.onerror = (err) => {
+        console.error("[SANDBOX] socket error", err);
+        reject(new Error("WebSocket connection failed"));
+      };
+
+      socket.onclose = () => {
+        console.warn("[SANDBOX] socket closed");
+        socket = null;
+      };
+    } catch (e) {
+      reject(e);
     }
-
-    socket = new WebSocket(WS_URL);
-
-    socket.onopen = () => {
-      console.log("[SANDBOX] Socket connected");
-      resolve(socket!);
-    };
-
-    socket.onerror = (err) => {
-      reject(err);
-    };
   });
 }
 
 export function disconnectSandboxSocket() {
   if (!socket) return;
 
-  socket.close();
-  socket = null;
+  try {
+    socket.close();
+  } finally {
+    socket = null;
+  }
 }
 
 export function getSandboxSocket() {
