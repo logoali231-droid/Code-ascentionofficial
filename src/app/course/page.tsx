@@ -126,6 +126,8 @@ export default function CoursePage() {
   })();
 };
 
+}, []);
+
   /* =====================================================
      STREAM LESSON (CONTROLADO COM ABORT_SIGNAL)
   ===================================================== */
@@ -494,15 +496,16 @@ export default function CoursePage() {
         </div>
       )}
 
-      {/* ERRORS */}
+           {/* ERRORS */}
       {tab === "errors" && <ErrorsTab course={course} />}
     </div>
   );
-
+}
 
 /* =========================================================
    ERRORS TAB
 ========================================================= */
+
 function ErrorsTab({ course }: { course: any }) {
   const [errors, setErrors] = useState<any[]>([]);
   const [aiExplanations, setAiExplanations] = useState<Record<number, string>>({});
@@ -568,4 +571,4 @@ function ErrorsTab({ course }: { course: any }) {
       )}
     </div>
   );
-     }
+     
