@@ -5,7 +5,7 @@ const loadEngine = async () => {
   return mod.initEngine;
 };
 
-import { unloadEngine } from "@/lib/others/modelManager";
+import { generateExplanationAI, explainError } from "@/lib/others/explanationAI";
 import { useEffect, useState, useRef } from "react";
 import { updateUser, db, getErrorLogs, clearErrorLog, getUser, get } from "@/lib/others/db";
 import { streamLesson } from "@/lib/others/lessonStreamer";
@@ -17,7 +17,7 @@ const ExerciseRenderer = dynamic(
   { ssr: false }
 );
 
-import { generateExplanationAI, explainError } from "@/lib/others/explanationAI";
+
 import { updateMemory } from "@/lib/others/userMemory";
 import { statisticalValidator } from "@/lib/anti-spam/statististical-validator";
 
@@ -106,14 +106,25 @@ export default function CoursePage() {
     load();
 
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      unloadEngine().catch((err) =>
-        console.error("[COURSE UNLOAD ERROR]", err)
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+
+  (async () => {
+    try {
+      const { unloadEngine } = await import(
+        "@/lib/others/modelManager"
       );
-    };
-  }, []);
+
+      await unloadEngine();
+    } catch (err) {
+      console.error(
+        "[COURSE UNLOAD ERROR]",
+        err
+      );
+    }
+  })();
+};
 
   /* =====================================================
      STREAM LESSON (CONTROLADO COM ABORT_SIGNAL)
@@ -131,6 +142,7 @@ export default function CoursePage() {
       /* ====================================
          STREAM LESSON
       ==================================== */
+      const { streamLesson } = await import("@/lib/others/lessonStreamer");
       const streamed = await streamLesson({
         course: currentCourse,
         concept: currentCourse.topic || currentCourse.title,
@@ -152,6 +164,9 @@ export default function CoursePage() {
       const rawHistory = await db.table("lessons").where("courseId").equals(currentCourse.id).toArray();
       const historyLessons = rawHistory.map(record => record.content); // <-- EXTRAI APENAS A PAYLOAD
       if (signal?.aborted) return;
+
+      const { generateExplanationAI } = await import("@/lib/others/explanationAI");
+
 
       const explanationStream = await generateExplanationAI({
         lesson: streamed,
@@ -311,6 +326,7 @@ export default function CoursePage() {
       /* ================================
           REINFORCEMENT
       ================================= */
+      const { generateReinforcement } = await import("@/lib/others/reinforce");
       const reinforcement = await generateReinforcement(
         {
           ...exercise,
