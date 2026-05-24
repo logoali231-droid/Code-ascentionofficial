@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { CosmosClient } from "@azure/cosmos";
+import { NextResponse } from "next/server";
 
 // Configuração do teu Banco no Cosmos DB
 const DATABASE_ID = "code-ascension-db";
@@ -7,15 +7,25 @@ const CONTAINER_ID = "leaderboard";
 
 // Função auxiliar para obter o cliente de forma segura apenas quando necessário
 function getCosmosClient() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString =
+    process.env.COSMOS_DB_CONNECTION_STRING;
+
   if (!connectionString) {
-    console.warn("⚠️ DATABASE_URL não configurada no ambiente.");
+    console.warn(
+      "⚠️ COSMOS_DB_CONNECTION_STRING não configurada."
+    );
+
     return null;
   }
+
   try {
     return new CosmosClient(connectionString);
   } catch (err) {
-    console.error("❌ Falha crítica ao inicializar CosmosClient:", err);
+    console.error(
+      "❌ Falha ao inicializar CosmosClient:",
+      err
+    );
+
     return null;
   }
 }
