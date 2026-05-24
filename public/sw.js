@@ -73,7 +73,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const url = new URL(event.request.url);
+  const url = event.request.url;
+
+  // BYPASS DEFINITIVO PARA ATIVOS DE INTELIGÊNCIA ARTIFICIAL
+  // Se for o Hugging Face, repositório MLC-AI ou arquivos de pesos/wasm, o service worker NÃO INTERCEPTA.
+  if (
+    url.includes('huggingface.co') || 
+    url.includes('mlc-ai') || 
+    url.includes('.wasm') || 
+    url.includes('.bin')
+  ) {
+    return; // Retorno precoce sem chamar event.respondWith. O navegador assume o fluxo de rede puro!
+  }
 
   /* =====================================================
      AI / MODEL / WASM DETECTION

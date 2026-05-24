@@ -2,9 +2,12 @@
 
 import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { playSound } from "./sounds";
-import { unloadEngine, detectSystemCapabilities } from "./modelManager";
+import { detectSystemCapabilities } from "./modelManager";
 import { SYSTEM_CONFIG } from "@/config/system";
 
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
 let worker: Worker | null = null;
 let engine: MLCEngineInterface | null = null;
 let loadingPromise: Promise<MLCEngineInterface> | null = null;
@@ -14,7 +17,36 @@ let backgroundSince: number | null = null;
 let gpuRecoveryInProgress = false;
 
 /* =========================================================
-   ENGINE INITIALIZATION (WITH WEB WORKER)
+   🔥 SAFE CACHE RESET (CRÍTICO PARA MOBILE)
+========================================================= */
+async function hardResetWebCache() {
+  try {
+    // Cache API
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+
+    // IndexedDB (WebLLM pode deixar lixo aqui)
+    if (indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      dbs.forEach(db => {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      });
+    }
+
+    // Service Workers (causa MUITO Cache.add crash)
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+
+    console.log("[WEBLLM] Cache reset complete");
+  } catch (e) {
+    console.warn("[WEBLLM] Cache reset failed:", e);
+  }
+}
+
+/* =========================================================
+   ENGINE INIT
 ========================================================= */
 export async function initEngine(
   modelId?: string,
@@ -26,131 +58,91 @@ export async function initEngine(
     try {
       const specs = await detectSystemCapabilities();
 
-const isMobile =
-  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      const isMobile =
+        /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
-// 🔥 FORÇA fallback inteligente no mobile fraco
-const selectedModelId =
-  modelId ??
-  specs?.recommended?.model_id ??
-  SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;;
+      const selectedModelId =
+        modelId ??
+        specs?.recommended?.model_id ??
+        SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;
 
-if (isMobile && selectedModelId.includes("Phi-3")) {
-  console.warn("[WEBLLM] Mobile detected → Phi risk mode enabled");
-}
+      if (!SYSTEM_CONFIG.AVAILABLE_MODELS.some(m => m.model_id === selectedModelId)) {
+        throw new Error(`Invalid model_id: ${selectedModelId}`);
+      }
 
       const modelConfig = SYSTEM_CONFIG.AVAILABLE_MODELS.find(
-        (m) => m.model_id === selectedModelId,
+        m => m.model_id === selectedModelId
       );
 
       if (!modelConfig) {
-        throw new Error(
-          `Modelo ${selectedModelId} não mapeado no esqueleto do sistema.`,
-        );
+        throw new Error(`Model not found: ${selectedModelId}`);
       }
 
+      // 🔥 evita reinit redundante
       if (engine && currentModel === selectedModelId) {
         return engine;
       }
 
+      // 🔥 CRÍTICO: limpa estado quebrado antes de iniciar
+      await hardResetWebCache();
+
+      // Worker cleanup
       if (worker) {
         worker.terminate();
         worker = null;
       }
 
-       if (typeof window === "undefined") {
-  throw new Error(
-    "WebLLM worker cannot initialize during SSR.",
-  );
-       }
-
-      worker = new Worker(
-  new URL(
-    "../workers/webllm.worker.ts",
-    import.meta.url,
-  ),
-  {
-    type: "module",
-  },
-);
-
-      worker.onerror = async (err) => {
-        console.error(
-          "%c[WORKER:COGNITIVE:ERROR]",
-          "color: #ff0055",
-          err,
-        );
-
-        await localUnloadEngine();
-
-        loadingPromise = null;
-      };
-      const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
-      
-
-
-const isPhi = selectedModelId.includes("Phi");
-
-if (isMobile && isPhi) {
-  console.warn("[WEBLLM] Mobile + Phi detected → enabling SAFE INIT MODE");
-}
-
-if (!SYSTEM_CONFIG.AVAILABLE_MODELS.some(m => m.model_id === selectedModelId)) {
-  throw new Error(`Invalid model_id: ${selectedModelId}`);
-}
-
-engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
-  initProgressCallback: onProgress,
-  logLevel: "INFO",
-
-  chatOpts: {
-    context_window_size: isMobile
-      ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
-      : SYSTEM_CONFIG.LLM.context_window_size,
-
-    sliding_window_size: isMobile
-      ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
-      : SYSTEM_CONFIG.LLM.sliding_window_size,
-
-    attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
-  },
-
-  // 🔥 NOVO: evita crash no restore de cache
-  useIndexedDBCache: !isMobile,
-  enableProgressiveLoading: true,
-} as any);
-
-      const gpuDevice =
-
-        (engine as any)?.engine?.device || (engine as any)?._device;
-      if (gpuDevice) {
-        gpuDevice.lost.then(async (info: any) => {
-          console.warn(
-            "%c[WEBGPU:DEVICE:LOST] Context Evicted da GPU.",
-            "color: #ff9900",
-            info,
-          );
-          if (gpuRecoveryInProgress) return;
-
-          gpuRecoveryInProgress = true;
-
-          try {
-            await localUnloadEngine();
-          } finally {
-            gpuRecoveryInProgress = false;
-          }
-        });
+      if (typeof window === "undefined") {
+        throw new Error("SSR blocked for WebLLM");
       }
 
-      currentModel = selectedModelId;
-      console.log(
-        `%c[WEBLLM] Engine isolada e pronta para execuções: ${selectedModelId}`,
-        "color: #00ffcc",
+      worker = new Worker(
+        new URL("../workers/webllm.worker.ts", import.meta.url),
+        { type: "module" }
       );
+
+      worker.onerror = async (err) => {
+        console.error("[WORKER ERROR]", err);
+        await localUnloadEngine();
+        loadingPromise = null;
+      };
+
+      const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
+
+      const isPhi = selectedModelId.includes("Phi");
+
+      if (isMobile && isPhi) {
+        console.warn("[WEBLLM] Mobile Phi safe mode");
+      }
+
+      engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
+        initProgressCallback: onProgress,
+        logLevel: "INFO",
+
+        chatOpts: {
+          context_window_size: isMobile
+            ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
+            : SYSTEM_CONFIG.LLM.context_window_size,
+
+          sliding_window_size: isMobile
+            ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
+            : SYSTEM_CONFIG.LLM.sliding_window_size,
+
+          attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
+        },
+
+        // 🔥 ESSENCIAL: mobile não usa cache persistente
+        useIndexedDBCache: !isMobile && (specs.ramGB ?? 0) > 4,
+        enableProgressiveLoading: true,
+      } as any);
+
+      currentModel = selectedModelId;
+
+      console.log("[WEBLLM] Engine ready:", selectedModelId);
 
       return engine;
     } catch (err) {
-      console.error("%c[WEBLLM:INIT:ERROR]", "color: #ff0055", err);
+      console.error("[WEBLLM INIT ERROR]", err);
       loadingPromise = null;
       throw err;
     }
@@ -160,7 +152,7 @@ engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
 }
 
 /* =========================================================
-   STRICT MEMORY UNLOAD (VRAM GUARD)
+   UNLOAD SAFE
 ========================================================= */
 export async function localUnloadEngine(): Promise<void> {
   try {
@@ -168,157 +160,95 @@ export async function localUnloadEngine(): Promise<void> {
       await engine.unload();
     }
   } catch (err) {
-    console.error(
-      "%c[UNLOAD:ERROR] Falha ao descarregar tensores da engine:",
-      "color: #ff0055",
-      err,
-    );
+    console.warn("[UNLOAD ERROR]", err);
   } finally {
     if (worker) {
       worker.terminate();
       worker = null;
     }
+
     engine = null;
     loadingPromise = null;
     currentModel = null;
     generationLock = false;
-    console.log(
-      "%c[WEBLLM] Memória volátil e Web Worker destruídos com sucesso.",
-      "color: #00ffcc",
-    );
+
+    console.log("[WEBLLM] Clean unload complete");
   }
 }
 
 /* =========================================================
-   REACTIVE GENERATION ENGINE (STREAMING & ABORT)
+   GENERATION STREAM
 ========================================================= */
 export async function* generate(
   prompt: string,
   temperature = 0.7,
   onProgress?: (report: any) => void,
   signal?: AbortSignal,
-): AsyncGenerator<string, void, unknown> {
+): AsyncGenerator<string> {
+
   if (generationLock) {
-    throw new Error(
-      "Generation already in progress."
-    );
+    throw new Error("Generation in progress");
   }
-  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   generationLock = true;
 
   const abortHandler = () => {
     generationLock = false;
   };
+
   signal?.addEventListener("abort", abortHandler);
 
-try {
-    const startTime = performance.now();
-    let isFirstToken = true;
+  try {
+    const engineRef = await initEngine(undefined, onProgress);
 
-    const currentEngine = await initEngine(undefined, onProgress);
-
-    const stream = await currentEngine.chat.completions.create({
+    const stream = await engineRef.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-      signal: signal,
+      signal,
     } as any);
 
     for await (const chunk of stream as any) {
-      // Instrumentação de Telemetria Térmica (TTFT)
-      if (isFirstToken) {
-        const ttft = performance.now() - startTime;
-        // Importa e atualiza de forma assíncrona para não travar a geração
-        import('./thermal').then(({ thermalMonitor }) => thermalMonitor.updateTTFT(ttft));
-        isFirstToken = false;
-      }
+      if (signal?.aborted) break;
 
-      if (signal?.aborted) {
-        throw new DOMException(
-          "Generation aborted by system runtime request.",
-          "AbortError",
-        );
-      }
-      const content = chunk.choices?.[0]?.delta?.content || "";
-      if (content) yield content;
+      const text = chunk?.choices?.[0]?.delta?.content;
+      if (text) yield text;
     }
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      console.log(
-        "%c[WEBLLM] Geração cancelada ativamente via AbortController.",
-        "color: #ff9900",
-      );
-    } else {
-      console.error("%c[GENERATE:ERROR]", "color: #ff0055", err);
-      playSound("error", 0.4);
-      throw err;
-    }
+  } catch (err) {
+    console.error("[GENERATE ERROR]", err);
+    playSound("error", 0.4);
+    throw err;
   } finally {
     signal?.removeEventListener("abort", abortHandler);
     generationLock = false;
-}
+  }
 }
 
 /* =========================================================
-   MOBILE VISIBILITY & BACKGROUND CYCLE LIFECYCLE
+   VISIBILITY CLEANUP
 ========================================================= */
+let visibilityAttached = false;
 
-let visibilityHandlerAttached = false;
+if (typeof window !== "undefined" && !visibilityAttached) {
+  visibilityAttached = true;
 
-function setupVisibilityHandler() {
-  if (
-    typeof window === "undefined" ||
-    visibilityHandlerAttached
-  ) {
-    return;
-  }
-
-  visibilityHandlerAttached = true;
-
-  const handler = async () => {
+  document.addEventListener("visibilitychange", async () => {
     const isMobile =
       /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
     if (document.hidden) {
       backgroundSince = Date.now();
-
-      console.log(
-        "%c[WEBLLM] Background mode enabled.",
-        "color: #ff9900",
-      );
-
       return;
     }
 
-    if (!document.hidden && backgroundSince) {
+    if (backgroundSince && isMobile) {
       const timeAway = Date.now() - backgroundSince;
 
-      if (
-        isMobile &&
-        timeAway >
-        SYSTEM_CONFIG.CLEANUP
-          .MOBILE_BACKGROUND_TIMEOUT_MS
-      ) {
-        console.warn(
-          "%c[WEBLLM] Mobile timeout exceeded. Releasing VRAM.",
-          "color: #ff0055",
-        );
-
+      if (timeAway > SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS) {
         await localUnloadEngine();
       }
 
       backgroundSince = null;
     }
-  };
-
-  document.addEventListener(
-    "visibilitychange",
-    handler,
-    { passive: true },
-  );
-}
-
-if (typeof window !== "undefined") {
-  setupVisibilityHandler();
+  });
 }
