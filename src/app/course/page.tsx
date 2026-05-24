@@ -183,20 +183,23 @@ export default function CoursePage() {
         if (controller.signal.aborted) return;
 
         await initEngine(undefined, (report) => {
-          if (
-            controller.signal.aborted ||
-            !isMountedRef.current
-          ) {
-            return;
-          }
+          if (controller.signal.aborted) return;
 
-          safeSetState(() => {
-            setDownloadInfo({
-              text: report.text,
-              model: "Neural Engine v1.0",
-            });
+          setDownloadInfo({
+            text: report.text,
+            model: "Neural Engine v1.0",
           });
         });
+
+        console.log("[COURSE] initEngine FINISHED");
+
+        if (controller.signal.aborted) return;
+
+        await startStreamingLesson(found, controller.signal);
+
+        if (!controller.signal.aborted) {
+          setLoadingCourse(false);
+        }
 
         console.log(
           "[COURSE] Engine initialized"
@@ -1020,8 +1023,8 @@ export default function CoursePage() {
               setTab(t as any)
             }
             className={`flex-1 p-2 rounded-xl capitalize transition-all ${tab === t
-                ? "bg-cyan-600"
-                : "bg-slate-800"
+              ? "bg-cyan-600"
+              : "bg-slate-800"
               }`}
           >
             {t}
