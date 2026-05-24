@@ -34,7 +34,7 @@ const appUrl = safeUrl(
 
 const connectors: any[] = [injected()];
 
-if (projectId && projectId.trim().length > 5) {
+/*if (projectId && projectId.trim().length > 5) {
   connectors.push(
     walletConnect({
       projectId,
@@ -49,6 +49,7 @@ if (projectId && projectId.trim().length > 5) {
 } else {
   console.warn("[WALLETCONNECT DISABLED] Missing or invalid projectId");
 }
+*/
 
 /* -----------------------------
    RPC TRANSPORT SAFE WRAPPER

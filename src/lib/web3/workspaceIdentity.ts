@@ -1,6 +1,6 @@
 import { generateManifest } from '../sandbox/workspace/workspaceManifest';
 import { loadWorkspaceMetadata } from '../sandbox/workspace/workspaceStorage';
-import { getSigner } from '../server/wallet';
+import { getSigner } from './wallet';
 
 export interface WorkspaceSignatureProof {
   workspaceId: string;

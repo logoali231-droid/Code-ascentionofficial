@@ -11,7 +11,8 @@ import {
 
 import {
   walletConfig,
-} from "../lib/server/wallet";
+} from "../lib/web3/wallet";
+import React from "react";
 
 
 const queryClient =
@@ -22,13 +23,13 @@ export default function Web3Provider({
 }: {
   children: React.ReactNode;
 }) {
+  const [queryClient] = React.useState(
+    () => new QueryClient()
+  );
+
   return (
-    <WagmiProvider
-      config={walletConfig}
-    >
-      <QueryClientProvider
-        client={queryClient}
-      >
+    <WagmiProvider config={walletConfig}>
+      <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>
     </WagmiProvider>
