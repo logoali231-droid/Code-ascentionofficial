@@ -201,6 +201,16 @@ export default function CoursePage() {
           setLoadingCourse(false);
         }
 
+        console.log("[COURSE] initEngine FINISHED");
+
+        if (controller.signal.aborted) return;
+
+        await startStreamingLesson(found, controller.signal);
+
+        if (!controller.signal.aborted) {
+          setLoadingCourse(false);
+        }
+
         console.log(
           "[COURSE] Engine initialized"
         );
