@@ -1,4 +1,4 @@
-const CACHE_NAME = "code-ascention-v1.7.1";
+const CACHE_NAME = "code-ascention-v1.7.3";
 
 const ASSETS_TO_CACHE = [
   "/",
@@ -18,80 +18,135 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
       for (const url of ASSETS_TO_CACHE) {
         try {
-          const res = await fetch(url);
-          if (res.ok) await cache.put(url, res);
-        } catch (e) {
-          // ignora silenciosamente
+          const response = await fetch(url, {
+            cache: "no-cache",
+          });
+
+          if (response.ok) {
+            await cache.put(url, response);
+          }
+        } catch (err) {
+          console.warn("[SW INSTALL]", url, err);
         }
       }
-    }),
+    })(),
   );
 });
 
 /* =========================================================
-   ACTIVATE EVENT (CLEANUP DE ASSETS ANTIGOS)
+   ACTIVATE EVENT
 ========================================================= */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.map(async (key) => {
-            if (key !== CACHE_NAME) return caches.delete(key);
+    (async () => {
+      const keys = await caches.keys();
 
-            // Limpeza agressiva de lixo binário em caches antigos/atuais
-            const cache = await caches.open(key);
-            const requests = await cache.keys();
-            return Promise.all(
-              requests.map((req) => {
-                if (req.url.endsWith(".wasm") || req.url.endsWith(".bin")) {
-                  return cache.delete(req);
-                }
-              }),
-            );
-          }),
-        ),
-      )
-      .then(() => {
-        console.log("[SW] Controle assumido. Pipelines prontos.");
-        return self.clients.claim();
-      }),
+      await Promise.all(
+        keys.map(async (key) => {
+          if (key !== CACHE_NAME) {
+            console.log("[SW] Removing old cache:", key);
+            return caches.delete(key);
+          }
+        }),
+      );
+
+      console.log("[SW] Controle assumido. Pipelines prontos.");
+
+      await self.clients.claim();
+    })(),
   );
 });
 
 /* =========================================================
-   FETCH EVENT (ESTRATÉGIA DE CACHE + ISOLAMENTO DE LOCAL IA)
+   FETCH EVENT
 ========================================================= */
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (event.request.method !== "GET") {
+    return;
+  }
 
   const url = new URL(event.request.url);
+
+  /* =====================================================
+     AI / MODEL / WASM DETECTION
+  ===================================================== */
 
   const isAI =
     url.hostname.includes("huggingface.co") ||
     url.hostname.includes("cdn-lfs.huggingface.co") ||
     url.hostname.includes("raw.githubusercontent.com") ||
+    url.pathname.includes("/models/") ||
+    url.pathname.includes("/tokenizer") ||
+    url.pathname.includes("webllm") ||
     url.pathname.endsWith(".wasm") ||
     url.pathname.endsWith(".bin") ||
-    url.pathname.endsWith(".gguf");
+    url.pathname.endsWith(".gguf") ||
+    url.pathname.endsWith(".params") ||
+    (
+      url.pathname.endsWith(".json") &&
+      (
+        url.pathname.includes("tokenizer") ||
+        url.pathname.includes("model") ||
+        url.pathname.includes("config")
+      )
+    );
+
+  /* =====================================================
+     NEVER CACHE AI ASSETS
+  ===================================================== */
+
+  if (isAI) {
+    event.respondWith(
+      (async () => {
+        try {
+          return await fetch(event.request);
+        } catch (err) {
+          console.error(
+            "[AI FETCH FAILED]",
+            event.request.url,
+            err,
+          );
+
+          return Response.error();
+        }
+      })(),
+    );
+
+    return;
+  }
+
+  /* =====================================================
+     IGNORE EXTENSION / WALLET / CROSS-ORIGIN NOISE
+  ===================================================== */
+
+  const ignoredHosts = [
+    "verify.walletconnect.org",
+    "relay.walletconnect.com",
+    "google-analytics.com",
+    "www.google-analytics.com",
+  ];
+
+  if (
+    ignoredHosts.some((host) =>
+      url.hostname.includes(host),
+    )
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  /* =====================================================
+     CACHE STRATEGY
+  ===================================================== */
 
   event.respondWith(
     (async () => {
       try {
-        /*
-          NEVER CACHE AI ASSETS
-        */
-        if (isAI) {
-          return await fetch(event.request);
-        }
-
-        /*
-          CACHE FIRST
-        */
         const cached = await caches.match(event.request);
 
         if (cached) {
@@ -100,13 +155,17 @@ self.addEventListener("fetch", (event) => {
 
         const response = await fetch(event.request);
 
-        if (
+        const shouldCache =
           response &&
-          response.status === 200
-        ) {
+          response.status === 200 &&
+          response.type === "basic" &&
+          !url.pathname.startsWith("/api/") &&
+          !url.pathname.includes("_next/webpack-hmr");
+
+        if (shouldCache) {
           const cache = await caches.open(CACHE_NAME);
 
-          cache.put(
+          await cache.put(
             event.request,
             response.clone(),
           );
@@ -116,6 +175,7 @@ self.addEventListener("fetch", (event) => {
       } catch (err) {
         console.error(
           "[SW FETCH ERROR]",
+          event.request.url,
           err,
         );
 
@@ -126,8 +186,7 @@ self.addEventListener("fetch", (event) => {
           {
             status: 503,
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
           },
         );
@@ -135,12 +194,16 @@ self.addEventListener("fetch", (event) => {
     })(),
   );
 });
+
 /* =========================================================
-   CICLO DE VIDA DETERMINÍSTICO (BACKGROUND MESSAGING)
+   BACKGROUND MESSAGE CHANNEL
 ========================================================= */
+
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "DETERMINISTIC_CLEANUP") {
-    // Confirmação de recebimento da rotina secundária disparada no App Boot
+  if (
+    event.data &&
+    event.data.type === "DETERMINISTIC_CLEANUP"
+  ) {
     console.log(
       "[SW Channel] Pipeline secundário ativado: Auto-Cleanup validado com sucesso.",
     );
