@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { get, save } from "@/lib/others/db";
-import { playSound } from "@/lib/others/sounds";
 import { fullClientCacheReset } from "@/lib/others/cleanCache";
+import { get, save } from "@/lib/others/db";
 import { precompileNeuralModules } from "@/lib/others/neuralBundler";
+import { playSound } from "@/lib/others/sounds";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import {
+  ChevronRight,
+  Database,
   Lock,
   Unlock,
-  ChevronRight,
   Zap,
-  Database,
 } from "lucide-react";
 
+import { Model, SYSTEM_CONFIG } from "@/config/system";
 import { detectSystemCapabilities } from "@/lib/others/modelManager";
-import { SYSTEM_CONFIG, Model } from "@/config/system";
 
 const loadEngine = async () => {
   const mod = await import("@/lib/others/webllm");
@@ -78,11 +78,7 @@ export default function MachineLockPage() {
   }, []);
 
   // 🌐 network guard
-  const ensureOnline = () => {
-    if (!navigator.onLine) {
-      throw new Error("OFFLINE: sem conexão com internet");
-    }
-  };
+
 
   // 🔁 engine retry wrapper
   const runWithRetry = async (fn: any, retries = 2) => {
@@ -102,6 +98,7 @@ export default function MachineLockPage() {
   };
 
   // 🚀 INIT ENGINE (blindado)
+  // 🚀 INIT ENGINE (blindado)
   const handleInitialize = async () => {
     if (initializingRef.current) return;
     initializingRef.current = true;
@@ -110,7 +107,9 @@ export default function MachineLockPage() {
     playSound("click", 0.3);
 
     try {
-      ensureOnline();
+      // 💡 DICA: Como seu PWA é offline-first, se o modelo já está em cache,
+      // barrar o usuário caso ele esteja sem internet impede o funcionamento offline.
+      // Se quiser permitir uso offline total após o cache, comente a linha abaixo:
 
       const initEngine = await loadEngine();
 
@@ -125,13 +124,17 @@ export default function MachineLockPage() {
         });
       });
 
-      if (user) {
-        await save(
-          "user",
-          { ...user, model: selectedModel, engineReady: true },
-          "main"
-        );
-      }
+      // 🔥 CORREÇÃO: Mescla o usuário existente ou cria um objeto base caso seja null.
+      // Isso garante que o 'id: "main"' e 'engineReady: true' sejam persistidos sempre!
+      const updatedUser = {
+        ...(user || {}),
+        id: "main",
+        model: selectedModel,
+        engineReady: true,
+      };
+
+      // Salva de forma consistente para que a página do /hub valide com sucesso
+      await save("user", updatedUser, "main");
 
       playSound("success", 0.5);
 
@@ -157,11 +160,10 @@ export default function MachineLockPage() {
         {/* HEADER */}
         <div className="flex flex-col items-center mb-8">
           <div
-            className={`p-6 rounded-full border-2 mb-4 transition-all ${
-              isInitializing
+            className={`p-6 rounded-full border-2 mb-4 transition-all ${isInitializing
                 ? "border-cyan-500 animate-pulse"
                 : "border-slate-800"
-            }`}
+              }`}
           >
             {isInitializing ? (
               <Unlock className="text-cyan-400" size={48} />
@@ -214,11 +216,10 @@ export default function MachineLockPage() {
                   <button
                     key={m.model_id}
                     onClick={() => setSelectedModel(m.model_id)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                      selectedModel === m.model_id
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${selectedModel === m.model_id
                         ? "border-cyan-500 bg-cyan-950/10"
                         : "border-slate-800"
-                    }`}
+                      }`}
                   >
                     <div className="text-left">
                       <p className="text-sm font-bold">{m.name}</p>
