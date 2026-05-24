@@ -63,10 +63,10 @@ const nextConfig = {
             key: "Cross-Origin-Embedder-Policy",
             value: "require-corp",
           },
-          // ADICIONE ESTA LINHA ABAIXO:
+          // Solução para o erro [Violation] Permissions policy violation: unload
           {
             key: "Permissions-Policy",
-            value: "unload=*", 
+            value: "unload=*",
           },
         ],
       },
