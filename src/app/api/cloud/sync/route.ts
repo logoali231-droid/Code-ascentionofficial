@@ -14,13 +14,15 @@ export async function POST(req: Request) {
       timestamp,
     } = body;
 
-    // Import dinâmico protegido
+    // Importação dinâmica segura
     const { cosmosContainers } = await import("@/lib/server/cosmos");
 
-    // Validação se o banco de dados/cosmosContainers falhou ao ser instanciado globalmente
     if (!cosmosContainers) {
-      console.warn("CosmosDB client não está inicializado.");
-      return NextResponse.json({ success: false, warning: "Database offline localmente" }, { status: 200 });
+      console.warn("[SYNC]: Cosmos DB não foi inicializado localmente.");
+      return NextResponse.json(
+        { success: false, warning: "Banco de dados offline em dev" },
+        { status: 200 }
+      );
     }
 
     const container = cosmosContainers[store as keyof typeof cosmosContainers];
@@ -45,17 +47,17 @@ export async function POST(req: Request) {
       success: true,
     });
   } catch (err: any) {
-    console.error("Erro na rota Cloud Sync:", err);
+    console.error("[SYNC CRITICAL ERROR]:", err.message);
     
-    // IMPORTANTE: Em desenvolvimento local, se o banco falhar, retornar um fallback estruturado 
-    // com status 200 ou 202 impede o travamento catastrófico da Cache API do navegador no WebLLM.
+    // RETORNO CRÍTICO DE SEGURANÇA: Mudar para 200 em caso de erro local 
+    // impede que o Service Worker ou a Cache API travem o WebLLM
     return NextResponse.json(
       { 
         success: false, 
         error: err.message,
-        fallbackMode: true 
+        localFallback: true 
       },
-      { status: 200 } // Mudado de 500 para 200 temporariamente para salvar o fluxo offline
+      { status: 200 } 
     );
   }
 }
