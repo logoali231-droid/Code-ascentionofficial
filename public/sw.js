@@ -79,39 +79,62 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".bin") ||
     url.pathname.endsWith(".gguf");
 
-  /*
-    AI ASSETS:
-    NEVER CACHE IN SW
-  */
-  if (isAI) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
-
-  /*
-    NORMAL CACHE
-  */
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200) {
-          return response;
+    (async () => {
+      try {
+        /*
+          NEVER CACHE AI ASSETS
+        */
+        if (isAI) {
+          return await fetch(event.request);
         }
 
-        const cloned = response.clone();
+        /*
+          CACHE FIRST
+        */
+        const cached = await caches.match(event.request);
 
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, cloned);
-        });
+        if (cached) {
+          return cached;
+        }
+
+        const response = await fetch(event.request);
+
+        if (
+          response &&
+          response.status === 200
+        ) {
+          const cache = await caches.open(CACHE_NAME);
+
+          cache.put(
+            event.request,
+            response.clone(),
+          );
+        }
 
         return response;
-      });
-    }),
+      } catch (err) {
+        console.error(
+          "[SW FETCH ERROR]",
+          err,
+        );
+
+        return new Response(
+          JSON.stringify({
+            error: "network_error",
+          }),
+          {
+            status: 503,
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          },
+        );
+      }
+    })(),
   );
 });
-
 /* =========================================================
    CICLO DE VIDA DETERMINÍSTICO (BACKGROUND MESSAGING)
 ========================================================= */
