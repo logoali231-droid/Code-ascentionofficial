@@ -65,6 +65,9 @@ self.addEventListener("activate", (event) => {
 /* =========================================================
    FETCH EVENT
 ========================================================= */
+/* =========================================================
+   FETCH EVENT
+========================================================= */
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
     return;
@@ -75,11 +78,13 @@ self.addEventListener("fetch", (event) => {
   /* =====================================================
      AI / MODEL / WASM DETECTION
   ===================================================== */
-
   const isAI =
     url.hostname.includes("huggingface.co") ||
     url.hostname.includes("cdn-lfs.huggingface.co") ||
     url.hostname.includes("raw.githubusercontent.com") ||
+    url.hostname.includes("mlc-ai") ||
+    event.request.url.includes("huggingface.co") ||
+    event.request.url.includes("mlc-ai") ||
     url.pathname.includes("/models/") ||
     url.pathname.includes("/tokenizer") ||
     url.pathname.includes("webllm") ||
@@ -97,33 +102,18 @@ self.addEventListener("fetch", (event) => {
     );
 
   /* =====================================================
-     NEVER CACHE AI ASSETS
+     BYPASS TOTAL PARA ASSETS DE IA (NUNCA INTERCEPTAR)
   ===================================================== */
-
   if (isAI) {
-    event.respondWith(
-      (async () => {
-        try {
-          return await fetch(event.request);
-        } catch (err) {
-          console.error(
-            "[AI FETCH FAILED]",
-            event.request.url,
-            err,
-          );
-
-          return Response.error();
-        }
-      })(),
-    );
-
+    // Ao dar return sem chamar event.respondWith(), dizemos ao navegador
+    // para ignorar o Service Worker e fazer a requisição de rede nativa.
+    // Isso evita erros de CORS/COEP com arquivos .wasm e .bin de qualquer modelo.
     return;
   }
 
   /* =====================================================
      IGNORE EXTENSION / WALLET / CROSS-ORIGIN NOISE
   ===================================================== */
-
   const ignoredHosts = [
     "verify.walletconnect.org",
     "relay.walletconnect.com",
@@ -141,9 +131,8 @@ self.addEventListener("fetch", (event) => {
   }
 
   /* =====================================================
-     CACHE STRATEGY
+     ESTRATÉGIA DE CACHE (Apenas para arquivos locais do App)
   ===================================================== */
-
   event.respondWith(
     (async () => {
       try {
@@ -158,17 +147,13 @@ self.addEventListener("fetch", (event) => {
         const shouldCache =
           response &&
           response.status === 200 &&
-          response.type === "basic" &&
+          response.type === "basic" && // Garante que só cacheia arquivos do seu próprio domínio
           !url.pathname.startsWith("/api/") &&
           !url.pathname.includes("_next/webpack-hmr");
 
         if (shouldCache) {
           const cache = await caches.open(CACHE_NAME);
-
-          await cache.put(
-            event.request,
-            response.clone(),
-          );
+          await cache.put(event.request, response.clone());
         }
 
         return response;

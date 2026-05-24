@@ -3,7 +3,7 @@
 export interface Model {
   model_id: string;
   model: string;
-  model_lib: string;
+  model_lib?: string; // 💡 Tornado opcional para permitir que o WebLLM use o mapeamento automático padrão
   name: string;
   sizeMb: number;
   recommendedFor: "LOW" | "MID" | "HIGH";
@@ -30,15 +30,14 @@ const SYSTEM_CONFIG = {
 
   // PARÂMETROS DA LLM (Inferência Local / WebLLM)
   LLM: {
-  context_window_size: 1536,
-  sliding_window_size: 1024,
-  attention_sink_size: 4,
+    context_window_size: 1536,
+    sliding_window_size: 1024,
+    attention_sink_size: 4,
 
-  // 🔥 ADICIONA ISSO:
-  MOBILE: {
-    context_window_size: 768,
-    sliding_window_size: 512,
-  }
+    MOBILE: {
+      context_window_size: 768,
+      sliding_window_size: 512,
+    }
   },
   // PARÂMETROS DE CLEANUP (Limites físicos e controle de estado do app)
   CLEANUP: {
@@ -55,7 +54,7 @@ const SYSTEM_CONFIG = {
     {
       model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
       model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
-      model_lib: "",
+      // 🧠 model_lib removido: O WebLLM mapeará automaticamente o WASM do Qwen 2.5
       name: "Qwen 2.5 0.5B (Safe Mode)",
       sizeMb: 550,
       recommendedFor: "LOW",
@@ -63,7 +62,7 @@ const SYSTEM_CONFIG = {
     {
       model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC",
       model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
-      model_lib: "",
+      // 🧠 model_lib removido: O WebLLM mapeará automaticamente o WASM do Phi-3
       name: "Phi 3 Mini (Safe Mode)",
       sizeMb: 1900,
       recommendedFor: "MID",
@@ -71,7 +70,7 @@ const SYSTEM_CONFIG = {
     {
       model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
       model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-      model_lib: "",
+      // 🧠 model_lib removido: O WebLLM mapeará automaticamente o WASM do Phi-3.5
       name: "Phi 3.5 Mini",
       sizeMb: 2200,
       recommendedFor: "HIGH",
