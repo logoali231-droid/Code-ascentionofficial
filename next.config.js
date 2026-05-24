@@ -6,7 +6,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig = {
-  
   reactStrictMode: false,
 
   experimental: {
@@ -41,7 +40,6 @@ const nextConfig = {
       encoding: false,
     };
 
-    
     if (isServer) {
       config.externals.push({
         "@huggingface/transformers":
@@ -65,12 +63,15 @@ const nextConfig = {
             key: "Cross-Origin-Embedder-Policy",
             value: "require-corp",
           },
+          // ADICIONE ESTA LINHA ABAIXO:
+          {
+            key: "Permissions-Policy",
+            value: "unload=*", 
+          },
         ],
       },
     ];
   },
 };
 
-export default withBundleAnalyzer(
-  nextConfig,
-);
+export default withBundleAnalyzer(nextConfig);
