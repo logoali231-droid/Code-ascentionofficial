@@ -1,9 +1,9 @@
 "use client";
 
-import type { MLCEngineInterface } from "@mlc-ai/web-llm";
-import { playSound } from "./sounds";
-import { detectSystemCapabilities } from "./modelManager";
 import { SYSTEM_CONFIG } from "@/config/system";
+import type { MLCEngineInterface } from "@mlc-ai/web-llm";
+import { detectSystemCapabilities } from "./modelManager";
+import { playSound } from "./sounds";
 
 /* =========================================================
    GLOBAL STATE
@@ -15,6 +15,30 @@ let currentModel: string | null = null;
 let generationLock = false;
 let backgroundSince: number | null = null;
 let gpuRecoveryInProgress = false;
+
+async function CacheReset() {
+  try {
+    // 1. Cache API (principal culpado do Cache.add crash)
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys.map(k => caches.delete(k)));
+
+    // 2. IndexedDB cleanup
+    if (indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      dbs.forEach(db => {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      });
+    }
+
+    // 3. Service Workers (MUITO importante)
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+
+    console.log("[WEBLLM] Nuclear cache reset done");
+  } catch (e) {
+    console.warn("[WEBLLM] reset failed:", e);
+  }
+}
 
 /* =========================================================
    🔥 SAFE CACHE RESET (CRÍTICO PARA MOBILE)
@@ -114,6 +138,8 @@ export async function initEngine(
       if (isMobile && isPhi) {
         console.warn("[WEBLLM] Mobile Phi safe mode");
       }
+
+      await CacheReset();
 
       engine = await CreateWebWorkerMLCEngine(worker, selectedModelId, {
         initProgressCallback: onProgress,
