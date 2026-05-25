@@ -29,6 +29,8 @@ export default function NewCoursePage() {
 
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 🔥 separa animação visual do loading real
   const [isForging, setIsForging] = useState(false);
 
   const [status, setStatus] = useState("");
@@ -147,143 +149,91 @@ Spaced Repetition Targets: [${reviewStr}]
 
       let cleanContent = "";
 
-      // 🔥 evita loop infinito silencioso
-      const MAX_CHARS = 45000;
+      let simulatedProgress = 40;
 
-      // 🔥 fallback de timeout
-      const generationStart = Date.now();
+      const estimatedMaxChars = 35000;
+      const hardMaxChars = 50000;
 
       for await (const chunk of generator) {
         cleanContent += chunk;
 
         // =====================================================
-        // HARD LIMIT
+        // HARD SAFETY LIMIT
         // =====================================================
 
-        if (cleanContent.length >= MAX_CHARS) {
-          console.warn(
-            "MAX_CHARS_REACHED: forcing stop",
-          );
+        if (cleanContent.length >= hardMaxChars) {
+          throw new Error("MAX_OUTPUT_LIMIT_REACHED");
+        }
 
+        // =====================================================
+        // AUTO STOP IF JSON COMPLETED
+        // =====================================================
+
+        const trimmed = cleanContent.trim();
+
+        const jsonLooksComplete =
+          trimmed.endsWith("}") &&
+          trimmed.includes('"lessons"');
+
+        if (jsonLooksComplete) {
           break;
         }
 
         // =====================================================
-        // TIMEOUT
+        // PROGRESS CALCULATION
         // =====================================================
 
-        if (
-          Date.now() - generationStart >
-          1000 * 60
-        ) {
-          throw new Error(
-            "GENERATION_TIMEOUT",
-          );
-        }
-
-        // =====================================================
-        // SMART PROGRESS
-        // =====================================================
-
-        const generationRatio =
-          cleanContent.length / MAX_CHARS;
-
-        const calculatedProgress =
-          Math.min(
-            78,
-            40 + generationRatio * 38,
-          );
-
-        setProgress(
-          Math.floor(calculatedProgress),
+        const targetProgress = Math.min(
+          78,
+          40 + (
+            cleanContent.length /
+            estimatedMaxChars
+          ) * 38,
         );
+
+        simulatedProgress +=
+          (targetProgress - simulatedProgress) * 0.15;
+
+        const uiProgress =
+          Math.floor(simulatedProgress);
+
+        setProgress(uiProgress);
 
         setStatus(
-          `DOWNLOADING_NEURAL_DATA... [${Math.floor(
-            generationRatio * 100,
-          )}%]`,
+          `DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`,
         );
-
-        // =====================================================
-        // EARLY JSON DETECTION
-        // =====================================================
-
-        const trimmed =
-          cleanContent.trim();
-
-        if (
-          trimmed.endsWith("}") &&
-          trimmed.includes('"lessons"')
-        ) {
-          try {
-            JSON.parse(
-              trimmed
-                .replace(/```json/g, "")
-                .replace(/```/g, "")
-                .trim(),
-            );
-
-            console.log(
-              "VALID_JSON_DETECTED",
-            );
-
-            break;
-          } catch {
-            // ainda incompleto
-          }
-        }
       }
 
-      if (!cleanContent) {
+      if (!cleanContent.trim()) {
         throw new Error("EMPTY_AI_RESPONSE");
       }
 
+      if (
+        !cleanContent.includes('"lessons"')
+      ) {
+        throw new Error("INVALID_COURSE_SCHEMA");
+      }
       setProgress(85);
 
-      setStatus(
-        "PARSING_CURRICULUM_MATRIX...",
-      );
+      setStatus("PARSING_CURRICULUM_MATRIX...");
 
-      // =========================================================
-      // SANITIZE
-      // =========================================================
-
+      // 🔥 remove markdown fence caso IA devolva ```json
       const sanitized = cleanContent
         .replace(/```json/g, "")
         .replace(/```/g, "")
         .trim();
 
-      // =========================================================
-      // PARSE
-      // =========================================================
-
-      let courseData;
-
-      try {
-        courseData = JSON.parse(sanitized);
-      } catch (parseErr) {
-        console.error(
-          "INVALID_JSON:",
-          sanitized,
-        );
-
-        throw new Error(
-          "CURRICULUM_MATRIX_CORRUPTED",
-        );
-      }
+      const courseData = JSON.parse(sanitized);
 
       setProgress(92);
 
-      setStatus(
-        "STABILIZING_ENCRYPTION...",
-      );
+      setStatus("STABILIZING_ENCRYPTION...");
 
       const newCourse = {
         id: courseId,
         topic,
         difficulty,
-        lessons:
-          courseData.lessons || [],
+        lessons: courseData.lessons || [],
         createdAt: Date.now(),
         status: "active",
       };
@@ -310,38 +260,13 @@ Spaced Repetition Targets: [${reviewStr}]
       playSound("success", 0.5);
 
       setTimeout(() => {
-        router.push(
-          `/course/${courseId}`,
-        );
+        router.push(`/course/${courseId}`);
       }, 1000);
 
     } catch (err) {
-      console.error(
-        "Forge Error:",
-        err,
-      );
+      console.error("Forge Error:", err);
 
-      if (
-        err instanceof Error &&
-        err.message ===
-          "GENERATION_TIMEOUT"
-      ) {
-        setStatus(
-          "GENERATION_TIMEOUT_DETECTED",
-        );
-      } else if (
-        err instanceof Error &&
-        err.message ===
-          "CURRICULUM_MATRIX_CORRUPTED"
-      ) {
-        setStatus(
-          "INVALID_AI_RESPONSE_STRUCTURE",
-        );
-      } else {
-        setStatus(
-          "LINK_CRITICAL_FAILURE",
-        );
-      }
+      setStatus("LINK_CRITICAL_FAILURE");
 
       playSound("error", 0.5);
 
@@ -399,13 +324,10 @@ Spaced Repetition Targets: [${reviewStr}]
 
           <div className="relative group">
             <div
-              className={`absolute -inset-1 bg-linear-to-r ${
-                status.includes(
-                  "REJECTED",
-                )
-                  ? "from-red-500 to-orange-600"
-                  : "from-cyan-500 to-purple-600"
-              } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
+              className={`absolute -inset-1 bg-linear-to-r ${status.includes("REJECTED")
+                ? "from-red-500 to-orange-600"
+                : "from-cyan-500 to-purple-600"
+                } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
             />
 
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
@@ -413,15 +335,9 @@ Spaced Repetition Targets: [${reviewStr}]
                 type="text"
                 value={topic}
                 onChange={(e) => {
-                  setTopic(
-                    e.target.value,
-                  );
+                  setTopic(e.target.value);
 
-                  if (
-                    status.includes(
-                      "REJECTED",
-                    )
-                  ) {
+                  if (status.includes("REJECTED")) {
                     setStatus("");
                   }
                 }}
@@ -449,15 +365,15 @@ Spaced Repetition Targets: [${reviewStr}]
                   </span>
                 </div>
 
+                {/* 🔥 número acompanha barra */}
                 <span className="text-2xl font-black text-slate-700 tabular-nums">
-                  {Math.floor(
-                    progress,
-                  )}
-                  %
+                  {Math.floor(progress)}%
                 </span>
               </div>
 
+              {/* ========================================================= */}
               {/* PROGRESS BAR */}
+              {/* ========================================================= */}
 
               <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
                 <div
@@ -468,7 +384,9 @@ Spaced Repetition Targets: [${reviewStr}]
                 />
               </div>
 
+              {/* ========================================================= */}
               {/* INFO BOX */}
+              {/* ========================================================= */}
 
               <div className="flex items-start gap-3 p-4 bg-slate-950/50 rounded border border-slate-800/50">
                 <Loader2
@@ -485,9 +403,7 @@ Spaced Repetition Targets: [${reviewStr}]
             </div>
           ) : (
             <div className="space-y-4">
-              {status.includes(
-                "REJECTED",
-              ) && (
+              {status.includes("REJECTED") && (
                 <div className="text-red-500 text-[10px] font-black uppercase flex items-center gap-2 mb-2">
                   <AlertTriangle size={12} />
                   {status}
@@ -515,6 +431,113 @@ Spaced Repetition Targets: [${reviewStr}]
             </div>
           )}
         </form>
+
+        {/* ========================================================= */}
+        {/* CUSTOM STYLE */}
+        {/* ========================================================= */}
+
+        <div className="mt-8 p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
+          <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
+            <Sparkles size={16} />
+
+            <span className="text-[11px] font-black uppercase tracking-tighter">
+              Custom_Neural_Directive
+            </span>
+          </div>
+
+          <textarea
+            value={customStyle}
+            onChange={(e) =>
+              setCustomStyle(e.target.value)
+            }
+            placeholder="EX: Explique usando metáforas de Star Wars..."
+            className="w-full h-20 bg-slate-950 text-slate-200 font-bold text-sm py-2 px-3 rounded-lg border border-slate-800 outline-none focus:border-[#00f0ff] placeholder:text-slate-700 tracking-tight transition-colors resize-none uppercase"
+            disabled={loading}
+          />
+
+          <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+
+          <p className="text-[10px] text-slate-500 leading-normal uppercase">
+            Injeta modificadores diretos na personalidade e didática da IA.
+          </p>
+        </div>
+
+        {/* ========================================================= */}
+        {/* GRID */}
+        {/* ========================================================= */}
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* COGNITIVE */}
+
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
+              <Zap
+                size={16}
+                fill="currentColor"
+              />
+
+              <span className="text-[11px] font-black uppercase tracking-tighter">
+                Cognitive_Shield
+              </span>
+            </div>
+
+            <select
+              value={cognitiveProfile}
+              onChange={(e) =>
+                setCognitiveProfile(
+                  e.target.value as CognitiveProfile,
+                )
+              }
+              className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
+              disabled={loading}
+            >
+              <option value="Standard">
+                Standard
+              </option>
+
+              <option value="tdah">
+                TDAH
+              </option>
+
+              <option value="Deep_Dive">
+                Deep_Dive
+              </option>
+
+              <option value="Visual_Logic">
+                Visual_Logic
+              </option>
+            </select>
+
+            <div className="h-1 w-12 bg-purple-500/30 my-2" />
+
+            <p className="text-[10px] text-slate-500 leading-normal uppercase">
+              Curriculum density calibrated for your neural profile.
+            </p>
+          </div>
+
+          {/* HARDWARE */}
+
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-cyan-400 mb-3">
+              <Cpu size={16} />
+
+              <span className="text-[11px] font-black uppercase tracking-tighter">
+                Hardware_Status
+              </span>
+            </div>
+
+            <p className="text-xl font-bold text-slate-200">
+              Local_WebGPU
+            </p>
+
+            <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+
+            <p className="text-[10px] text-slate-500 leading-normal uppercase">
+              Zero data exfiltration. All processing happens inside device
+              sandbox.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
