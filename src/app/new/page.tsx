@@ -1,7 +1,7 @@
 "use client";
 
-import { getWeakTopics, getSuggestedTopics } from "@/lib/others/curriculumState"; // Mapeamento do curso atual
-import { getReviewConcepts } from "@/lib/others/mastery"; // Repetição espaçada global
+import { getWeakTopics, getSuggestedTopics } from "@/lib/others/curriculumState";
+import { getReviewConcepts } from "@/lib/others/mastery";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/others/db";
@@ -13,7 +13,6 @@ import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
 
 import {
-  Terminal,
   Cpu,
   Zap,
   BrainCircuit,
@@ -22,6 +21,7 @@ import {
   ChevronLeft,
   Loader2,
 } from "lucide-react";
+
 import { calculateLevel } from "@/lib/others/level";
 
 export default function NewCoursePage() {
@@ -29,93 +29,164 @@ export default function NewCoursePage() {
 
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 🔥 separa animação visual do loading real
+  const [isForging, setIsForging] = useState(false);
+
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
+
   const [user, setUser] = useState<any>(null);
+
   const [cognitiveProfile, setCognitiveProfile] =
     useState<CognitiveProfile>("Standard");
+
   const [customStyle, setCustomStyle] = useState("");
 
   useEffect(() => {
     async function loadUser() {
       const userData = await get("user", "main");
+
       setUser(userData);
+
       if (userData?.cognitive) {
         setCognitiveProfile(userData.cognitive);
       }
     }
+
     loadUser();
   }, []);
 
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!topic.trim() || loading) return;
 
     if (gibberishDetector.isTotalGibberish(topic, "promptTheme")) {
       setStatus("INPUT_REJECTED: NEURAL_NOISE_DETECTED");
+
       playSound("error", 0.5);
+
       return;
     }
 
     setLoading(true);
+    setIsForging(true);
+
     setStatus("INITIALIZING_NEURAL_LINK...");
     setProgress(10);
+
     playSound("click", 0.3);
 
     try {
-      const difficulty = await suggestDifficulty(topic, cognitiveProfile);
+      const difficulty = await suggestDifficulty(
+        topic,
+        cognitiveProfile,
+      );
+
       setProgress(25);
+
       setStatus("ANALYZING_COGNITIVE_MAP...");
 
       const courseId = `course_${Date.now()}`;
+
       const realLevel = calculateLevel(user?.xp || 0);
+
       const userProfile = cognitiveProfile;
 
-      // 1. Recupera as deficiências e pendências reais do usuário (Motor Adaptativo)
-      const currentCourseId = user?.activeCourse || "main";
-      const weakTopics = await getWeakTopics(currentCourseId);
-      const suggestedTopics = await getSuggestedTopics(currentCourseId);
-      const spacedRepetitionTargets = await getReviewConcepts(3);
+      // =========================================================
+      // ADAPTIVE LEARNING STATE
+      // =========================================================
 
-      // 2. Transforma os dados reais em strings para orientar a geração da IA
+      const currentCourseId =
+        user?.activeCourse || "main";
+
+      const weakTopics =
+        await getWeakTopics(currentCourseId);
+
+      await getSuggestedTopics(currentCourseId);
+
+      const spacedRepetitionTargets =
+        await getReviewConcepts(3);
+
       const weakTopicsStr =
         weakTopics
           .map((t) => t.topic)
           .slice(0, 3)
           .join(", ") || "None detected";
+
       const reviewStr =
-        spacedRepetitionTargets.map((c) => c.conceptId).join(", ") ||
-        "None pending";
+        spacedRepetitionTargets
+          .map((c) => c.conceptId)
+          .join(", ") || "None pending";
 
-      // 3. Injeta as vulnerabilidades diretamente na string de estado enviada à IA
-      const learningStateString = `Level: ${realLevel}, Cognitive: ${userProfile}, Critical Weaknesses to address: [${weakTopicsStr}], Spaced Repetition Targets: [${reviewStr}]`;
+      const learningStateString = `
+Level: ${realLevel},
+Cognitive: ${userProfile},
+Critical Weaknesses: [${weakTopicsStr}],
+Spaced Repetition Targets: [${reviewStr}]
+`;
 
-      const fullPrompt = await buildCoursePrompt(
-        topic,
-        learningStateString,
-        courseId,
-        userProfile,
-        customStyle,
-        cognitiveProfile,
-      );
+      const fullPrompt =
+        await buildCoursePrompt(
+          topic,
+          learningStateString,
+          courseId,
+          userProfile,
+          customStyle,
+          cognitiveProfile,
+        );
+
+      // =========================================================
+      // AI GENERATION
+      // =========================================================
 
       setProgress(40);
+
       setStatus("FORGING_CURRICULUM_DATA...");
 
       const generator = generate(fullPrompt);
+
       let cleanContent = "";
+
+      let simulatedProgress = 40;
 
       for await (const chunk of generator) {
         cleanContent += chunk;
-        setStatus(`DOWNLOADING_NEURAL_DATA... [${cleanContent.length} bytes]`);
+
+        // 🔥 progresso sobe junto com geração
+        simulatedProgress = Math.min(
+          78,
+          simulatedProgress + Math.random() * 4,
+        );
+
+        setProgress(Math.floor(simulatedProgress));
+
+        setStatus(
+          `DOWNLOADING_NEURAL_DATA... [${cleanContent.length} bytes]`,
+        );
       }
 
-      if (!cleanContent) throw new Error("EMPTY_AI_RESPONSE");
+      if (!cleanContent) {
+        throw new Error("EMPTY_AI_RESPONSE");
+      }
 
-      setProgress(80);
+      setProgress(85);
+
+      setStatus("PARSING_CURRICULUM_MATRIX...");
+
+      // 🔥 remove markdown fence caso IA devolva ```json
+      const sanitized = cleanContent
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+      const courseData = JSON.parse(sanitized);
+
+      setProgress(92);
+
       setStatus("STABILIZING_ENCRYPTION...");
 
-      const courseData = JSON.parse(cleanContent);
       const newCourse = {
         id: courseId,
         topic,
@@ -125,26 +196,52 @@ export default function NewCoursePage() {
         status: "active",
       };
 
-      await save("courses", newCourse, courseId);
-      await save("user", { ...user, activeCourse: courseId }, "main");
+      await save(
+        "courses",
+        newCourse,
+        courseId,
+      );
+
+      await save(
+        "user",
+        {
+          ...user,
+          activeCourse: courseId,
+        },
+        "main",
+      );
 
       setProgress(100);
+
       setStatus("SYNC_COMPLETE");
+
       playSound("success", 0.5);
 
       setTimeout(() => {
         router.push(`/course/${courseId}`);
-      }, 800);
+      }, 1000);
+
     } catch (err) {
       console.error("Forge Error:", err);
+
       setStatus("LINK_CRITICAL_FAILURE");
+
       playSound("error", 0.5);
+
       setLoading(false);
+
+      setTimeout(() => {
+        setIsForging(false);
+      }, 1200);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
+      {/* ========================================================= */}
+      {/* HEADER */}
+      {/* ========================================================= */}
+
       <div className="max-w-2xl mx-auto mb-8 border-b border-slate-800 pb-6">
         <button
           onClick={() => router.back()}
@@ -155,29 +252,53 @@ export default function NewCoursePage() {
         </button>
 
         <div className="flex items-center gap-3 text-cyan-500 mb-2">
-          <BrainCircuit size={32} className="animate-pulse" />
+          <BrainCircuit
+            size={32}
+            className="animate-pulse"
+          />
+
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">
             Neural_Forge
           </h1>
         </div>
+
         <p className="text-[10px] text-slate-500 uppercase tracking-widest">
           Procedural content generation via Local LLM Core
         </p>
       </div>
 
+      {/* ========================================================= */}
+      {/* MAIN */}
+      {/* ========================================================= */}
+
       <div className="max-w-2xl mx-auto">
-        <form onSubmit={handleForge} className="space-y-8">
+        <form
+          onSubmit={handleForge}
+          className="space-y-8"
+        >
+          {/* ========================================================= */}
+          {/* TOPIC INPUT */}
+          {/* ========================================================= */}
+
           <div className="relative group">
             <div
-              className={`absolute -inset-1 bg-linear-to-r ${status.includes("REJECTED") ? "from-red-500 to-orange-600" : "from-cyan-500 to-purple-600"} rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
-            ></div>
+              className={`absolute -inset-1 bg-linear-to-r ${
+                status.includes("REJECTED")
+                  ? "from-red-500 to-orange-600"
+                  : "from-cyan-500 to-purple-600"
+              } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
+            />
+
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => {
                   setTopic(e.target.value);
-                  if (status.includes("REJECTED")) setStatus("");
+
+                  if (status.includes("REJECTED")) {
+                    setStatus("");
+                  }
                 }}
                 placeholder="INPUT_LEARNING_TOPIC_HERE..."
                 className="w-full bg-transparent p-4 outline-none text-cyan-50 font-bold placeholder:text-slate-700 text-lg"
@@ -186,37 +307,55 @@ export default function NewCoursePage() {
             </div>
           </div>
 
-          {loading ? (
+          {/* ========================================================= */}
+          {/* FORGE STATUS */}
+          {/* ========================================================= */}
+
+          {isForging ? (
             <div className="space-y-6 p-8 bg-slate-900/50 rounded-2xl border border-slate-800 animate-in fade-in zoom-in duration-500">
               <div className="flex justify-between items-end mb-2">
                 <div className="space-y-1">
                   <span className="block text-[10px] text-slate-500 font-bold">
                     SYSTEM_STATUS
                   </span>
+
                   <span className="block text-cyan-400 text-xs font-black tracking-widest animate-pulse">
                     {status}
                   </span>
                 </div>
-                <span className="text-2xl font-black text-slate-700">
-                  {progress}%
+
+                {/* 🔥 número acompanha barra */}
+                <span className="text-2xl font-black text-slate-700 tabular-nums">
+                  {Math.floor(progress)}%
                 </span>
               </div>
 
+              {/* ========================================================= */}
+              {/* PROGRESS BAR */}
+              {/* ========================================================= */}
+
               <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
                 <div
-                  className="h-full bg-linear-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
-                  style={{ width: `${progress}%` }}
+                  className="h-full bg-linear-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                  style={{
+                    width: `${progress}%`,
+                  }}
                 />
               </div>
+
+              {/* ========================================================= */}
+              {/* INFO BOX */}
+              {/* ========================================================= */}
 
               <div className="flex items-start gap-3 p-4 bg-slate-950/50 rounded border border-slate-800/50">
                 <Loader2
                   size={16}
-                  className="text-cyan-500 animate-spin mt-0.5"
+                  className="text-cyan-500 animate-spin mt-0.5 shrink-0"
                 />
+
                 <p className="text-[9px] text-slate-500 leading-relaxed uppercase">
                   Notice: The Neural Engine is executing a heavy VRAM operation
-                  on your local GPU. Closing this uplink will corrupt the forge
+                  on your local GPU. Closing this uplink may corrupt the forge
                   sequence.
                 </p>
               </div>
@@ -229,16 +368,20 @@ export default function NewCoursePage() {
                   {status}
                 </div>
               )}
+
               <button
                 type="submit"
+                disabled={loading}
                 className="group relative w-full overflow-hidden p-0.5 rounded-xl transition-transform active:scale-[0.98]"
               >
                 <div className="absolute inset-0 bg-linear-to-r from-cyan-500 via-purple-500 to-blue-500 animate-gradient-x" />
+
                 <div className="relative bg-slate-950 rounded-[10px] p-5 flex items-center justify-center gap-3 group-hover:bg-transparent transition-colors">
                   <Sparkles
                     size={20}
                     className="text-cyan-400 group-hover:text-slate-950"
                   />
+
                   <span className="text-slate-100 font-black uppercase tracking-tighter group-hover:text-slate-950">
                     Begin Sequential Forge
                   </span>
@@ -248,69 +391,109 @@ export default function NewCoursePage() {
           )}
         </form>
 
-        {/* Input de Estilo Customizado adicionado antes do grid de status */}
+        {/* ========================================================= */}
+        {/* CUSTOM STYLE */}
+        {/* ========================================================= */}
+
         <div className="mt-8 p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
           <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
             <Sparkles size={16} />
+
             <span className="text-[11px] font-black uppercase tracking-tighter">
               Custom_Neural_Directive
             </span>
           </div>
+
           <textarea
             value={customStyle}
-            onChange={(e) => setCustomStyle(e.target.value)}
-            placeholder="EX: Explique usando metáforas de Star Wars, seja sarcástico, ou aja como um sênior exigente..."
+            onChange={(e) =>
+              setCustomStyle(e.target.value)
+            }
+            placeholder="EX: Explique usando metáforas de Star Wars..."
             className="w-full h-20 bg-slate-950 text-slate-200 font-bold text-sm py-2 px-3 rounded-lg border border-slate-800 outline-none focus:border-[#00f0ff] placeholder:text-slate-700 tracking-tight transition-colors resize-none uppercase"
             disabled={loading}
           />
+
           <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+
           <p className="text-[10px] text-slate-500 leading-normal uppercase">
-            Injeta modificadores diretos na personalidade e didática da
-            Inteligência Artificial.
+            Injeta modificadores diretos na personalidade e didática da IA.
           </p>
         </div>
 
+        {/* ========================================================= */}
+        {/* GRID */}
+        {/* ========================================================= */}
+
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm focus-within:border-[#00f0ff] transition-colors duration-300">
+          {/* COGNITIVE */}
+
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
-              <Zap size={16} fill="currentColor" />
+              <Zap
+                size={16}
+                fill="currentColor"
+              />
+
               <span className="text-[11px] font-black uppercase tracking-tighter">
                 Cognitive_Shield
               </span>
             </div>
-            <div className="relative">
-              <select
-                value={cognitiveProfile}
-                onChange={(e) =>
-                  setCognitiveProfile(e.target.value as CognitiveProfile)
-                }
-                className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
-                disabled={loading}
-              >
-                <option value="Standard">Standard</option>
-                <option value="tdah">TDAH</option>
-                <option value="Deep_Dive">Deep_Dive</option>
-                <option value="Visual_Logic">Visual_Logic</option>
-              </select>
-            </div>
+
+            <select
+              value={cognitiveProfile}
+              onChange={(e) =>
+                setCognitiveProfile(
+                  e.target.value as CognitiveProfile,
+                )
+              }
+              className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
+              disabled={loading}
+            >
+              <option value="Standard">
+                Standard
+              </option>
+
+              <option value="tdah">
+                TDAH
+              </option>
+
+              <option value="Deep_Dive">
+                Deep_Dive
+              </option>
+
+              <option value="Visual_Logic">
+                Visual_Logic
+              </option>
+            </select>
+
             <div className="h-1 w-12 bg-purple-500/30 my-2" />
+
             <p className="text-[10px] text-slate-500 leading-normal uppercase">
-              Curriculum density automatically calibrated for your neural
-              profile.
+              Curriculum density calibrated for your neural profile.
             </p>
           </div>
+
+          {/* HARDWARE */}
 
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-cyan-400 mb-3">
               <Cpu size={16} />
+
               <span className="text-[11px] font-black uppercase tracking-tighter">
                 Hardware_Status
               </span>
             </div>
-            <p className="text-xl font-bold text-slate-200">Local_WebGPU</p>
+
+            <p className="text-xl font-bold text-slate-200">
+              Local_WebGPU
+            </p>
+
             <div className="h-1 w-12 bg-cyan-500/30 my-2" />
+
             <p className="text-[10px] text-slate-500 leading-normal uppercase">
-              Zero data exfiltration. All processing happens in device sandbox.
+              Zero data exfiltration. All processing happens inside device
+              sandbox.
             </p>
           </div>
         </div>
