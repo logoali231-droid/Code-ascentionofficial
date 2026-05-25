@@ -232,6 +232,7 @@ export async function* generate(
       temperature,
       stream: true,
       signal,
+      max_tokens: 6000
     } as any);
 
     for await (const chunk of stream as any) {

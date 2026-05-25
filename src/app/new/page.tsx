@@ -155,15 +155,27 @@ Spaced Repetition Targets: [${reviewStr}]
         cleanContent += chunk;
 
         // 🔥 progresso sobe junto com geração
-        simulatedProgress = Math.min(
-          78,
-          simulatedProgress + Math.random() * 4,
+        const estimatedMaxChars = 35000;
+
+        const targetProgress =
+          Math.min(
+            78,
+            40 + (
+              cleanContent.length /
+              estimatedMaxChars
+            ) * 38,
+          );
+
+        simulatedProgress +=
+          (targetProgress - simulatedProgress) * 0.15;
+
+        setProgress(
+          Math.floor(simulatedProgress),
         );
-
         setProgress(Math.floor(simulatedProgress));
-
+        
         setStatus(
-          `DOWNLOADING_NEURAL_DATA... [${cleanContent.length} bytes]`,
+          `DOWNLOADING_NEURAL_DATA... [${Math.floor(simulatedProgress)}%]`,
         );
       }
 
@@ -282,11 +294,10 @@ Spaced Repetition Targets: [${reviewStr}]
 
           <div className="relative group">
             <div
-              className={`absolute -inset-1 bg-linear-to-r ${
-                status.includes("REJECTED")
+              className={`absolute -inset-1 bg-linear-to-r ${status.includes("REJECTED")
                   ? "from-red-500 to-orange-600"
                   : "from-cyan-500 to-purple-600"
-              } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
+                } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
             />
 
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
