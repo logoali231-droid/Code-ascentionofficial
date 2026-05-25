@@ -60,17 +60,17 @@ const SYSTEM_CONFIG = {
       recommendedFor: "LOW",
     },
     {
-      model_id: "Phi-3-mini-4k-instruct-q4f32_1-MLC",
-      model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f32_1-MLC",
+      model_id: "Phi-3-mini-4k-instruct-q4f16_1-MLC",
+      model: "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f16_1-MLC",
       // 🧠 model_lib removido: O WebLLM mapeará automaticamente o WASM do Phi-3
       name: "Phi 3 Mini (Safe Mode)",
-      sizeMb: 1900,
+      sizeMb: 1200,
       recommendedFor: "MID",
     },
     {
       model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
       model: "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
-      // 🧠 model_lib removido: O WebLLM mapeará automaticamente o WASM do Phi-3.5
+      // 🧠  removido: O WebLLM mapeará automaticamente o WASM do Phi-3.5
       name: "Phi 3.5 Mini",
       sizeMb: 2200,
       recommendedFor: "HIGH",
