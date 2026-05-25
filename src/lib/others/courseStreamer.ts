@@ -1,45 +1,60 @@
 "use client";
 
 import { generateCourse } from "./courseGenerator";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 import { validateCourse } from "./courseValidator";
 
-export async function streamCourseGeneration(params: any) {
-  // 1. Chama sua função de prompt (generateCourse)
-  const rawRes = await generateCourse(params);
 
+export async function streamCourseGeneration(params: any) {
   let fullResponse = "";
 
-  // 2. Coletor Neural (Balde de Stream)
-  if (rawRes) {
-    if (typeof rawRes === "string") {
-      fullResponse = rawRes;
-    } else {
-      for await (const chunk of rawRes) {
-        const content =
-          typeof chunk === "string"
-            ? chunk
+  try {
+    // 1. Aciona o gerador neural configurado para streaming nativo
+    const rawRes = await generateCourse({ ...params, stream: true });
+
+    if (rawRes) {
+      if (typeof rawRes === "string") {
+        fullResponse = rawRes;
+      } else {
+        // 2. Consome os pedaços (chunks) em tempo real conforme são computados na WebGPU
+        for await (const chunk of rawRes) {
+          const content = typeof chunk === "string" 
+            ? chunk 
             : (chunk as any).choices?.[0]?.delta?.content || "";
-        fullResponse += content;
+          
+          fullResponse += content;
+          
+          // Opcional: Dispare um eventBus aqui se quiser renderizar o progresso do texto na interface!
+          // eventBus.emit(EventType.COURSE_STREAM_CHUNK, content);
+        }
       }
     }
+  } catch (err) {
+    console.error("[STREAM:GENERATION:FAILED] Falha na esteira de inferência local:", err);
   }
 
-  // 3. Parse e Validação
-  const parsed = safeParse(fullResponse);
+  // 3. Aplica a nova limpeza heurística inteligente
+  const parsed = cleanAndParseCourseJSON(fullResponse);
 
   if (!parsed || !validateCourse(parsed)) {
-    // Fallback de Emergência se o Arquiteto falhar
+    console.warn("[FALLBACK:ACTIVATED] Ativando malha adaptativa de contingência.");
+    
+    // Fallback Adaptativo Avançado (Evita parecer estático ou genérico)
     return {
-      title: `${params.topic} - Recovery Path`,
-      description:
-        "Neural architecture failed. Providing emergency stability modules.",
+      title: `${params.topic} - Estrutura de Estabilidade`,
+      description: `Não foi possível mapear a árvore neural complexa para ${params.topic}. Fornecendo módulos estruturais básicos ajustados para o seu nível de aprendizado.`,
+      tags: [params.topic.toLowerCase(), "contingencia"],
       lessons: [
         {
-          title: `Core Concepts of ${params.topic}`,
-          summary: "Fundamentals and essential logic.",
+          title: `Introdução Fundamental a ${params.topic}`,
+          summary: "Abordagem dos conceitos primitivos e mapeamento de dependências iniciais.",
           difficulty: 1,
         },
+        {
+          title: `Prática Isolada e Arquitetura de Contexto`,
+          summary: "Exercícios guiados no Sandbox para fixação da sintaxe essencial.",
+          difficulty: 2,
+        }
       ],
     };
   }

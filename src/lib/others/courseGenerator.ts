@@ -3,12 +3,14 @@
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { generate } from "./webllm";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
 import { validateCourse } from "./courseValidator";
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 import { CognitiveProfile } from "@/types/core";
+
+
 
 export async function generateCourse({
   topic,
@@ -147,7 +149,7 @@ Return ONLY valid JSON.
       }
     }
 
-    const parsed = safeParse(fullResponse);
+    const parsed = cleanAndParseCourseJSON(fullResponse);
 
     if (!parsed || !validateCourse(parsed)) {
       console.error(

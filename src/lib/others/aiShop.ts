@@ -1,7 +1,7 @@
 "use client";
 
 import { generate } from "@/lib/others/webllm";
-import { safeParse } from "@/lib/others/safeParse";
+import { cleanAndParseCourseJSON } from "@/lib/others/safeParse";
 import { InventoryItem } from "@/types/core";
 
 /**
@@ -107,7 +107,7 @@ export async function generateAIItem(
     }
   }
 
-  const parsed = safeParse(rawText);
+  const parsed = cleanAndParseCourseJSON(rawText);
 
   // Anti-Cheat: Se o usuário pediu algo absurdo (power >= 8), o item é uma "falsificação"
   // Ele tem nome e ícone épicos, mas o efeito interno é "cosmetic" (não dá bônus real)

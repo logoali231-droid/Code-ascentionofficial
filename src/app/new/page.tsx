@@ -99,7 +99,7 @@ export default function NewCoursePage() {
         cognitiveProfile,
       );
 
-      setProgress(40);
+      setProgress(progress);
       setStatus("FORGING_CURRICULUM_DATA...");
 
       const generator = generate(fullPrompt);
@@ -112,7 +112,7 @@ export default function NewCoursePage() {
 
       if (!cleanContent) throw new Error("EMPTY_AI_RESPONSE");
 
-      setProgress(80);
+      setProgress(progress);
       setStatus("STABILIZING_ENCRYPTION...");
 
       const courseData = JSON.parse(cleanContent);

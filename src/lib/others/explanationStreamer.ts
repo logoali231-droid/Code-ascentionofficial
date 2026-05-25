@@ -1,7 +1,7 @@
 "use client";
 
 import { generateExplanationAI, explainError } from "./explanationAI";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 import { validateExplanation } from "./explanationValidator";
 
 export async function streamExplanation(params: any) {
@@ -24,7 +24,7 @@ export async function streamExplanation(params: any) {
     }
   }
 
-  const parsed = safeParse(fullText);
+  const parsed = cleanAndParseCourseJSON(fullText);
 
   if (parsed && (await validateExplanation(parsed))) {
     return parsed;
@@ -52,7 +52,7 @@ export async function streamErrorExplanation(params: any) {
     }
   }
 
-  const parsed = safeParse(fullText);
+  const parsed = cleanAndParseCourseJSON(fullText);
   // Validação estrita injetada também no fluxo do Debugger de Erros
   if (parsed && !(await validateExplanation(parsed))) {
     return "⚠️ CORRUPÇÃO DE DADOS: O debugger gerou explicações contendo termos bloqueados pelas suas diretivas de segurança.";

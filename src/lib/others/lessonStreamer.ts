@@ -1,7 +1,7 @@
 "use client";
 
 import { generate } from "./webllm";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 import { buildPromptFragments } from "./promptFragments";
 import { buildMemoryContext } from "./vectorMemory";
 import { getUserProfile } from "./userMemory";
@@ -136,7 +136,7 @@ RETURN JSON:
       }
     }
 
-    const parsed = safeParse(raw);
+    const parsed = cleanAndParseCourseJSON(raw);
 
     if (!parsed) {
       return buildFallbackLesson(concept);
@@ -250,7 +250,7 @@ RETURN JSON:
       }
     }
 
-    const parsed = safeParse(raw);
+    const parsed = cleanAndParseCourseJSON(raw);
 
     if (!parsed) {
       return buildFallbackExercise(concept);

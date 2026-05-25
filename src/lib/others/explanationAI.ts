@@ -4,7 +4,7 @@ import { generate } from "./webllm";
 import { getUserProfile, getMemory } from "./userMemory";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 import { validateExplanation } from "./explanationValidator";
 import { getMemorySummary } from "./contextMemory";
 import { summarizeCurriculum } from "./curriculumState";
@@ -121,7 +121,7 @@ CRITICAL EXECUTION RULES
       }
     }
 
-    const parsed = safeParse(fullResponse);
+    const parsed = cleanAndParseCourseJSON(fullResponse);
 
     // ADICIONADO o await aqui, pois a validação agora lê o IndexedDB
     if (!parsed || !(await validateExplanation(parsed))) {
@@ -224,7 +224,7 @@ CRITICAL OUTPUT RULES
       }
     }
 
-    return safeParse(fullResponse);
+    return cleanAndParseCourseJSON(fullResponse);
   } catch (error) {
     console.error("Error Explanation Failure:", error);
     return null;

@@ -1,5 +1,5 @@
 import { generate } from "./webllm";
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 
 export async function generateItem(prompt: string) {
   const fullPrompt = `
@@ -44,7 +44,7 @@ ${prompt}
   }
 
   // 3. Agora o 'res' é garantidamente uma string para o safeParse
-  const parsed = safeParse(res);
+  const parsed = cleanAndParseCourseJSON(res);
 
   if (parsed) return parsed;
 

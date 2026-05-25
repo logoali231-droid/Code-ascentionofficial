@@ -8,7 +8,7 @@ import { getMemory } from "./userMemory";
 
 import { get } from "./db";
 
-import { safeParse } from "./safeParse";
+import { cleanAndParseCourseJSON } from "./safeParse";
 
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
@@ -276,7 +276,7 @@ OUTPUT FORMAT
   }
 
   // 3. Agora o 'res' é garantidamente uma string para o safeParse
-  const parsed = safeParse(res);
+  const parsed = cleanAndParseCourseJSON(res);
 
   if (parsed) {
     return parsed;
