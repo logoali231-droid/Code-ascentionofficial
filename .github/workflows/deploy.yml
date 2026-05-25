@@ -28,4 +28,5 @@ jobs:
           context: .
           push: true
           tags: |
+            logoali231/code-ascention:${{ github.run_number }}
             logoali231/code-ascention:latest
