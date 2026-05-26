@@ -6,9 +6,17 @@ export interface Model {
   model_lib?: string;
 
   name: string;
+
+  /*
+    Tamanho aproximado de download/storage.
+    NÃO representa RAM real utilizada.
+  */
   sizeMb: number;
 
-  recommendedFor: "LOW" | "MID" | "HIGH";
+  recommendedFor:
+    | "LOW"
+    | "MID"
+    | "HIGH";
 
   /* =========================================================
      MOBILE SAFETY FLAGS
@@ -17,14 +25,23 @@ export interface Model {
   mobileSafe: boolean;
 
   /*
-    HARD LIMIT DE RAM RECOMENDADA
-    Evita Android suicidar tentando carregar modelo grande
+    RAM mínima recomendada.
+    Usado para evitar OOM brutal
+    em Android/browser.
   */
   minRamGB?: number;
+
+  /*
+    Experimental model warning.
+  */
+  experimental?: boolean;
 }
 
 const SYSTEM_CONFIG = {
-  PORT: parseInt(process.env.PORT || "3001", 10),
+  PORT: parseInt(
+    process.env.PORT || "3001",
+    10
+  ),
 
   /* =========================================================
      RUNTIME LIMITS
@@ -32,6 +49,7 @@ const SYSTEM_CONFIG = {
 
   LIMITS: {
     memory_light: "256m",
+
     memory_heavy: "512m",
 
     cpus: "0.5",
@@ -42,7 +60,9 @@ const SYSTEM_CONFIG = {
 
     LANGUAGES: {
       javascript: "128m",
+
       python: "192m",
+
       csharp: "384m",
     },
   },
@@ -52,40 +72,78 @@ const SYSTEM_CONFIG = {
   ========================================================= */
 
   LLM: {
+    /* =====================================================
+       DESKTOP
+    ===================================================== */
+
     /*
-      Desktop continua relativamente confortável.
-      Mobile precisa ser MUITO mais conservador.
+      1536 já é relativamente seguro
+      sem explodir KV cache.
     */
 
     context_window_size: 1536,
 
-    sliding_window_size: 1024,
+    /*
+      Desktop aguenta mais contexto.
+    */
+
+    sliding_window_size: 768,
+
+    /*
+      Pequeno sink melhora continuidade
+      sem custo absurdo.
+    */
 
     attention_sink_size: 4,
 
-    /*
-      Android browsers quebram MUITO fácil
-      com KV cache alto.
-    */
+    /* =====================================================
+       MOBILE
+    ===================================================== */
 
     MOBILE: {
+      /*
+        1024 mantém estabilidade
+        no Chrome Android/Samsung.
+      */
+
       context_window_size: 1024,
 
-      sliding_window_size: 256,
-
       /*
-        HARD LIMITS
+        Principal redução de KV cache.
       */
 
-      max_tokens: 256,
-
-      gpuLimitMb: 512,
+      sliding_window_size: 128,
 
       /*
-        Tempo máximo em background antes
-        de descarregar VRAM.
+        Evita geração longa assassina.
       */
+
+      max_tokens: 192,
+
+      /*
+        Limite conservador de VRAM/WebGPU.
+      */
+
+      gpuLimitMb: 384,
+
+      /*
+        Android mata tabs facilmente.
+      */
+
       aggressiveUnload: true,
+
+      /*
+        Delay antes de descarregar engine
+        quando app fica em background.
+      */
+
+      backgroundUnloadMs: 45000,
+
+      /*
+        Apenas 1 geração simultânea.
+      */
+
+      maxConcurrentGenerations: 1,
     },
   },
 
@@ -99,19 +157,29 @@ const SYSTEM_CONFIG = {
     MAX_ERRORS_TOTAL: 10,
 
     /*
-      Reduzido.
-      Mobile mata tabs agressivamente.
+      Mobile browsers são frágeis.
     */
-    MOBILE_BACKGROUND_TIMEOUT_MS: 45000,
+
+    MOBILE_BACKGROUND_TIMEOUT_MS:
+      45000,
 
     /*
-      Thresholds de heap JS
+      Heap JS thresholds.
+      180MB estava agressivo demais.
     */
-    MEMORY: {
-      MOBILE_CRITICAL_MB: 180,
 
-      DESKTOP_CRITICAL_MB: 400,
+    MEMORY: {
+      MOBILE_CRITICAL_MB: 320,
+
+      DESKTOP_CRITICAL_MB: 900,
     },
+
+    /*
+      Delay para permitir WebGPU
+      desalocar buffers.
+    */
+
+    GC_SETTLE_DELAY_MS: 1000,
   },
 
   /* =========================================================
@@ -120,9 +188,10 @@ const SYSTEM_CONFIG = {
 
   QUEUE: {
     /*
-      Evita concorrência assassina
-      no mobile/browser low-end.
+      Mobile/browser low-end:
+      concorrência = caos.
     */
+
     maxConcurrent: 1,
   },
 
@@ -132,12 +201,18 @@ const SYSTEM_CONFIG = {
 
   AVAILABLE_MODELS: [
     {
-      model_id: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+      /* ===================================================
+         SAFE MOBILE MODEL
+      =================================================== */
+
+      model_id:
+        "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
 
       model:
         "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
 
-      name: "Qwen 2.5 0.5B (Ultra Safe)",
+      name:
+        "Qwen 2.5 0.5B (Ultra Safe)",
 
       sizeMb: 550,
 
@@ -145,44 +220,66 @@ const SYSTEM_CONFIG = {
 
       mobileSafe: true,
 
+      /*
+        Galaxy M23 class devices
+        conseguem lidar melhor.
+      */
+
       minRamGB: 3,
     },
 
     {
-      model_id: "Phi-3-mini-4k-instruct-q4f16_1-MLC",
+      /* ===================================================
+         EXPERIMENTAL MOBILE / MID DESKTOP
+      =================================================== */
+
+      model_id:
+        "Phi-3-mini-4k-instruct-q4f16_1-MLC",
 
       model:
         "https://huggingface.co/mlc-ai/Phi-3-mini-4k-instruct-q4f16_1-MLC",
 
-      name: "Phi 3 Mini (Balanced)",
+      name:
+        "Phi 3 Mini (Experimental)",
 
       sizeMb: 1200,
 
       recommendedFor: "MID",
 
       /*
-        Só celulares fortes.
+        NÃO seguro pra maioria
+        dos Androids.
       */
+
       mobileSafe: false,
 
       minRamGB: 6,
+
+      experimental: true,
     },
 
     {
-      model_id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+      /* ===================================================
+         DESKTOP ONLY
+      =================================================== */
+
+      model_id:
+        "Phi-3.5-mini-instruct-q4f16_1-MLC",
 
       model:
         "https://huggingface.co/mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC",
 
-      name: "Phi 3.5 Mini (Desktop Only)",
+      name:
+        "Phi 3.5 Mini (Desktop Only)",
 
       sizeMb: 2200,
 
       recommendedFor: "HIGH",
 
       /*
-        NÃO deixar Android carregar isso.
+        Não deixar Android tocar nisso ☢️
       */
+
       mobileSafe: false,
 
       minRamGB: 8,
@@ -194,26 +291,47 @@ const SYSTEM_CONFIG = {
    DEEP FREEZE
 ========================================================= */
 
-Object.freeze(SYSTEM_CONFIG);
-
-Object.freeze(SYSTEM_CONFIG.LIMITS);
-
-Object.freeze(SYSTEM_CONFIG.LIMITS.LANGUAGES);
-
-Object.freeze(SYSTEM_CONFIG.LLM);
-
-Object.freeze(SYSTEM_CONFIG.LLM.MOBILE);
-
-Object.freeze(SYSTEM_CONFIG.CLEANUP);
-
-Object.freeze(SYSTEM_CONFIG.CLEANUP.MEMORY);
-
-Object.freeze(SYSTEM_CONFIG.QUEUE);
-
-SYSTEM_CONFIG.AVAILABLE_MODELS.forEach((model) =>
-  Object.freeze(model)
+Object.freeze(
+  SYSTEM_CONFIG
 );
 
-Object.freeze(SYSTEM_CONFIG.AVAILABLE_MODELS);
+Object.freeze(
+  SYSTEM_CONFIG.LIMITS
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.LIMITS
+    .LANGUAGES
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.LLM
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.LLM.MOBILE
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.CLEANUP
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.CLEANUP
+    .MEMORY
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.QUEUE
+);
+
+SYSTEM_CONFIG.AVAILABLE_MODELS.forEach(
+  (model) =>
+    Object.freeze(model)
+);
+
+Object.freeze(
+  SYSTEM_CONFIG.AVAILABLE_MODELS
+);
 
 export { SYSTEM_CONFIG };
