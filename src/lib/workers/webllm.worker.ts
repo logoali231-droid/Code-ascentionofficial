@@ -12,26 +12,29 @@ function createHandler() {
 self.onmessage = async (msg: MessageEvent) => {
   try {
     const { type } = msg.data;
-    if (type === "ABORT" || type === "unload") {
+if (type === "ABORT" || type === "unload") {
 
   try {
 
-    // 🧠 libera buffers internos / WebGPU
-    await handler?.reset?.();
-  } catch (err) {
-    console.warn("[WORKER RESET ERROR]", err);
-
-  } finally {
+    // remove referência do handler
     handler = null;
+
     self.postMessage({
       type: "ABORTED_SUCCESS",
     });
+
+  } catch (err) {
+
+    console.warn("[WORKER UNLOAD ERROR]", err);
+
+  } finally {
+
+    // 🔥 mata o worker completamente
     self.close();
   }
 
   return;
-    }
-
+}
     const currentHandler = createHandler();
 
     await currentHandler.onmessage(msg);
