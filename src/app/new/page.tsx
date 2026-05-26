@@ -128,14 +128,14 @@ Spaced Repetition Targets: [${reviewStr}]
 `;
 
       const fullPrompt =
-        await buildCoursePrompt(
-          topic,
-          learningStateString,
-          courseId,
-          userProfile,
-          customStyle,
-          cognitiveProfile,
-        );
+      await buildCoursePrompt({
+       topic,
+       learningState: learningStateString,
+       courseId,
+       userProfile,
+       customStyle,
+       profile: cognitiveProfile,
+     });
 
       // =========================================================
       // AI GENERATION
