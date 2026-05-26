@@ -5,7 +5,8 @@ import { cleanAndParseCourseJSON } from "@/lib/others/safeParse";
 import { validateCourse } from "@/lib/others/courseValidator";
 import { getUserStrengthsAndWeaknesses } from "@/lib/others/userMemory";
 import { getAdaptiveMetrics} from "@/lib/others/adaptive";
-import { buildCoursePrompt} from "@/lib/others/aiPrompt"
+import { buildCoursePrompt} from "@/lib/others/aiPrompt";
+import { CognitiveProfile } from "@/types/core";
 self.onmessage = async (event) => {
   const { topic, style, level, difficulty, courseId } = event.data;
 
