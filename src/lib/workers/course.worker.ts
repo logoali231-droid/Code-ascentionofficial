@@ -1,4 +1,4 @@
-import { runLLM } from "./lib/llm/llmExecutor";
+import { runLLM } from "./llm/llmExecutor";
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph } from "./knowledgeGraph";
 import { validateCourse } from "./courseValidator";
