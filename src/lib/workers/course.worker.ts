@@ -1,4 +1,4 @@
-import { generate } from "./webllm";
+import { runLLM } from "./lib/llm/llmExecutor";
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph } from "./knowledgeGraph";
 import { validateCourse } from "./courseValidator";
@@ -41,13 +41,7 @@ self.onmessage = async (event) => {
         ? 0.35
         : 0.7;
 
-    const stream = await generate(prompt, temperature);
-
-    let full = "";
-
-    for await (const chunk of stream) {
-      full += chunk;
-    }
+    const full = await runLLM(prompt, temperature);
 
     const parsed = JSON.parse(full);
 
