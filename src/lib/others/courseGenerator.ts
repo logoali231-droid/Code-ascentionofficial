@@ -2,13 +2,13 @@
 
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
-import { generate } from "./webllm";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
 import { validateCourse } from "./courseValidator";
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 import { CognitiveProfile } from "@/types/core";
+import { runLLM } from "./lib/llm/llmExecutor";
 
 
 
@@ -131,7 +131,7 @@ Return ONLY valid JSON.
 
   try {
     const rawRes = await runtimeQueue.enqueue(async (_signal) => {
-      return generate(prompt);
+      return runLLM(prompt);
     }, 1);
 
     let fullResponse = "";
