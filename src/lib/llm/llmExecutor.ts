@@ -1,18 +1,40 @@
-import { generate } from "../webllm";
+let worker: Worker | null = null;
+
+function getWorker() {
+  if (!worker) {
+    worker = new Worker(
+      new URL("../../workers/llmWorker.ts", import.meta.url),
+      { type: "module" }
+    );
+  }
+  return worker;
+}
 
 export async function runLLM(prompt: string, temperature = 0.7) {
-  const stream = await generate(prompt, temperature);
+  return new Promise((resolve, reject) => {
+    const w = getWorker();
 
-  let full = "";
+    let full = "";
 
-  for await (const chunk of stream) {
-    const text =
-      typeof chunk === "string"
-        ? chunk
-        : (chunk as any)?.choices?.[0]?.delta?.content || "";
+    w.onmessage = (event) => {
+      const { type, data, error } = event.data;
 
-    full += text;
-  }
+      if (type === "CHUNK") {
+        full += data;
+      }
 
-  return full;
+      if (type === "DONE") {
+        resolve(full);
+      }
+
+      if (type === "ERROR") {
+        reject(error);
+      }
+    };
+
+    w.postMessage({
+      type: "GENERATE",
+      payload: { prompt, temperature },
+    });
+  });
 }
