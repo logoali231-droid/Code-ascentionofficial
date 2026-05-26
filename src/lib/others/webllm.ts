@@ -18,10 +18,10 @@ let currentModel: string | null = null;
 
 let generationLock = false;
 let isDownloading = false;
+let isInitializing = false;
+let isUnloading = false;
 
 let backgroundSince: number | null = null;
-let isUnloading = false;
-let isInitializing = false;
 
 /* =========================================================
    HELPERS
@@ -52,14 +52,14 @@ function isMemoryCritical(isMobile: boolean) {
   if (!mem) return false;
 
   const limit = isMobile
-    ? 420 * 1024 * 1024
-    : 900 * 1024 * 1024;
+    ? SYSTEM_CONFIG.CLEANUP.MEMORY.MOBILE_CRITICAL_MB * 1024 * 1024
+    : SYSTEM_CONFIG.CLEANUP.MEMORY.DESKTOP_CRITICAL_MB * 1024 * 1024;
 
   return mem > limit;
 }
 
 /* =========================================================
-   SAFE CLEANUP
+   CLEANUP
 ========================================================= */
 
 export async function emergencyWebLLMCleanup() {
@@ -80,7 +80,7 @@ export async function emergencyWebLLMCleanup() {
 }
 
 /* =========================================================
-   ENGINE INIT (PATCHED FLOW)
+   ENGINE INIT
 ========================================================= */
 
 export async function initEngine(
@@ -95,36 +95,27 @@ export async function initEngine(
     try {
 
       if (typeof window === "undefined") {
-        throw new Error("SSR blocked");
+        throw new Error("SSR_BLOCKED");
       }
 
-      /* =====================================================
-         🧠 PHASE 1 - UI FIRST (CRITICAL FIX)
-      ===================================================== */
-
       const isMobile = isMobileDevice();
-      await delay(isMobile ? 300 : 50);
 
-      /* =====================================================
-         PHASE 2 - HARD MEMORY GATE
-      ===================================================== */
+      await delay(isMobile ? 250 : 50);
+
+      /* ================= MEMORY CHECK ================= */
 
       if (isMemoryCritical(isMobile)) {
         await emergencyWebLLMCleanup();
         throw new Error("MEMORY_BLOCK");
       }
 
-      /* =====================================================
-         PHASE 3 - HARD DOWNLOAD BLOCK CHECK
-      ===================================================== */
+      /* ================= DOWNLOAD LOCK ================= */
 
       if (isDownloading && isMobile) {
-        throw new Error("DOWNLOAD_IN_PROGRESS");
+        throw new Error("DOWNLOAD_LOCKED");
       }
 
-      /* =====================================================
-         PHASE 4 - CAPABILITIES
-      ===================================================== */
+      /* ================= CAPABILITIES ================= */
 
       const specs = await detectSystemCapabilities();
 
@@ -133,9 +124,7 @@ export async function initEngine(
         specs?.recommended?.model_id ??
         SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;
 
-      /* =====================================================
-         🧠 PHI-3 MOBILE GATE (CRITICAL FIX)
-      ===================================================== */
+      /* ================= MOBILE FALLBACK ================= */
 
       const isPhi = selectedModelId.includes("Phi-3");
 
@@ -143,35 +132,27 @@ export async function initEngine(
         const ram = (navigator as any).deviceMemory ?? 4;
 
         if (ram < 6) {
-          console.warn("[WEBLLM] Phi-3 blocked -> fallback");
-
           selectedModelId =
-            SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;
+            SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id; // Qwen fallback
         }
       }
 
-      /* =====================================================
-         VALIDATION
-      ===================================================== */
+      /* ================= VALIDATION ================= */
 
       if (
         !SYSTEM_CONFIG.AVAILABLE_MODELS.some(
           (m) => m.model_id === selectedModelId
         )
       ) {
-        throw new Error("Invalid model");
+        throw new Error("INVALID_MODEL");
       }
 
-      /* =====================================================
-         WORKER (DECOUPLED)
-      ===================================================== */
+      /* ================= WORKER ================= */
 
       worker = new Worker(
         new URL("../workers/webllm.worker.ts", import.meta.url),
         { type: "module" }
       );
-
-      await delay(isMobile ? 200 : 50);
 
       worker.onerror = async () => {
         await localUnloadEngine();
@@ -181,34 +162,25 @@ export async function initEngine(
         await localUnloadEngine();
       };
 
-      /* =====================================================
-         IMPORT ENGINE
-      ===================================================== */
+      await delay(isMobile ? 150 : 50);
 
       const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
 
       const nav = navigator as any;
+
       const useCache =
         !isMobile || (nav.deviceMemory ?? 4) >= 4;
 
-      /* =====================================================
-         INIT START
-      ===================================================== */
+      /* ================= INIT START ================= */
 
       isInitializing = true;
+      isDownloading = true;
+
       worker.postMessage({ type: "INIT_START" });
 
-      /* =====================================================
-         STABILIZATION WINDOW (CRITICAL FIX)
-      ===================================================== */
+      await delay(isMobile ? 300 : 80);
 
-      await delay(isMobile ? 400 : 80);
-
-      /* =====================================================
-         ENGINE CREATE
-      ===================================================== */
-
-      isDownloading = true;
+      /* ================= ENGINE CREATE ================= */
 
       engine = await CreateWebWorkerMLCEngine(
         worker,
@@ -236,7 +208,7 @@ export async function initEngine(
             attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
           },
 
-          useIndexedDBCache: !isMobile ? useCache : false, // 🔥 FIX
+          useIndexedDBCache: useCache,
 
           enableProgressiveLoading: true,
         } as any
@@ -252,12 +224,10 @@ export async function initEngine(
       return engine;
 
     } catch (err) {
+      await localUnloadEngine();
+      loadingPromise = null;
       isDownloading = false;
       isInitializing = false;
-
-      await localUnloadEngine();
-
-      loadingPromise = null;
       throw err;
     }
   })();
@@ -266,7 +236,7 @@ export async function initEngine(
 }
 
 /* =========================================================
-   SAFE UNLOAD
+   UNLOAD
 ========================================================= */
 
 export async function localUnloadEngine() {
@@ -296,7 +266,7 @@ export async function localUnloadEngine() {
 }
 
 /* =========================================================
-   GENERATE (UNCHANGED SAFE VERSION)
+   GENERATION
 ========================================================= */
 
 export async function* generate(
@@ -320,7 +290,9 @@ export async function* generate(
       temperature,
       stream: true,
       signal,
-      max_tokens: isMobile ? 512 : 1024,
+      max_tokens: isMobile
+        ? SYSTEM_CONFIG.LLM.MOBILE.max_tokens
+        : 1024,
     } as any);
 
     for await (const chunk of stream as any) {
@@ -328,7 +300,10 @@ export async function* generate(
       if (text) yield text;
     }
 
+  } catch (err) {
+    playSound("error", 0.4);
+    throw err;
   } finally {
     generationLock = false;
   }
-         }
+}
