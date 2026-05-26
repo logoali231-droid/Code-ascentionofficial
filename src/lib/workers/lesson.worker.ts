@@ -1,9 +1,8 @@
 "use client";
 
 import { runLLM } from "@/lib/llm/llmExecutor";
-import { buildLessonPlan } from "./LessonGenerator";
-import { getAdaptiveMetrics } from "./adaptiveMetrics";
-
+import { buildLessonPlan } from "./lib/others/LessonGenerator";
+import { getAdaptiveMetrics } from "./lib/others/adaptiveMetrics";
 self.onmessage = async (event) => {
   const { course, history } = event.data;
 
