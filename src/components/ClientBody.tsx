@@ -1,44 +1,64 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { get, performStorageCleanup } from "@/lib/others/db";
-import { usePathname, useRouter } from "next/navigation";
+import {
+  get,
+  performStorageCleanup,
+} from "@/lib/others/db";
 
-const ECO_KEY = "eco_telemetry_v4";
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
+
+const ECO_KEY =
+  "eco_telemetry_v4";
 
 // =========================================================
 // 🌍 ECOLOGICAL CONSTANTS
 // =========================================================
 
 // Brazil average grid intensity
-const GRID_CO2_INTENSITY = 0.08; // kgCO2/kWh
+const GRID_CO2_INTENSITY =
+  0.08;
 
 // average datacenter water cooling
 const WATER_PER_KWH_L = 1.8;
 
 // mobile baseline
-const BASE_IDLE_WATTS = 0.8;
+const BASE_IDLE_WATTS =
+  0.8;
 
 // estimated transfer cost
-const NETWORK_KWH_PER_GB = 0.06;
+const NETWORK_KWH_PER_GB =
+  0.06;
 
 // cloud AI request approximation
-const CLOUD_CO2_PER_REQUEST = 0.0025;
+const CLOUD_CO2_PER_REQUEST =
+  0.0025;
 
-const CLOUD_KWH_PER_REQUEST = 0.0008;
+const CLOUD_KWH_PER_REQUEST =
+  0.0008;
 
 // trees absorb roughly 21kg/year
-const TREE_CO2_OFFSET_KG = 21;
+const TREE_CO2_OFFSET_KG =
+  21;
 
 // inference boosts
-const CPU_INFERENCE_BOOST = 1.5;
-const GPU_INFERENCE_BOOST = 3.5;
+const CPU_INFERENCE_BOOST =
+  1.5;
+
+const GPU_INFERENCE_BOOST =
+  3.5;
 
 // =========================================================
 // 🧠 MODEL POWER ESTIMATES
 // =========================================================
 
-const MODEL_POWER_MAP: Record<string, number> = {
+const MODEL_POWER_MAP: Record<
+  string,
+  number
+> = {
   qwen: 2.5,
   phi3mini: 4.5,
   phi35: 7,
@@ -49,7 +69,8 @@ const MODEL_POWER_MAP: Record<string, number> = {
 // DOWNLOAD DEDUPE
 // =========================================================
 
-const countedDownloads = new Set<string>();
+const countedDownloads =
+  new Set<string>();
 
 // =========================================================
 // TYPES
@@ -57,11 +78,15 @@ const countedDownloads = new Set<string>();
 
 interface EcoState {
   totalEnergyKWh: number;
+
   totalCO2kg: number;
+
   totalWaterL: number;
+
   totalHours: number;
 
   totalInferenceSeconds: number;
+
   totalInferenceEnergyKWh: number;
 
   totalDownloadedMB: number;
@@ -69,7 +94,9 @@ interface EcoState {
   localInferenceCount: number;
 
   cloudRequestsAvoided: number;
+
   cloudCO2AvoidedKg: number;
+
   cloudEnergyAvoidedKWh: number;
 
   totalTreesEquivalent: number;
@@ -81,22 +108,37 @@ interface EcoState {
 // STORAGE
 // =========================================================
 
-function loadEcoState(): EcoState | null {
-  if (typeof window === "undefined") {
+function loadEcoState():
+  | EcoState
+  | null {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
     return null;
   }
 
   try {
-    const raw = localStorage.getItem(ECO_KEY);
+    const raw =
+      localStorage.getItem(
+        ECO_KEY
+      );
 
-    return raw ? JSON.parse(raw) : null;
+    return raw
+      ? JSON.parse(raw)
+      : null;
   } catch {
     return null;
   }
 }
 
-function saveEcoState(state: EcoState) {
-  if (typeof window === "undefined") {
+function saveEcoState(
+  state: EcoState
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
     return;
   }
 
@@ -119,17 +161,26 @@ function detectCurrentModel(): string {
         "selected_model"
       ) || "";
 
-    const lower = raw.toLowerCase();
+    const lower =
+      raw.toLowerCase();
 
-    if (lower.includes("phi-3.5")) {
+    if (
+      lower.includes(
+        "phi-3.5"
+      )
+    ) {
       return "phi35";
     }
 
-    if (lower.includes("phi")) {
+    if (
+      lower.includes("phi")
+    ) {
       return "phi3mini";
     }
 
-    if (lower.includes("qwen")) {
+    if (
+      lower.includes("qwen")
+    ) {
       return "qwen";
     }
 
@@ -147,16 +198,20 @@ function estimateInferencePower(
   modelKey: string
 ) {
   const cores =
-    navigator.hardwareConcurrency || 4;
+    navigator.hardwareConcurrency ||
+    4;
 
   const mem =
-    (navigator as any).deviceMemory || 4;
+    (navigator as any)
+      .deviceMemory || 4;
 
   const hasWebGPU =
     "gpu" in navigator;
 
   const modelPower =
-    MODEL_POWER_MAP[modelKey] ||
+    MODEL_POWER_MAP[
+      modelKey
+    ] ||
     MODEL_POWER_MAP.default;
 
   let extra =
@@ -180,15 +235,27 @@ export default function ClientBody({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const router =
+    useRouter();
+
+  const pathname =
+    usePathname();
 
   // =======================================================
   // UI
   // =======================================================
 
-  const [profile, setProfile] =
-    useState("Standard");
+  const [
+    profile,
+    setProfile,
+  ] = useState(
+    "Standard"
+  );
+
+  const [
+    ecoExpanded,
+    setEcoExpanded,
+  ] = useState(false);
 
   const [trees, setTrees] =
     useState(0);
@@ -205,14 +272,20 @@ export default function ClientBody({
   const [hours, setHours] =
     useState(0);
 
-  const [cloudAvoided, setCloudAvoided] =
-    useState(0);
+  const [
+    cloudAvoided,
+    setCloudAvoided,
+  ] = useState(0);
 
-  const [cloudCO2Avoided, setCloudCO2Avoided] =
-    useState(0);
+  const [
+    cloudCO2Avoided,
+    setCloudCO2Avoided,
+  ] = useState(0);
 
-  const [cloudEnergyAvoided, setCloudEnergyAvoided] =
-    useState(0);
+  const [
+    cloudEnergyAvoided,
+    setCloudEnergyAvoided,
+  ] = useState(0);
 
   // =======================================================
   // REFS
@@ -227,7 +300,6 @@ export default function ClientBody({
   const inferenceActiveRef =
     useRef(false);
 
-  // cumulative totals
   const totalInferenceSecondsRef =
     useRef(0);
 
@@ -254,67 +326,85 @@ export default function ClientBody({
   // =======================================================
 
   useEffect(() => {
-    const saved = loadEcoState();
+    const saved =
+      loadEcoState();
 
     if (saved) {
       totalInferenceSecondsRef.current =
-        saved.totalInferenceSeconds || 0;
+        saved.totalInferenceSeconds ||
+        0;
 
       totalInferenceEnergyRef.current =
-        saved.totalInferenceEnergyKWh || 0;
+        saved.totalInferenceEnergyKWh ||
+        0;
 
       totalDownloadedMBRef.current =
-        saved.totalDownloadedMB || 0;
+        saved.totalDownloadedMB ||
+        0;
 
       localInferenceCountRef.current =
-        saved.localInferenceCount || 0;
+        saved.localInferenceCount ||
+        0;
 
       cloudRequestsAvoidedRef.current =
-        saved.cloudRequestsAvoided || 0;
+        saved.cloudRequestsAvoided ||
+        0;
 
       cloudCO2AvoidedKgRef.current =
-        saved.cloudCO2AvoidedKg || 0;
+        saved.cloudCO2AvoidedKg ||
+        0;
 
       cloudEnergyAvoidedRef.current =
-        saved.cloudEnergyAvoidedKWh || 0;
+        saved.cloudEnergyAvoidedKWh ||
+        0;
 
       sessionStartRef.current =
-        saved.sessionStart || Date.now();
+        saved.sessionStart ||
+        Date.now();
 
       setEnergy(
-        saved.totalEnergyKWh || 0
+        saved.totalEnergyKWh ||
+          0
       );
 
       setCo2(
-        saved.totalCO2kg || 0
+        saved.totalCO2kg ||
+          0
       );
 
       setWater(
-        saved.totalWaterL || 0
+        saved.totalWaterL ||
+          0
       );
 
       setHours(
-        saved.totalHours || 0
+        saved.totalHours ||
+          0
       );
 
       setTrees(
-        saved.totalTreesEquivalent || 0
+        saved.totalTreesEquivalent ||
+          0
       );
 
       setCloudAvoided(
-        saved.cloudRequestsAvoided || 0
+        saved.cloudRequestsAvoided ||
+          0
       );
 
       setCloudCO2Avoided(
-        saved.cloudCO2AvoidedKg || 0
+        saved.cloudCO2AvoidedKg ||
+          0
       );
 
       setCloudEnergyAvoided(
-        saved.cloudEnergyAvoidedKWh || 0
+        saved.cloudEnergyAvoidedKWh ||
+          0
       );
     }
 
-    hydratedRef.current = true;
+    hydratedRef.current =
+      true;
   }, []);
 
   // =======================================================
@@ -322,23 +412,32 @@ export default function ClientBody({
   // =======================================================
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .catch((err) =>
-            console.log(
-              "SW registration failed",
-              err
+    if (
+      "serviceWorker" in
+      navigator
+    ) {
+      window.addEventListener(
+        "load",
+        () => {
+          navigator.serviceWorker
+            .register(
+              "/sw.js"
             )
-          );
-      });
+            .catch((err) =>
+              console.log(
+                "SW registration failed",
+                err
+              )
+            );
+        }
+      );
     }
 
     async function load() {
       if (
         pathname === "/" ||
-        pathname === "/machineLock"
+        pathname ===
+          "/machineLock"
       ) {
         return;
       }
@@ -349,12 +448,17 @@ export default function ClientBody({
       );
 
       if (!user) {
-        router.push("/machineLock");
+        router.push(
+          "/machineLock"
+        );
+
         return;
       }
 
       if (user.profile) {
-        setProfile(user.profile);
+        setProfile(
+          user.profile
+        );
       }
 
       performStorageCleanup().catch(
@@ -384,53 +488,64 @@ export default function ClientBody({
     const originalFetch =
       window.fetch;
 
-    window.fetch = async (
-      ...args
-    ) => {
-      try {
-        const url = String(args[0]);
+    window.fetch =
+      async (...args) => {
+        try {
+          const url = String(
+            args[0]
+          );
 
-        const response =
-          await originalFetch(
+          const response =
+            await originalFetch(
+              ...args
+            );
+
+          const isModelAsset =
+            url.includes(
+              ".bin"
+            ) ||
+            url.includes(
+              ".wasm"
+            ) ||
+            url.includes(
+              "huggingface"
+            );
+
+          if (
+            isModelAsset &&
+            !countedDownloads.has(
+              url
+            )
+          ) {
+            countedDownloads.add(
+              url
+            );
+
+            const length =
+              Number(
+                response.headers.get(
+                  "content-length"
+                )
+              ) || 0;
+
+            const mb =
+              length /
+              1024 /
+              1024;
+
+            if (mb > 0.5) {
+              totalDownloadedMBRef.current +=
+                mb;
+            }
+          }
+
+          return response;
+        } catch {
+          return originalFetch(
             ...args
           );
-
-        const isModelAsset =
-          url.includes(".bin") ||
-          url.includes(".wasm") ||
-          url.includes(
-            "huggingface"
-          );
-
-        if (
-          isModelAsset &&
-          !countedDownloads.has(url)
-        ) {
-          countedDownloads.add(url);
-
-          const length =
-            Number(
-              response.headers.get(
-                "content-length"
-              )
-            ) || 0;
-
-          const mb =
-            length / 1024 / 1024;
-
-          if (mb > 0.5) {
-            totalDownloadedMBRef.current +=
-              mb;
-          }
         }
-
-        return response;
-      } catch {
-        return originalFetch(
-          ...args
-        );
-      }
-    };
+      };
 
     return () => {
       window.fetch =
@@ -443,8 +558,7 @@ export default function ClientBody({
   // =======================================================
 
   useEffect(() => {
-    (window as any)
-      .__START_WEBLLM_INFERENCE =
+    (window as any).__START_WEBLLM_INFERENCE =
       () => {
         if (
           inferenceActiveRef.current
@@ -455,9 +569,11 @@ export default function ClientBody({
         inferenceActiveRef.current =
           true;
 
-        localInferenceCountRef.current += 1;
+        localInferenceCountRef.current +=
+          1;
 
-        cloudRequestsAvoidedRef.current += 1;
+        cloudRequestsAvoidedRef.current +=
+          1;
 
         cloudCO2AvoidedKgRef.current +=
           CLOUD_CO2_PER_REQUEST;
@@ -466,8 +582,7 @@ export default function ClientBody({
           CLOUD_KWH_PER_REQUEST;
       };
 
-    (window as any)
-      .__END_WEBLLM_INFERENCE =
+    (window as any).__END_WEBLLM_INFERENCE =
       () => {
         inferenceActiveRef.current =
           false;
@@ -479,7 +594,9 @@ export default function ClientBody({
   // =======================================================
 
   useEffect(() => {
-    if (!hydratedRef.current) {
+    if (
+      !hydratedRef.current
+    ) {
       return;
     }
 
@@ -492,13 +609,10 @@ export default function ClientBody({
           performance.now();
 
         const deltaSeconds =
-          (now - lastTick) / 1000;
+          (now - lastTick) /
+          1000;
 
         lastTick = now;
-
-        // ===================================================
-        // INFERENCE ACCUMULATION
-        // ===================================================
 
         const model =
           detectCurrentModel();
@@ -523,36 +637,20 @@ export default function ClientBody({
             deltaKWh;
         }
 
-        // ===================================================
-        // TOTAL RUNTIME
-        // ===================================================
-
         const totalHours =
           (Date.now() -
             sessionStartRef.current) /
           3_600_000;
-
-        // ===================================================
-        // IDLE ENERGY
-        // ===================================================
 
         const idleKWh =
           (BASE_IDLE_WATTS *
             totalHours) /
           1000;
 
-        // ===================================================
-        // NETWORK ENERGY
-        // ===================================================
-
         const networkKWh =
           (totalDownloadedMBRef.current /
             1024) *
           NETWORK_KWH_PER_GB;
-
-        // ===================================================
-        // TOTALS
-        // ===================================================
 
         const totalEnergy =
           idleKWh +
@@ -571,21 +669,23 @@ export default function ClientBody({
           totalCO2 /
           TREE_CO2_OFFSET_KG;
 
-        // ===================================================
-        // UI
-        // ===================================================
-
-        setEnergy(totalEnergy);
+        setEnergy(
+          totalEnergy
+        );
 
         setCo2(totalCO2);
 
-        setWater(totalWater);
+        setWater(
+          totalWater
+        );
 
         setTrees(
           treesEquivalent
         );
 
-        setHours(totalHours);
+        setHours(
+          totalHours
+        );
 
         setCloudAvoided(
           cloudRequestsAvoidedRef.current
@@ -598,10 +698,6 @@ export default function ClientBody({
         setCloudEnergyAvoided(
           cloudEnergyAvoidedRef.current
         );
-
-        // ===================================================
-        // PERSIST
-        // ===================================================
 
         saveEcoState({
           totalEnergyKWh:
@@ -646,7 +742,9 @@ export default function ClientBody({
       }, 2000);
 
     return () =>
-      clearInterval(interval);
+      clearInterval(
+        interval
+      );
   }, []);
 
   // =======================================================
@@ -654,15 +752,16 @@ export default function ClientBody({
   // =======================================================
 
   useEffect(() => {
-    const onVisibility = () => {
-      if (
-        document.hidden &&
-        inferenceActiveRef.current
-      ) {
-        inferenceActiveRef.current =
-          false;
-      }
-    };
+    const onVisibility =
+      () => {
+        if (
+          document.hidden &&
+          inferenceActiveRef.current
+        ) {
+          inferenceActiveRef.current =
+            false;
+        }
+      };
 
     document.addEventListener(
       "visibilitychange",
@@ -688,73 +787,145 @@ export default function ClientBody({
       <div
         className="
           fixed bottom-3 right-3 z-50
-          bg-black/65
-          backdrop-blur-md
-          border border-green-500/20
-          rounded-2xl
-          px-4 py-3
-          text-[11px]
-          text-green-300
-          shadow-xl
-          flex flex-col gap-1
-          min-w-[210px]
+          flex flex-col items-end
         "
       >
-        <div className="flex items-center gap-2">
-          🌱
-          <span>
-            {trees.toFixed(6)}
-          </span>
+        <button
+          onClick={() =>
+            setEcoExpanded(
+              (v) => !v
+            )
+          }
+          className="
+            bg-black/70
+            backdrop-blur-md
+            border border-green-500/20
+            rounded-2xl
+            px-4 py-2
+            text-[11px]
+            text-green-300
+            shadow-xl
+            transition-all
+            duration-300
+            max-w-[85vw]
+          "
+        >
+          <div className="flex items-center gap-2">
+            🌱
 
-          <span className="opacity-70">
-            tree eq.
-          </span>
-        </div>
+            <span>
+              {trees.toFixed(
+                6
+              )}
+            </span>
 
-        <div className="opacity-70">
-          ⚡{" "}
-          {energy.toFixed(5)} kWh
-        </div>
+            <span className="opacity-70">
+              tree eq.
+            </span>
 
-        <div className="opacity-70">
-          🌍{" "}
-          {co2.toFixed(6)} kgCO₂
-        </div>
+            <span className="opacity-40">
+              {ecoExpanded
+                ? "▲"
+                : "▼"}
+            </span>
+          </div>
+        </button>
 
-        <div className="opacity-70">
-          💧{" "}
-          {water.toFixed(4)} L
-        </div>
+        <div
+          className={`
+            overflow-hidden
+            transition-all
+            duration-300
+            mt-2
+            ${
+              ecoExpanded
+                ? "max-h-[500px] opacity-100"
+                : "max-h-0 opacity-0 pointer-events-none"
+            }
+          `}
+        >
+          <div
+            className="
+              bg-black/65
+              backdrop-blur-md
+              border border-green-500/20
+              rounded-2xl
+              px-4 py-3
+              text-[11px]
+              text-green-300
+              shadow-xl
+              flex flex-col gap-1
+              min-w-[210px]
+              max-w-[85vw]
+            "
+          >
+            <div className="opacity-70">
+              ⚡{" "}
+              {energy.toFixed(
+                5
+              )}{" "}
+              kWh
+            </div>
 
-        <div className="opacity-70">
-          🕒{" "}
-          {hours.toFixed(2)} h
-        </div>
+            <div className="opacity-70">
+              🌍{" "}
+              {co2.toFixed(
+                6
+              )}{" "}
+              kgCO₂
+            </div>
 
-        <div className="opacity-70">
-          ☁️ avoided:
-          {" "}
-          {cloudAvoided.toFixed(0)}
-          {" "}
-          req
-        </div>
+            <div className="opacity-70">
+              💧{" "}
+              {water.toFixed(
+                4
+              )}{" "}
+              L
+            </div>
 
-        <div className="opacity-70">
-          🌿 cloud CO₂ saved:
-          {" "}
-          {cloudCO2Avoided.toFixed(4)}
-          {" "}
-          kg
-        </div>
+            <div className="opacity-70">
+              🕒{" "}
+              {hours.toFixed(
+                2
+              )}{" "}
+              h
+            </div>
 
-        <div className="opacity-70">
-          🔋 cloud energy saved:
-          {" "}
-          {cloudEnergyAvoided.toFixed(4)}
-          {" "}
-          kWh
+            <div className="opacity-70">
+              ☁️ avoided:
+              {" "}
+              {cloudAvoided.toFixed(
+                0
+              )}
+              {" "}
+              req
+            </div>
+
+            <div className="opacity-70">
+              🌿 cloud CO₂
+              saved:
+              {" "}
+              {cloudCO2Avoided.toFixed(
+                4
+              )}
+              {" "}
+              kg
+            </div>
+
+            <div className="opacity-70">
+              🔋 cloud
+              energy
+              saved:
+              {" "}
+              {cloudEnergyAvoided.toFixed(
+                4
+              )}
+              {" "}
+              kWh
+            </div>
+          </div>
         </div>
       </div>
     </>
   );
-  }
+        }
