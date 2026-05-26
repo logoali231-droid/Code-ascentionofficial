@@ -10,17 +10,25 @@ import { playSound } from "./sounds";
 ========================================================= */
 
 let worker: Worker | null = null;
-let engine: MLCEngineInterface | null = null;
-let loadingPromise: Promise<MLCEngineInterface> | null =
+
+let engine: MLCEngineInterface | null =
   null;
 
-let currentModel: string | null = null;
+let loadingPromise:
+  | Promise<MLCEngineInterface>
+  | null = null;
+
+let currentModel: string | null =
+  null;
 
 let generationLock = false;
 
-let backgroundSince: number | null = null;
+let backgroundSince: number | null =
+  null;
 
 let isUnloading = false;
+
+let isInitializing = false;
 
 /* =========================================================
    HELPERS
@@ -33,7 +41,9 @@ function isMobileDevice() {
 }
 
 function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) =>
+    setTimeout(r, ms)
+  );
 }
 
 function safeAbortError() {
@@ -146,7 +156,10 @@ export async function initEngine(
   onProgress?: (report: any) => void
 ): Promise<MLCEngineInterface> {
 
-  if (engine && currentModel === modelId) {
+  if (
+    engine &&
+    currentModel === modelId
+  ) {
     return engine;
   }
 
@@ -155,10 +168,11 @@ export async function initEngine(
   }
 
   loadingPromise = (async () => {
-
     try {
 
-      if (typeof window === "undefined") {
+      if (
+        typeof window === "undefined"
+      ) {
         throw new Error(
           "SSR blocked for WebLLM"
         );
@@ -233,9 +247,10 @@ export async function initEngine(
         currentModel !==
           selectedModelId
       ) {
+
         await localUnloadEngine();
 
-        await delay(200);
+        await delay(500);
       }
 
       /* =========================================
@@ -262,6 +277,8 @@ export async function initEngine(
 
           loadingPromise = null;
 
+          isInitializing = false;
+
           await localUnloadEngine();
         };
 
@@ -274,6 +291,8 @@ export async function initEngine(
           );
 
           loadingPromise = null;
+
+          isInitializing = false;
 
           await localUnloadEngine();
         };
@@ -295,31 +314,23 @@ export async function initEngine(
           4;
 
       /* =========================================
-         YIELD TO UI THREAD
+         YIELD
       ========================================= */
 
       await delay(50);
 
-      await new Promise<void>(
-        (resolve) => {
+      /* =========================================
+         INIT START
+      ========================================= */
 
-          if (
-            "requestIdleCallback" in
-            window
-          ) {
-            requestIdleCallback(
-              () => resolve(),
-              {
-                timeout: 1000,
-              }
-            );
-          } else {
-            setTimeout(
-              resolve,
-              100
-            );
-          }
-        }
+      isInitializing = true;
+
+      worker.postMessage({
+        type: "INIT_START",
+      });
+
+      console.log(
+        "[WEBLLM] INIT_START"
       );
 
       /* =========================================
@@ -332,11 +343,14 @@ export async function initEngine(
           selectedModelId,
           {
             initProgressCallback:
-              async (
-                report: any
-              ) => {
+              (report: any) => {
 
                 try {
+
+                  console.log(
+                    "[WEBLLM PROGRESS]",
+                    report
+                  );
 
                   onProgress?.(
                     report
@@ -352,14 +366,9 @@ export async function initEngine(
                       "[WEBLLM] MEMORY PRESSURE DURING INIT"
                     );
 
-                    queueMicrotask(
-                      async () => {
-
-                        await emergencyWebLLMCleanup();
-                      }
+                    throw new Error(
+                      "MEMORY_PRESSURE_DURING_INIT"
                     );
-
-                    return;
                   }
 
                 } catch (err) {
@@ -403,13 +412,26 @@ export async function initEngine(
             useIndexedDBCache:
               useCache,
 
-            enableProgressiveLoading:
-              !isMobile,
+            enableProgressiveLoading: true,
           } as any
         );
 
       currentModel =
         selectedModelId;
+
+      /* =========================================
+         INIT END
+      ========================================= */
+
+      isInitializing = false;
+
+      worker.postMessage({
+        type: "INIT_END",
+      });
+
+      console.log(
+        "[WEBLLM] INIT_END"
+      );
 
       console.log(
         "[WEBLLM] Engine ready:",
@@ -425,6 +447,18 @@ export async function initEngine(
         err
       );
 
+      isInitializing = false;
+
+      try {
+
+        if (worker) {
+          worker.postMessage({
+            type: "INIT_END",
+          });
+        }
+
+      } catch {}
+
       try {
         await localUnloadEngine();
       } catch {}
@@ -433,7 +467,6 @@ export async function initEngine(
 
       throw err;
     }
-
   })();
 
   return loadingPromise;
@@ -461,7 +494,6 @@ export async function localUnloadEngine(): Promise<void> {
 
         await Promise.race([
           engine.unload(),
-
           delay(3000),
         ]);
 
@@ -481,6 +513,14 @@ export async function localUnloadEngine(): Promise<void> {
     if (worker) {
 
       try {
+        worker.postMessage({
+          type: "ABORT",
+        });
+      } catch {}
+
+      await delay(100);
+
+      try {
         worker.terminate();
       } catch {}
 
@@ -491,7 +531,7 @@ export async function localUnloadEngine(): Promise<void> {
        GC WINDOW
     ========================================= */
 
-    await delay(100);
+    await delay(300);
 
   } finally {
 
@@ -504,6 +544,8 @@ export async function localUnloadEngine(): Promise<void> {
     currentModel = null;
 
     generationLock = false;
+
+    isInitializing = false;
 
     isUnloading = false;
 
@@ -720,4 +762,4 @@ if (
       }
     }
   );
-       }
+         }
