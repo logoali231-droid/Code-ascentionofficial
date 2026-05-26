@@ -9,21 +9,27 @@ function createHandler() {
 
   return handler;
 }
-
 self.onmessage = async (msg: MessageEvent) => {
   try {
-
     const { type } = msg.data;
-
     if (type === "ABORT" || type === "unload") {
 
-      handler = null;
+  try {
 
-      self.postMessage({
-        type: "ABORTED_SUCCESS",
-      });
+    // 🧠 libera buffers internos / WebGPU
+    await handler?.reset?.();
+  } catch (err) {
+    console.warn("[WORKER RESET ERROR]", err);
 
-      return;
+  } finally {
+    handler = null;
+    self.postMessage({
+      type: "ABORTED_SUCCESS",
+    });
+    self.close();
+  }
+
+  return;
     }
 
     const currentHandler = createHandler();
