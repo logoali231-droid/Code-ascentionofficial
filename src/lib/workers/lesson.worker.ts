@@ -39,9 +39,7 @@ self.onmessage = async (event) => {
 
     const full = await runLLM(prompt, temperature);
 
-    for await (const chunk of stream) {
-      full += chunk;
-    }
+    
 
     self.postMessage({
       type: "lesson",
