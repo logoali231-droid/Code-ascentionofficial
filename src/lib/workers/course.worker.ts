@@ -22,19 +22,14 @@ self.onmessage = async (event) => {
     });
 
     // 🧠 prompt agora tem “estado mental do sistema”
-    const prompt = buildCoursePrompt({
-      topic,
-      style,
-      level,
-      difficulty: adaptive.difficulty,
-      graph,
-      memory,
-      cognitive: {
-        profile: adaptive.rawProfile,
-        routing: adaptive.routingStrategy,
-        focusMode: adaptive.focusMode,
-      },
-    });
+    const prompt = await buildCoursePrompt({
+  topic,
+  learningState: level,
+  courseId: courseId || topic,
+  userProfile: JSON.stringify(memory),
+  customStyle: style,
+  profile: adaptive.rawProfile,
+});
 
     const temperature =
       adaptive.routingStrategy === "HIGH_COMPUTATION_CLOUD"
