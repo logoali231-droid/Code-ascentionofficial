@@ -132,9 +132,15 @@ Return ONLY valid JSON.
   try {
     const rawRes = await runLLM(prompt);
 
-    const fullResponse = rawRes;
+// ✅ FIX 1: garantir tipo seguro
+const fullResponse =
+  typeof rawRes === "string"
+    ? rawRes
+    : JSON.stringify(rawRes);
 
-    const parsed = cleanAndParseCourseJSON(fullResponse);
+// (ou alternativa mais simples: const fullResponse = rawRes as string;)
+
+const parsed = cleanAndParseCourseJSON(fullResponse);
 
     if (!parsed || !validateCourse(parsed)) {
       console.error(
