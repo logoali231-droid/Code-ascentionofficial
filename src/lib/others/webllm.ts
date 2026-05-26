@@ -151,7 +151,7 @@ export async function initEngine(
         worker,
         selectedModelId,
         {
-          initProgressCallback: (report) => {
+          initProgressCallback: (report: any) => {
 
             onProgress?.(report);
 
