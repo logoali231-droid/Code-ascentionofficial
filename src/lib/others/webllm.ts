@@ -145,7 +145,7 @@ export async function initEngine(
       const { CreateWebWorkerMLCEngine } =
         await import("@mlc-ai/web-llm");
 
-      const useCache = !isMobile;
+      const useCache = true;
 
       engine = await CreateWebWorkerMLCEngine(
         worker,
