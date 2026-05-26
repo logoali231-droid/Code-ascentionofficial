@@ -4,7 +4,7 @@ import { getKnowledgeGraph, getReviewConcepts } from "@/lib/others/knowledgeGrap
 import { cleanAndParseCourseJSON } from "@/lib/others/safeParse";
 import { validateCourse } from "@/lib/others/courseValidator";
 import { getUserStrengthsAndWeaknesses } from "@/lib/others/userMemory";
-import { getAdaptiveMetrics} from @/lib/others/adaptive";
+import { getAdaptiveMetrics} from "@/lib/others/adaptive";
 self.onmessage = async (event) => {
   const { topic, style, level, difficulty, courseId } = event.data;
 
