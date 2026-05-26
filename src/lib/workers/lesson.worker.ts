@@ -1,6 +1,6 @@
 "use client";
 
-import { generate } from "./webllm";
+import { runLLM } from "./lib/llm/llmExecutor";
 import { buildLessonPlan } from "./LessonGenerator";
 import { getAdaptiveMetrics } from "./adaptiveMetrics";
 
@@ -37,9 +37,7 @@ self.onmessage = async (event) => {
         ? 0.4
         : 0.65;
 
-    const stream = await generate(prompt, temperature);
-
-    let full = "";
+    const full = await runLLM(prompt, temperature);
 
     for await (const chunk of stream) {
       full += chunk;
