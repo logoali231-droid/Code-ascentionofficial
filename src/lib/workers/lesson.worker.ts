@@ -1,6 +1,6 @@
 "use client";
 
-import { runLLM } from "./lib/llm/llmExecutor";
+import { runLLM } from "@/lib/llm/llmExecutor";
 import { buildLessonPlan } from "./LessonGenerator";
 import { getAdaptiveMetrics } from "./adaptiveMetrics";
 
