@@ -121,12 +121,16 @@ export async function initEngine(
          🧠 CRITICAL FIX: PRE-LOAD UNLOAD + GC WINDOW
       ===================================================== */
 
-      await localUnloadEngine();
-      await new Promise((r) => setTimeout(r, 250));
+      if (engine && currentModel !== selectedModelId) {
+  await localUnloadEngine();
+  await new Promise((r) => setTimeout(r, 150));
+      }
 
       if (isMemoryCritical(isMobile)) {
-        throw new Error("Memory pressure before init");
-      }
+  console.warn(
+    "[WEBLLM] Memory pressure detected during init"
+  );
+   }
 
       if (typeof window === "undefined") {
         throw new Error("SSR blocked for WebLLM");
