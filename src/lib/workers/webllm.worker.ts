@@ -1,34 +1,111 @@
 import { WebWorkerMLCEngineHandler } from "@mlc-ai/web-llm";
 
-let handler: WebWorkerMLCEngineHandler | null = null;
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
+
+let handler: WebWorkerMLCEngineHandler | null =
+  null;
+
+let isInitializing = false;
+
+let isShuttingDown = false;
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function delay(ms: number) {
+  return new Promise((r) =>
+    setTimeout(r, ms)
+  );
+}
 
 /* =========================================================
    IDLE AUTO CLEANUP
 ========================================================= */
 
-let idleTimer: ReturnType<typeof setTimeout> | null = null;
+let idleTimer:
+  | ReturnType<typeof setTimeout>
+  | null = null;
 
-function resetIdleTimer() {
+function clearIdleTimer() {
   if (idleTimer) {
     clearTimeout(idleTimer);
+    idleTimer = null;
   }
+}
 
-  idleTimer = setTimeout(async () => {
-    try {
-      console.warn("[WEBLLM WORKER] Idle timeout cleanup");
+function resetIdleTimer() {
 
-      handler = null;
+  clearIdleTimer();
 
-      // @ts-ignore
-      globalThis.gc?.();
+  idleTimer = setTimeout(
+    async () => {
 
-      await new Promise((r) => setTimeout(r, 50));
-    } catch (err) {
-      console.warn("[WEBLLM WORKER] Idle cleanup failed", err);
-    } finally {
-      self.close();
-    }
-  }, 45_000);
+      /* =====================================
+         DO NOT CLEAN DURING INIT
+      ===================================== */
+
+      if (isInitializing) {
+
+        console.warn(
+          "[WEBLLM WORKER] Init in progress, skipping idle cleanup"
+        );
+
+        resetIdleTimer();
+
+        return;
+      }
+
+      /* =====================================
+         DO NOT DOUBLE SHUTDOWN
+      ===================================== */
+
+      if (isShuttingDown) {
+        return;
+      }
+
+      isShuttingDown = true;
+
+      try {
+
+        console.warn(
+          "[WEBLLM WORKER] Idle timeout cleanup"
+        );
+
+        handler = null;
+
+        /* =====================================
+           OPTIONAL GC
+        ===================================== */
+
+        // @ts-ignore
+        globalThis.gc?.();
+
+        await delay(200);
+
+      } catch (err) {
+
+        console.warn(
+          "[WEBLLM WORKER] Idle cleanup failed",
+          err
+        );
+
+      } finally {
+
+        clearIdleTimer();
+
+        self.close();
+      }
+    },
+
+    /* =========================================
+       5 MINUTES
+    ========================================= */
+
+    5 * 60_000
+  );
 }
 
 /* =========================================================
@@ -36,57 +113,141 @@ function resetIdleTimer() {
 ========================================================= */
 
 function createHandler() {
+
   if (!handler) {
-    handler = new WebWorkerMLCEngineHandler();
+
+    console.log(
+      "[WEBLLM WORKER] Creating handler"
+    );
+
+    handler =
+      new WebWorkerMLCEngineHandler();
   }
 
   return handler;
 }
 
 /* =========================================================
+   SAFE SHUTDOWN
+========================================================= */
+
+async function shutdownWorker(
+  reason: string
+) {
+
+  if (isShuttingDown) {
+    return;
+  }
+
+  isShuttingDown = true;
+
+  try {
+
+    console.warn(
+      `[WEBLLM WORKER] Shutdown: ${reason}`
+    );
+
+    clearIdleTimer();
+
+    handler = null;
+
+    self.postMessage({
+      type: "WORKER_SHUTDOWN",
+      reason,
+    });
+
+    // @ts-ignore
+    globalThis.gc?.();
+
+    await delay(200);
+
+  } catch (err) {
+
+    console.warn(
+      "[WEBLLM WORKER] Shutdown failed",
+      err
+    );
+
+  } finally {
+
+    self.close();
+  }
+}
+
+/* =========================================================
    MESSAGE PIPELINE
 ========================================================= */
 
-self.onmessage = async (msg: MessageEvent) => {
+self.onmessage = async (
+  msg: MessageEvent
+) => {
+
   try {
+
     const { type } = msg.data;
 
     /* =====================================================
-       HARD UNLOAD / ABORT
+       INIT START
     ===================================================== */
 
-    if (type === "ABORT" || type === "unload") {
-      try {
-        console.warn("[WEBLLM WORKER] Forced unload");
+    if (type === "INIT_START") {
 
-        handler = null;
+      isInitializing = true;
 
-        self.postMessage({
-          type: "ABORTED_SUCCESS",
-        });
+      console.log(
+        "[WEBLLM WORKER] INIT_START"
+      );
 
-        // @ts-ignore
-        globalThis.gc?.();
-
-        await new Promise((r) => setTimeout(r, 50));
-      } catch (err) {
-        console.warn("[WORKER UNLOAD ERROR]", err);
-      } finally {
-        self.close();
-      }
+      resetIdleTimer();
 
       return;
     }
 
     /* =====================================================
-       KEEP WORKER ALIVE ONLY DURING ACTIVE USAGE
+       INIT END
+    ===================================================== */
+
+    if (type === "INIT_END") {
+
+      isInitializing = false;
+
+      console.log(
+        "[WEBLLM WORKER] INIT_END"
+      );
+
+      resetIdleTimer();
+
+      return;
+    }
+
+    /* =====================================================
+       HARD ABORT
+    ===================================================== */
+
+    if (
+      type === "ABORT" ||
+      type === "unload"
+    ) {
+
+      await shutdownWorker(
+        "forced_abort"
+      );
+
+      return;
+    }
+
+    /* =====================================================
+       ACTIVE USAGE
     ===================================================== */
 
     resetIdleTimer();
 
-    const currentHandler = createHandler();
+    const currentHandler =
+      createHandler();
 
-    await currentHandler.onmessage(msg);
+    await currentHandler.onmessage(
+      msg
+    );
 
   } catch (err) {
 
@@ -95,11 +256,47 @@ self.onmessage = async (msg: MessageEvent) => {
         ? err.message
         : String(err);
 
-    console.error("[WEBLLM WORKER ERROR]", errorMessage);
+    console.error(
+      "[WEBLLM WORKER ERROR]",
+      errorMessage
+    );
 
-    self.postMessage({
-      type: "worker_error",
-      error: errorMessage,
-    });
+    try {
+
+      self.postMessage({
+        type: "worker_error",
+        error: errorMessage,
+      });
+
+    } catch {}
+
+    /* =========================================
+       RECOVERABLE STATE RESET
+    ========================================= */
+
+    if (
+      errorMessage.includes(
+        "memory"
+      ) ||
+      errorMessage.includes(
+        "OOM"
+      ) ||
+      errorMessage.includes(
+        "context lost"
+      ) ||
+      errorMessage.includes(
+        "WebGPU"
+      )
+    ) {
+
+      console.warn(
+        "[WEBLLM WORKER] Resetting handler after critical error"
+      );
+
+      handler = null;
+
+      // @ts-ignore
+      globalThis.gc?.();
+    }
   }
 };
