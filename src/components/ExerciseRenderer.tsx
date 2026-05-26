@@ -169,6 +169,34 @@ export default function ExerciseRenderer({
       onComplete?.(true);
       if (onNext) {
         await onNext(true, value, dynamicXp);
+        const brain = await identifyCourseBrain({
+         courseId,
+         globalMastery,
+         globalConfidence,
+         streak,
+        });
+
+switch (brain.state) {
+  case "COURSE_COMPLETE":
+    // unlock UI / next course
+    break;
+
+  case "REVIEW_MODE":
+    // force LessonGenerator reinforcement
+    break;
+
+  case "CONTINUE_LESSONS":
+    // normal flow
+    break;
+
+  case "DIFFICULTY_SHIFT":
+    // adjust generation difficulty
+    break;
+
+  case "REGENERATE_COURSE":
+    // call CourseGenerator again
+    break;
+}
       }
     } else {
       onComplete?.(false);
