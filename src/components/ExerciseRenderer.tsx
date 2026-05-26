@@ -60,6 +60,13 @@ export default function ExerciseRenderer({
     "code" | "quiz" | "dragdrop" | "mcq"
   >("code");
 
+  const user = await getUser();
+
+  const courseId = course?.id;
+  const globalMastery = user?.mastery ?? 0;
+  const globalConfidence = user?.confidence ?? 0;
+  const streak = user?.streak ?? 0;
+
   useEffect(() => {
     async function fetchTopology() {
       if (!rawExercise) return;
