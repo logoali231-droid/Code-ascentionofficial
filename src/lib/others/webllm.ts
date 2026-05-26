@@ -3,193 +3,201 @@
 import { SYSTEM_CONFIG } from "@/config/system";
 import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { detectSystemCapabilities } from "./modelManager";
-import { playSound } from "./sounds";
 
 /* =========================================================
-   GLOBAL STATE
+   STATE MACHINE (V2 MAX CORE)
 ========================================================= */
 
 let worker: Worker | null = null;
 let engine: MLCEngineInterface | null = null;
 
-let loadingPromise: Promise<MLCEngineInterface> | null = null;
+let initPromise: Promise<MLCEngineInterface> | null = null;
 
 let currentModel: string | null = null;
 
-let generationLock = false;
 let isDownloading = false;
 let isInitializing = false;
+let generationLock = false;
 let isUnloading = false;
-
-let backgroundSince: number | null = null;
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-function isMobileDevice() {
+const delay = (ms: number) =>
+  new Promise((r) => setTimeout(r, ms));
+
+function isMobile() {
   return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 }
 
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function safeAbortError() {
-  return new DOMException("Aborted", "AbortError");
+function memoryMB() {
+  const mem = (performance as any)?.memory?.usedJSHeapSize;
+  return mem ? mem / 1024 / 1024 : 0;
 }
 
 /* =========================================================
-   MEMORY GUARD
+   MODEL FALLBACK CHAIN (REAL ENGINE CORE)
 ========================================================= */
 
-function getMemoryUsage() {
-  return (performance as any).memory?.usedJSHeapSize || 0;
-}
+function resolveModel(requested?: string) {
+  const isMob = isMobile();
+  const ram = (navigator as any)?.deviceMemory ?? 4;
 
-function isMemoryCritical(isMobile: boolean) {
-  const mem = getMemoryUsage();
-  if (!mem) return false;
+  const models = SYSTEM_CONFIG.AVAILABLE_MODELS;
 
-  const limit = isMobile
-    ? SYSTEM_CONFIG.CLEANUP.MEMORY.MOBILE_CRITICAL_MB * 1024 * 1024
-    : SYSTEM_CONFIG.CLEANUP.MEMORY.DESKTOP_CRITICAL_MB * 1024 * 1024;
+  const safeLow = models[0].model_id;
 
-  return mem > limit;
+  const mid = models.find(m => m.recommendedFor === "MID")?.model_id;
+  const high = models.find(m => m.recommendedFor === "HIGH")?.model_id;
+
+  let selected =
+    requested ??
+    mid ??
+    safeLow;
+
+  const isPhi = selected.includes("Phi");
+
+  if (isMob && ram < 6 && isPhi) {
+    selected = safeLow;
+  }
+
+  if (isMob && ram < 3) {
+    selected = safeLow;
+  }
+
+  if (!models.some(m => m.model_id === selected)) {
+    selected = safeLow;
+  }
+
+  return selected;
 }
 
 /* =========================================================
-   CLEANUP
+   CLEAN ENGINE
 ========================================================= */
 
-export async function emergencyWebLLMCleanup() {
+export async function localUnloadEngine() {
+  if (isUnloading) return;
+  isUnloading = true;
+
   try {
-    await localUnloadEngine();
-
-    if ("caches" in window) {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys
-          .filter((k) => k.includes("webllm"))
-          .map((k) => caches.delete(k))
-      );
+    if (engine) {
+      await Promise.race([
+        engine.unload(),
+        delay(2500),
+      ]);
     }
-  } catch (err) {
-    console.warn("[WEBLLM CLEANUP ERROR]", err);
+
+    if (worker) {
+      worker.postMessage({ type: "ABORT" });
+      await delay(100);
+      worker.terminate();
+    }
+  } finally {
+    engine = null;
+    worker = null;
+    initPromise = null;
+    currentModel = null;
+    isDownloading = false;
+    isInitializing = false;
+    isUnloading = false;
+    generationLock = false;
   }
 }
 
 /* =========================================================
-   ENGINE INIT
+   EMERGENCY RESET
+========================================================= */
+
+export async function emergencyWebLLMCleanup() {
+  await localUnloadEngine();
+
+  try {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter(k => k.includes("webllm"))
+        .map(k => caches.delete(k))
+    );
+  } catch {}
+}
+
+/* =========================================================
+   ENGINE INIT V2 MAX
 ========================================================= */
 
 export async function initEngine(
   modelId?: string,
-  onProgress?: (report: any) => void
+  onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
 
   if (engine && currentModel === modelId) return engine;
-  if (loadingPromise) return loadingPromise;
+  if (initPromise) return initPromise;
 
-  loadingPromise = (async () => {
+  initPromise = (async () => {
     try {
 
       if (typeof window === "undefined") {
         throw new Error("SSR_BLOCKED");
       }
 
-      const isMobile = isMobileDevice();
+      const isMob = isMobile();
 
-      await delay(isMobile ? 250 : 50);
+      await delay(isMob ? 250 : 40);
 
-      /* ================= MEMORY CHECK ================= */
-
-      if (isMemoryCritical(isMobile)) {
+      if (memoryMB() > (isMob ? 420 : 900)) {
         await emergencyWebLLMCleanup();
         throw new Error("MEMORY_BLOCK");
       }
 
-      /* ================= DOWNLOAD LOCK ================= */
-
-      if (isDownloading && isMobile) {
-        throw new Error("DOWNLOAD_LOCKED");
-      }
-
-      /* ================= CAPABILITIES ================= */
-
       const specs = await detectSystemCapabilities();
 
-      let selectedModelId =
-        modelId ??
-        specs?.recommended?.model_id ??
-        SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;
-
-      /* ================= MOBILE FALLBACK ================= */
-
-      const isPhi = selectedModelId.includes("Phi-3");
-
-      if (isMobile && isPhi) {
-        const ram = (navigator as any).deviceMemory ?? 4;
-
-        if (ram < 6) {
-          selectedModelId =
-            SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id; // Qwen fallback
-        }
-      }
-
-      /* ================= VALIDATION ================= */
-
-      if (
-        !SYSTEM_CONFIG.AVAILABLE_MODELS.some(
-          (m) => m.model_id === selectedModelId
-        )
-      ) {
-        throw new Error("INVALID_MODEL");
-      }
-
-      /* ================= WORKER ================= */
-
-      worker = new Worker(
-        new URL("../workers/webllm.worker.ts", import.meta.url),
-        { type: "module" }
+      const selectedModelId = resolveModel(
+        modelId ?? specs?.recommended?.model_id
       );
 
-      worker.onerror = async () => {
-        await localUnloadEngine();
-      };
+      /* =====================================================
+         WORKER SINGLETON
+      ===================================================== */
 
-      worker.onmessageerror = async () => {
-        await localUnloadEngine();
-      };
+      if (!worker) {
+        worker = new Worker(
+          new URL("../workers/webllm.worker.ts", import.meta.url),
+          { type: "module" }
+        );
 
-      await delay(isMobile ? 150 : 50);
+        worker.onerror = async () => {
+          await emergencyWebLLMCleanup();
+        };
+
+        worker.onmessageerror = async () => {
+          await emergencyWebLLMCleanup();
+        };
+      }
+
+      await delay(isMob ? 120 : 40);
 
       const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
 
-      const nav = navigator as any;
-
       const useCache =
-        !isMobile || (nav.deviceMemory ?? 4) >= 4;
-
-      /* ================= INIT START ================= */
+        !isMob && ((navigator as any).deviceMemory ?? 4) >= 4;
 
       isInitializing = true;
-      isDownloading = true;
-
       worker.postMessage({ type: "INIT_START" });
 
-      await delay(isMobile ? 300 : 80);
+      await delay(isMob ? 300 : 60);
 
-      /* ================= ENGINE CREATE ================= */
+      isDownloading = true;
 
       engine = await CreateWebWorkerMLCEngine(
         worker,
         selectedModelId,
         {
-          initProgressCallback: (report: any) => {
-            onProgress?.(report);
+          initProgressCallback: (r: any) => {
+            onProgress?.(r);
 
-            if (isMemoryCritical(isMobile)) {
+            if (memoryMB() > (isMob ? 420 : 900)) {
               throw new Error("MEMORY_DURING_INIT");
             }
           },
@@ -197,11 +205,11 @@ export async function initEngine(
           logLevel: "INFO",
 
           chatOpts: {
-            context_window_size: isMobile
+            context_window_size: isMob
               ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
               : SYSTEM_CONFIG.LLM.context_window_size,
 
-            sliding_window_size: isMobile
+            sliding_window_size: isMob
               ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
               : SYSTEM_CONFIG.LLM.sliding_window_size,
 
@@ -209,7 +217,6 @@ export async function initEngine(
           },
 
           useIndexedDBCache: useCache,
-
           enableProgressiveLoading: true,
         } as any
       );
@@ -224,49 +231,17 @@ export async function initEngine(
       return engine;
 
     } catch (err) {
-      await localUnloadEngine();
-      loadingPromise = null;
-      isDownloading = false;
-      isInitializing = false;
+      await emergencyWebLLMCleanup();
+      initPromise = null;
       throw err;
     }
   })();
 
-  return loadingPromise;
+  return initPromise;
 }
 
 /* =========================================================
-   UNLOAD
-========================================================= */
-
-export async function localUnloadEngine() {
-  if (isUnloading) return;
-  isUnloading = true;
-
-  try {
-    if (engine) {
-      await Promise.race([engine.unload(), delay(2500)]);
-    }
-
-    if (worker) {
-      worker.postMessage({ type: "ABORT" });
-      await delay(100);
-      worker.terminate();
-    }
-  } finally {
-    engine = null;
-    worker = null;
-    loadingPromise = null;
-    currentModel = null;
-    generationLock = false;
-    isDownloading = false;
-    isInitializing = false;
-    isUnloading = false;
-  }
-}
-
-/* =========================================================
-   GENERATION
+   GENERATE V2 MAX SAFE
 ========================================================= */
 
 export async function* generate(
@@ -275,11 +250,8 @@ export async function* generate(
   onProgress?: (r: any) => void,
   signal?: AbortSignal
 ) {
-  if (signal?.aborted) throw safeAbortError();
 
-  const isMobile = isMobileDevice();
-
-  if (generationLock) throw new Error("LOCKED");
+  if (generationLock) throw new Error("GEN_LOCK");
   generationLock = true;
 
   try {
@@ -290,9 +262,7 @@ export async function* generate(
       temperature,
       stream: true,
       signal,
-      max_tokens: isMobile
-        ? SYSTEM_CONFIG.LLM.MOBILE.max_tokens
-        : 1024,
+      max_tokens: isMobile() ? 512 : 1024,
     } as any);
 
     for await (const chunk of stream as any) {
@@ -301,8 +271,9 @@ export async function* generate(
     }
 
   } catch (err) {
-    playSound("error", 0.4);
+    await emergencyWebLLMCleanup();
     throw err;
+
   } finally {
     generationLock = false;
   }
