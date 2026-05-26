@@ -1,205 +1,147 @@
 import { WebWorkerMLCEngineHandler } from "@mlc-ai/web-llm";
 
 /* =========================================================
-   GLOBAL STATE
+   STATE MACHINE
 ========================================================= */
 
-let handler: WebWorkerMLCEngineHandler | null =
-  null;
+let handler: WebWorkerMLCEngineHandler | null = null;
 
-let isInitializing = false;
+let state: "idle" | "init" | "active" | "shutting" = "idle";
 
-let isShuttingDown = false;
+let lastActivity = Date.now();
+
+let idleTimer: any = null;
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-function delay(ms: number) {
-  return new Promise((r) =>
-    setTimeout(r, ms)
-  );
+const delay = (ms: number) =>
+  new Promise((r) => setTimeout(r, ms));
+
+const isRecentlyActive = (ms = 5000) =>
+  Date.now() - lastActivity < ms;
+
+/* =========================================================
+   ACTIVITY TRACKING
+========================================================= */
+
+function touch() {
+  lastActivity = Date.now();
 }
 
 /* =========================================================
-   IDLE AUTO CLEANUP
+   IDLE CLEANUP (SMART VERSION)
 ========================================================= */
-
-let idleTimer:
-  | ReturnType<typeof setTimeout>
-  | null = null;
-
-function clearIdleTimer() {
-  if (idleTimer) {
-    clearTimeout(idleTimer);
-    idleTimer = null;
-  }
-}
 
 function resetIdleTimer() {
+  clearTimeout(idleTimer);
 
-  clearIdleTimer();
+  idleTimer = setTimeout(async () => {
 
-  idleTimer = setTimeout(
-    async () => {
+    if (state === "init") {
+      resetIdleTimer();
+      return;
+    }
 
-      /* =====================================
-         DO NOT CLEAN DURING INIT
-      ===================================== */
+    if (state === "active" && isRecentlyActive(3000)) {
+      // still hot, delay cleanup
+      resetIdleTimer();
+      return;
+    }
 
-      if (isInitializing) {
+    if (state === "shutting") return;
 
-        console.warn(
-          "[WEBLLM WORKER] Init in progress, skipping idle cleanup"
-        );
+    state = "shutting";
 
-        resetIdleTimer();
+    console.warn("[WEBLLM WORKER] Smart idle shutdown");
 
-        return;
-      }
+    try {
+      await safeDrainAndClose();
+    } finally {
+      self.close();
+    }
 
-      /* =====================================
-         DO NOT DOUBLE SHUTDOWN
-      ===================================== */
-
-      if (isShuttingDown) {
-        return;
-      }
-
-      isShuttingDown = true;
-
-      try {
-
-        console.warn(
-          "[WEBLLM WORKER] Idle timeout cleanup"
-        );
-
-        handler = null;
-
-        /* =====================================
-           OPTIONAL GC
-        ===================================== */
-
-        // @ts-ignore
-        globalThis.gc?.();
-
-        await delay(200);
-
-      } catch (err) {
-
-        console.warn(
-          "[WEBLLM WORKER] Idle cleanup failed",
-          err
-        );
-
-      } finally {
-
-        clearIdleTimer();
-
-        self.close();
-      }
-    },
-
-    /* =========================================
-       5 MINUTES
-    ========================================= */
-
-    5 * 60_000
-  );
+  }, 5 * 60_000);
 }
 
 /* =========================================================
-   HANDLER FACTORY
+   HANDLER FACTORY (SAFE)
 ========================================================= */
 
-function createHandler() {
-
+function getHandler() {
   if (!handler) {
-
-    console.log(
-      "[WEBLLM WORKER] Creating handler"
-    );
-
-    handler =
-      new WebWorkerMLCEngineHandler();
+    handler = new WebWorkerMLCEngineHandler();
   }
-
   return handler;
 }
 
 /* =========================================================
-   SAFE SHUTDOWN
+   SAFE DRAIN SHUTDOWN (CRITICAL UPGRADE)
 ========================================================= */
 
-async function shutdownWorker(
-  reason: string
-) {
-
-  if (isShuttingDown) {
-    return;
-  }
-
-  isShuttingDown = true;
-
+async function safeDrainAndClose() {
   try {
 
-    console.warn(
-      `[WEBLLM WORKER] Shutdown: ${reason}`
-    );
-
-    clearIdleTimer();
+    // give GPU / queue time to flush
+    await delay(150);
 
     handler = null;
+
+    // GC hint (best effort only)
+    // @ts-ignore
+    globalThis.gc?.();
+
+    await delay(150);
+
+  } catch (err) {
+    console.warn("[WEBLLM WORKER] drain failed", err);
+  }
+}
+
+/* =========================================================
+   HARD SHUTDOWN
+========================================================= */
+
+async function shutdown(reason: string) {
+  if (state === "shutting") return;
+
+  state = "shutting";
+
+  console.warn("[WEBLLM WORKER] shutdown:", reason);
+
+  clearTimeout(idleTimer);
+
+  try {
+    await safeDrainAndClose();
 
     self.postMessage({
       type: "WORKER_SHUTDOWN",
       reason,
     });
 
-    // @ts-ignore
-    globalThis.gc?.();
-
-    await delay(200);
-
-  } catch (err) {
-
-    console.warn(
-      "[WEBLLM WORKER] Shutdown failed",
-      err
-    );
-
   } finally {
-
     self.close();
   }
 }
 
 /* =========================================================
-   MESSAGE PIPELINE
+   MESSAGE PIPELINE (V2)
 ========================================================= */
 
-self.onmessage = async (
-  msg: MessageEvent
-) => {
-
+self.onmessage = async (msg: MessageEvent) => {
   try {
-
     const { type } = msg.data;
+
+    touch();
 
     /* =====================================================
        INIT START
     ===================================================== */
 
     if (type === "INIT_START") {
-
-      isInitializing = true;
-
-      console.log(
-        "[WEBLLM WORKER] INIT_START"
-      );
-
+      state = "init";
       resetIdleTimer();
-
       return;
     }
 
@@ -208,95 +150,63 @@ self.onmessage = async (
     ===================================================== */
 
     if (type === "INIT_END") {
-
-      isInitializing = false;
-
-      console.log(
-        "[WEBLLM WORKER] INIT_END"
-      );
-
+      state = "idle";
       resetIdleTimer();
-
       return;
     }
 
     /* =====================================================
-       HARD ABORT
+       ABORT
     ===================================================== */
 
-    if (
-      type === "ABORT" ||
-      type === "unload"
-    ) {
-
-      await shutdownWorker(
-        "forced_abort"
-      );
-
+    if (type === "ABORT" || type === "unload") {
+      await shutdown("forced_abort");
       return;
     }
 
     /* =====================================================
-       ACTIVE USAGE
+       ACTIVE EXECUTION
     ===================================================== */
 
+    state = "active";
+
+    const h = getHandler();
+
+    await h.onmessage(msg);
+
+    state = "idle";
     resetIdleTimer();
-
-    const currentHandler =
-      createHandler();
-
-    await currentHandler.onmessage(
-      msg
-    );
 
   } catch (err) {
 
-    const errorMessage =
-      err instanceof Error
-        ? err.message
-        : String(err);
+    const msg =
+      err instanceof Error ? err.message : String(err);
 
-    console.error(
-      "[WEBLLM WORKER ERROR]",
-      errorMessage
-    );
+    console.error("[WEBLLM WORKER ERROR]", msg);
 
-    try {
+    self.postMessage({
+      type: "worker_error",
+      error: msg,
+    });
 
-      self.postMessage({
-        type: "worker_error",
-        error: errorMessage,
-      });
-
-    } catch {}
-
-    /* =========================================
-       RECOVERABLE STATE RESET
-    ========================================= */
+    /* =====================================================
+       CRITICAL RESET LOGIC
+    ===================================================== */
 
     if (
-      errorMessage.includes(
-        "memory"
-      ) ||
-      errorMessage.includes(
-        "OOM"
-      ) ||
-      errorMessage.includes(
-        "context lost"
-      ) ||
-      errorMessage.includes(
-        "WebGPU"
-      )
+      msg.includes("OOM") ||
+      msg.includes("memory") ||
+      msg.includes("WebGPU") ||
+      msg.includes("context lost")
     ) {
-
-      console.warn(
-        "[WEBLLM WORKER] Resetting handler after critical error"
-      );
+      console.warn("[WEBLLM WORKER] HARD RESET TRIGGERED");
 
       handler = null;
 
-      // @ts-ignore
-      globalThis.gc?.();
+      state = "idle";
+
+      // aggressive recovery delay
+      await delay(200);
     }
   }
 };
