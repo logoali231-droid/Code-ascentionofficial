@@ -130,24 +130,9 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const rawRes = await runtimeQueue.enqueue(async (_signal) => {
-      return runLLM(prompt);
-    }, 1);
+    const rawRes = await runLLM(prompt);
 
-    let fullResponse = "";
-    if (rawRes) {
-      if (typeof rawRes === "string") {
-        fullResponse = rawRes;
-      } else {
-        for await (const chunk of rawRes) {
-          const content =
-            typeof chunk === "string"
-              ? chunk
-              : (chunk as any).choices?.[0]?.delta?.content || "";
-          fullResponse += content;
-        }
-      }
-    }
+    const fullResponse = rawRes;
 
     const parsed = cleanAndParseCourseJSON(fullResponse);
 
