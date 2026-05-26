@@ -8,7 +8,7 @@ import { runtimeQueue } from "./generationQueue";
 import { validateCourse } from "./courseValidator";
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 import { CognitiveProfile } from "@/types/core";
-import { runLLM } from "../llm/llmExecutor";
+import { runLLM } from "@/lib/llm/llmExecutor";
 
 
 
