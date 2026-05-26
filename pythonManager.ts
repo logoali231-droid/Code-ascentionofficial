@@ -15,7 +15,7 @@ export function executarPythonIsolado({
   return new Promise((resolve, reject) => {
     // 1. Instancia o Worker de Python de forma efêmera
     let worker: Worker | null = new Worker(
-      new URL("./pythonWorker.ts", import.meta.url),
+      new URL("../workers/pythonWorker.ts", import.meta.url)
     );
 
     // 2. Cria o timer gerenciador externo na thread de interface
