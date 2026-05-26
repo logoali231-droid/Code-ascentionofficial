@@ -87,9 +87,11 @@ export async function buildCoursePrompt({
     : "";
 
   // Preserva e consolida o explanationstyle (customStyle) sem permitir que as regras o anulem
-  const customDirectiveContext = customStyle.trim()
-    ? `\n[RESTRIÇÃO_DE_MÁXIMA_PRIORIDADE - EXPLANATION_STYLE]: O sistema exige que o formato final do texto siga rigorosamente esta estrutura: ${customStyle}. Ajuste a densidade do NÚCLEO_COGNITIVO para harmonizar com este formato, sem omitir suas diretrizes visuais/estruturais.`
-    : "";
+  const hasCustomStyle = typeof customStyle === "string" && customStyle.trim().length > 0;
+
+const customDirectiveContext = hasCustomStyle
+  ? `\n[RESTRIÇÃO_DE_MÁXIMA_PRIORIDADE - EXPLANATION_STYLE]: O sistema exige que o formato final do texto siga rigorosamente esta estrutura: ${customStyle}. Ajuste a densidade do NÚCLEO_COGNITIVO para harmonizar com este formato, sem omitir suas diretrizes visuais/estruturais.`
+  : "";
 
   return `
     [PERSONA]: Você é o mentor de IA integrado do terminal de codificação cyberpunk Code Ascension. Tom magnético, altamente técnico e cirúrgico.
