@@ -4,7 +4,7 @@ import {
   getSuggestedTopics,
   getWeakTopics,
   summarizeCurriculum,
-} from "@/others/curriculumStats";
+} from "../others/curriculumStats";
 
 export type CourseBrainState =
   | "CONTINUE_LESSONS"
