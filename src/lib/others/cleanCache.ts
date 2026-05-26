@@ -1,281 +1,154 @@
 type CacheResetOptions = {
   wipeIndexedDB?: boolean;
-
-  /* =========================================
-     Preserve WebLLM model cache
-  ========================================= */
-
   preserveWebLLM?: boolean;
-
-  /* =========================================
-     Preserve workspace/project DBs
-  ========================================= */
-
   preserveWorkspace?: boolean;
+
+  /* ===============================
+     SAFETY MODE (NEW)
+  =============================== */
+  aggressive?: boolean;
+  dryRun?: boolean;
 };
+
+const WEBLLM_KEYWORDS = [
+  "webllm",
+  "mlc",
+  "mlc-chat",
+  "huggingface",
+  "transformers",
+  "model-cache",
+];
+
+const WORKSPACE_KEYWORDS = [
+  "workspace",
+  "project",
+  "dexie",
+  "opfs",
+  "indexeddb-keyval",
+];
+
+/* =========================================================
+   SAFE MATCHERS
+========================================================= */
+
+function matchesAny(name: string, list: string[]) {
+  const lower = name.toLowerCase();
+  return list.some((k) => lower.includes(k));
+}
+
+/* =========================================================
+   MAIN RESET
+========================================================= */
 
 export async function fullClientCacheReset(
   options: CacheResetOptions = {}
 ) {
-
   const {
     wipeIndexedDB = false,
     preserveWebLLM = true,
     preserveWorkspace = true,
+    aggressive = false,
+    dryRun = false,
   } = options;
 
+  console.log("[CACHE] Reset started");
+
+  /* =====================================================
+     STORAGE (SAFE CLEAR)
+  ===================================================== */
+
   try {
-
-    console.log(
-      "[CACHE] Starting full reset..."
-    );
-
-    /* =====================================================
-       LOCAL STORAGE
-    ===================================================== */
-
-    try {
-
+    if (!dryRun) {
       localStorage.clear();
-
-    } catch (err) {
-
-      console.warn(
-        "[CACHE] localStorage clear failed",
-        err
-      );
-    }
-
-    /* =====================================================
-       SESSION STORAGE
-    ===================================================== */
-
-    try {
-
       sessionStorage.clear();
+    }
+  } catch (e) {
+    console.warn("[CACHE] storage clear failed", e);
+  }
 
-    } catch (err) {
+  /* =====================================================
+     CACHE API (SMART DELETE)
+  ===================================================== */
 
-      console.warn(
-        "[CACHE] sessionStorage clear failed",
-        err
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+
+      await Promise.all(
+        keys.map(async (key) => {
+          const isWebLLM = matchesAny(key, WEBLLM_KEYWORDS);
+
+          if (preserveWebLLM && isWebLLM && !aggressive) {
+            console.log("[CACHE] keep webllm cache:", key);
+            return;
+          }
+
+          if (!dryRun) {
+            await caches.delete(key);
+          }
+        })
       );
     }
+  } catch (e) {
+    console.warn("[CACHE] cache api failed", e);
+  }
 
-    /* =====================================================
-       CACHE API
-    ===================================================== */
+  /* =====================================================
+     INDEXEDDB (FIXED + FALLBACK SAFE)
+  ===================================================== */
 
+  if (wipeIndexedDB) {
     try {
+      const dbs: any[] =
+        typeof indexedDB.databases === "function"
+          ? await indexedDB.databases()
+          : []; // fallback safe
 
-      if (typeof caches !== "undefined") {
+      for (const db of dbs) {
+        const name = db?.name;
+        if (!name) continue;
 
-        const keys =
-          await caches.keys();
+        const isWebLLM = matchesAny(name, WEBLLM_KEYWORDS);
+        const isWorkspace = matchesAny(name, WORKSPACE_KEYWORDS);
 
-        await Promise.all(
-          keys.map(async (key) => {
-
-            try {
-
-              /* =====================================
-                 PRESERVE WEBLLM CACHE
-              ===================================== */
-
-              if (
-                preserveWebLLM &&
-                key
-                  .toLowerCase()
-                  .includes("webllm")
-              ) {
-
-                console.log(
-                  "[CACHE] Preserving cache:",
-                  key
-                );
-
-                return;
-              }
-
-              await caches.delete(key);
-
-            } catch (err) {
-
-              console.warn(
-                "[CACHE] Cache delete failed:",
-                key,
-                err
-              );
-            }
-          })
-        );
-      }
-
-    } catch (err) {
-
-      console.warn(
-        "[CACHE] Cache API cleanup failed",
-        err
-      );
-    }
-
-    /* =====================================================
-       INDEXEDDB
-    ===================================================== */
-
-    if (!wipeIndexedDB) {
-
-      console.log(
-        "[CACHE] IndexedDB wipe skipped"
-      );
-
-    } else {
-
-      try {
-
-        if (
-          typeof indexedDB.databases ===
-          "function"
-        ) {
-
-          const dbs =
-            await indexedDB.databases();
-
-          await Promise.all(
-            dbs.map(async (db) => {
-
-              const dbName =
-                db.name;
-
-              if (!dbName) {
-                return;
-              }
-
-              const lower =
-                dbName.toLowerCase();
-
-              /* =====================================
-                 PRESERVE WEBLLM
-              ===================================== */
-
-              if (
-                preserveWebLLM &&
-                (
-                  lower.includes("webllm") ||
-                  lower.includes("mlc") ||
-                  lower.includes("model")
-                )
-              ) {
-
-                console.log(
-                  "[CACHE] Preserving WebLLM DB:",
-                  dbName
-                );
-
-                return;
-              }
-
-              /* =====================================
-                 PRESERVE WORKSPACE
-              ===================================== */
-
-              if (
-                preserveWorkspace &&
-                (
-                  lower.includes("workspace") ||
-                  lower.includes("project") ||
-                  lower.includes("dexie") ||
-                  lower.includes("opfs")
-                )
-              ) {
-
-                console.log(
-                  "[CACHE] Preserving workspace DB:",
-                  dbName
-                );
-
-                return;
-              }
-
-              try {
-
-                await new Promise<void>(
-                  (
-                    resolve,
-                    reject
-                  ) => {
-
-                    const req =
-                      indexedDB.deleteDatabase(
-                        dbName
-                      );
-
-                    req.onsuccess =
-                      () => resolve();
-
-                    req.onerror =
-                      () =>
-                        reject(req.error);
-
-                    req.onblocked =
-                      () => {
-
-                        console.warn(
-                          "[CACHE] Delete blocked:",
-                          dbName
-                        );
-
-                        resolve();
-                      };
-                  }
-                );
-
-                console.log(
-                  "[CACHE] Deleted DB:",
-                  dbName
-                );
-
-              } catch (err) {
-
-                console.warn(
-                  "[CACHE] Failed deleting DB:",
-                  dbName,
-                  err
-                );
-              }
-            })
-          );
+        if (preserveWebLLM && isWebLLM && !aggressive) {
+          console.log("[CACHE] keep webllm db:", name);
+          continue;
         }
 
-      } catch (err) {
+        if (preserveWorkspace && isWorkspace && !aggressive) {
+          console.log("[CACHE] keep workspace db:", name);
+          continue;
+        }
 
-        console.warn(
-          "[CACHE] IndexedDB cleanup failed",
-          err
-        );
+        if (dryRun) {
+          console.log("[CACHE][DRY] would delete:", name);
+          continue;
+        }
+
+        await new Promise<void>((resolve) => {
+          const req = indexedDB.deleteDatabase(name);
+
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve(); // fail-safe
+          req.onblocked = () => resolve();
+        });
+
+        console.log("[CACHE] deleted db:", name);
       }
+    } catch (e) {
+      console.warn("[CACHE] indexeddb cleanup failed", e);
     }
-
-    /* =====================================================
-       OPTIONAL GC HINT
-    ===================================================== */
-
-    try {
-
-      // @ts-ignore
-      globalThis.gc?.();
-
-    } catch {}
-
-    console.log(
-      "[CACHE] Full reset completed."
-    );
-
-  } catch (err) {
-
-    console.error(
-      "[CACHE] Reset error:",
-      err
-    );
   }
+
+  /* =====================================================
+     GC HINT (OPTIONAL)
+  ===================================================== */
+
+  try {
+    // @ts-ignore
+    globalThis.gc?.();
+  } catch {}
+
+  console.log("[CACHE] Reset complete");
 }
