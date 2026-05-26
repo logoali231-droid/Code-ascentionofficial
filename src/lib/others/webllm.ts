@@ -25,19 +25,35 @@ function isMobileDevice() {
 }
 
 /* =========================================================
-   SAFE WEBLLM CLEANUP
-   ⚠️ NÃO remove Service Workers
-   ⚠️ NÃO apaga cache do app inteiro
+   MEMORY GUARD (NEW)
+========================================================= */
+
+function getMemoryUsage() {
+  return (performance as any).memory?.usedJSHeapSize || 0;
+}
+
+function isMemoryCritical(isMobile: boolean) {
+  const mem = getMemoryUsage();
+
+  if (!mem) return false;
+
+  const limit = isMobile
+    ? 200 * 1024 * 1024
+    : 400 * 1024 * 1024;
+
+  return mem > limit;
+}
+
+/* =========================================================
+   SAFE CLEANUP
 ========================================================= */
 
 export async function emergencyWebLLMCleanup() {
   try {
     console.warn("[WEBLLM] Emergency cleanup started");
 
-    // unload seguro
     await localUnloadEngine();
 
-    // limpa apenas caches relacionados ao webllm
     const cacheKeys = await caches.keys();
 
     await Promise.all(
@@ -46,15 +62,11 @@ export async function emergencyWebLLMCleanup() {
         .map((k) => caches.delete(k))
     );
 
-    // limpa apenas DBs relacionados ao webllm
     if (indexedDB.databases) {
       const dbs = await indexedDB.databases();
 
       dbs.forEach((db) => {
-        if (
-          db.name &&
-          db.name.toLowerCase().includes("webllm")
-        ) {
+        if (db.name?.toLowerCase().includes("webllm")) {
           indexedDB.deleteDatabase(db.name);
         }
       });
@@ -75,17 +87,13 @@ export async function initEngine(
   onProgress?: (report: any) => void,
 ): Promise<MLCEngineInterface> {
 
-  // singleton loading
-  if (loadingPromise) {
-    return loadingPromise;
-  }
+  if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
 
     try {
 
       const specs = await detectSystemCapabilities();
-
       const isMobile = isMobileDevice();
 
       const selectedModelId =
@@ -93,7 +101,6 @@ export async function initEngine(
         specs?.recommended?.model_id ??
         SYSTEM_CONFIG.AVAILABLE_MODELS[0].model_id;
 
-      // evita modelo inválido
       if (
         !SYSTEM_CONFIG.AVAILABLE_MODELS.some(
           (m) => m.model_id === selectedModelId
@@ -102,25 +109,23 @@ export async function initEngine(
         throw new Error(`Invalid model_id: ${selectedModelId}`);
       }
 
-      // evita reinit desnecessário
       if (engine && currentModel === selectedModelId) {
         return engine;
       }
 
-      // evita Phi 3.5 no mobile
-      if (
-        isMobile &&
-        selectedModelId.includes("Phi-3.5")
-      ) {
-        throw new Error(
-          "Phi-3.5 is disabled on mobile for stability reasons."
-        );
+      if (isMobile && selectedModelId.includes("Phi-3.5")) {
+        throw new Error("Phi-3.5 disabled on mobile");
       }
 
-      // cleanup worker antigo
-      if (worker) {
-        worker.terminate();
-        worker = null;
+      /* =====================================================
+         🧠 CRITICAL FIX: PRE-LOAD UNLOAD + GC WINDOW
+      ===================================================== */
+
+      await localUnloadEngine();
+      await new Promise((r) => setTimeout(r, 250));
+
+      if (isMemoryCritical(isMobile)) {
+        throw new Error("Memory pressure before init");
       }
 
       if (typeof window === "undefined") {
@@ -129,27 +134,32 @@ export async function initEngine(
 
       worker = new Worker(
         new URL("../workers/webllm.worker.ts", import.meta.url),
-        {
-          type: "module",
-        }
+        { type: "module" }
       );
 
       worker.onerror = async (err) => {
         console.error("[WEBLLM WORKER ERROR]", err);
-
-        // NÃO limpa cache automaticamente
-        // apenas descarrega engine
         await localUnloadEngine();
       };
 
       const { CreateWebWorkerMLCEngine } =
         await import("@mlc-ai/web-llm");
 
+      const useCache = !isMobile;
+
       engine = await CreateWebWorkerMLCEngine(
         worker,
         selectedModelId,
         {
-          initProgressCallback: onProgress,
+          initProgressCallback: (report) => {
+
+            onProgress?.(report);
+
+            if (isMemoryCritical(isMobile)) {
+              console.warn("[WEBLLM] INIT THROTTLED");
+              throw new Error("INIT_THROTTLED");
+            }
+          },
 
           logLevel: "INFO",
 
@@ -166,31 +176,27 @@ export async function initEngine(
               SYSTEM_CONFIG.LLM.attention_sink_size,
           },
 
-          // 🔥 IMPORTANTE:
-          // manter cache persistente inclusive mobile
-          useIndexedDBCache: true,
+          /* =================================================
+             🧠 FIX CRÍTICO: CACHE ADAPTATIVO
+          ================================================= */
+          useIndexedDBCache: useCache,
 
-          // progressive loading ajuda MUITO
           enableProgressiveLoading: true,
         } as any
       );
 
       currentModel = selectedModelId;
 
-      console.log(
-        "[WEBLLM] Engine ready:",
-        selectedModelId
-      );
+      console.log("[WEBLLM] Engine ready:", selectedModelId);
 
       return engine;
 
     } catch (err) {
 
       console.error("[WEBLLM INIT ERROR]", err);
-
       loadingPromise = null;
-
       throw err;
+
     }
 
   })();
@@ -205,15 +211,9 @@ export async function initEngine(
 export async function localUnloadEngine(): Promise<void> {
 
   try {
-
-    if (engine) {
-      await engine.unload();
-    }
-
+    if (engine) await engine.unload();
   } catch (err) {
-
     console.warn("[WEBLLM UNLOAD ERROR]", err);
-
   } finally {
 
     if (worker) {
@@ -255,62 +255,35 @@ export async function* generate(
 
   try {
 
-    const engineRef = await initEngine(
-      undefined,
-      onProgress
-    );
-
+    const engineRef = await initEngine(undefined, onProgress);
     const isMobile = isMobileDevice();
 
-    const stream =
-      await engineRef.chat.completions.create({
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+    const stream = await engineRef.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      temperature,
+      stream: true,
+      signal,
 
-        temperature,
-
-        stream: true,
-
-        signal,
-
-        // 🔥 reduz explosões de RAM
-        max_tokens: isMobile ? 512 : 1024,
-
-      } as any);
+      max_tokens: isMobile ? 512 : 1024,
+    } as any);
 
     for await (const chunk of stream as any) {
+      if (signal?.aborted) break;
 
-      if (signal?.aborted) {
-        break;
-      }
+      const text = chunk?.choices?.[0]?.delta?.content;
 
-      const text =
-        chunk?.choices?.[0]?.delta?.content;
-
-      if (text) {
-        yield text;
-      }
+      if (text) yield text;
     }
 
   } catch (err) {
 
     console.error("[GENERATE ERROR]", err);
-
     playSound("error", 0.4);
-
     throw err;
 
   } finally {
 
-    signal?.removeEventListener(
-      "abort",
-      abortHandler
-    );
-
+    signal?.removeEventListener("abort", abortHandler);
     generationLock = false;
   }
 }
@@ -321,40 +294,31 @@ export async function* generate(
 
 let visibilityAttached = false;
 
-if (
-  typeof window !== "undefined" &&
-  !visibilityAttached
-) {
+if (typeof window !== "undefined" && !visibilityAttached) {
 
   visibilityAttached = true;
 
-  document.addEventListener(
-    "visibilitychange",
-    async () => {
+  document.addEventListener("visibilitychange", async () => {
 
-      const isMobile = isMobileDevice();
+    const isMobile = isMobileDevice();
 
-      if (document.hidden) {
-        backgroundSince = Date.now();
-        return;
-      }
-
-      if (backgroundSince && isMobile) {
-
-        const timeAway =
-          Date.now() - backgroundSince;
-
-        // descarrega VRAM se ficou muito tempo em background
-        if (
-          timeAway >
-          SYSTEM_CONFIG.CLEANUP
-            .MOBILE_BACKGROUND_TIMEOUT_MS
-        ) {
-          await localUnloadEngine();
-        }
-
-        backgroundSince = null;
-      }
+    if (document.hidden) {
+      backgroundSince = Date.now();
+      return;
     }
-  );
-   }
+
+    if (backgroundSince && isMobile) {
+
+      const timeAway = Date.now() - backgroundSince;
+
+      if (
+        timeAway >
+        SYSTEM_CONFIG.CLEANUP.MOBILE_BACKGROUND_TIMEOUT_MS
+      ) {
+        await localUnloadEngine();
+      }
+
+      backgroundSince = null;
+    }
+  });
+}
