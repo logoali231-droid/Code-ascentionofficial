@@ -2,6 +2,39 @@ import { WebWorkerMLCEngineHandler } from "@mlc-ai/web-llm";
 
 let handler: WebWorkerMLCEngineHandler | null = null;
 
+/* =========================================================
+   IDLE AUTO CLEANUP
+========================================================= */
+
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function resetIdleTimer() {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+  }
+
+  idleTimer = setTimeout(async () => {
+    try {
+      console.warn("[WEBLLM WORKER] Idle timeout cleanup");
+
+      handler = null;
+
+      // @ts-ignore
+      globalThis.gc?.();
+
+      await new Promise((r) => setTimeout(r, 50));
+    } catch (err) {
+      console.warn("[WEBLLM WORKER] Idle cleanup failed", err);
+    } finally {
+      self.close();
+    }
+  }, 45_000);
+}
+
+/* =========================================================
+   HANDLER FACTORY
+========================================================= */
+
 function createHandler() {
   if (!handler) {
     handler = new WebWorkerMLCEngineHandler();
@@ -9,32 +42,48 @@ function createHandler() {
 
   return handler;
 }
+
+/* =========================================================
+   MESSAGE PIPELINE
+========================================================= */
+
 self.onmessage = async (msg: MessageEvent) => {
   try {
     const { type } = msg.data;
-if (type === "ABORT" || type === "unload") {
 
-  try {
+    /* =====================================================
+       HARD UNLOAD / ABORT
+    ===================================================== */
 
-    // remove referência do handler
-    handler = null;
+    if (type === "ABORT" || type === "unload") {
+      try {
+        console.warn("[WEBLLM WORKER] Forced unload");
 
-    self.postMessage({
-      type: "ABORTED_SUCCESS",
-    });
+        handler = null;
 
-  } catch (err) {
+        self.postMessage({
+          type: "ABORTED_SUCCESS",
+        });
 
-    console.warn("[WORKER UNLOAD ERROR]", err);
+        // @ts-ignore
+        globalThis.gc?.();
 
-  } finally {
+        await new Promise((r) => setTimeout(r, 50));
+      } catch (err) {
+        console.warn("[WORKER UNLOAD ERROR]", err);
+      } finally {
+        self.close();
+      }
 
-    // 🔥 mata o worker completamente
-    self.close();
-  }
+      return;
+    }
 
-  return;
-}
+    /* =====================================================
+       KEEP WORKER ALIVE ONLY DURING ACTIVE USAGE
+    ===================================================== */
+
+    resetIdleTimer();
+
     const currentHandler = createHandler();
 
     await currentHandler.onmessage(msg);
@@ -45,6 +94,8 @@ if (type === "ABORT" || type === "unload") {
       err instanceof Error
         ? err.message
         : String(err);
+
+    console.error("[WEBLLM WORKER ERROR]", errorMessage);
 
     self.postMessage({
       type: "worker_error",

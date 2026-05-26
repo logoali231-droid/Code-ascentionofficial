@@ -122,15 +122,17 @@ export async function initEngine(
       ===================================================== */
 
       if (engine && currentModel !== selectedModelId) {
-  await localUnloadEngine();
-  await new Promise((r) => setTimeout(r, 150));
+        await localUnloadEngine();
+        await new Promise((r) => setTimeout(r, 150));
       }
 
       if (isMemoryCritical(isMobile)) {
-  console.warn(
-    "[WEBLLM] Memory pressure detected during init"
-  );
-   }
+        await emergencyWebLLMCleanup();
+
+        throw new Error(
+          "MEMORY_PRESSURE_BLOCKED_INIT"
+        );
+      }
 
       if (typeof window === "undefined") {
         throw new Error("SSR blocked for WebLLM");
@@ -149,19 +151,40 @@ export async function initEngine(
       const { CreateWebWorkerMLCEngine } =
         await import("@mlc-ai/web-llm");
 
-      const useCache = true;
+      const nav = navigator as Navigator & {
+        deviceMemory?: number;
+      };
+
+      const useCache =
+        !isMobile ||
+        (nav.deviceMemory ?? 4) >= 4;
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      await new Promise<void>((resolve) => {
+        if ("requestIdleCallback" in window) {
+          requestIdleCallback(() => resolve(), {
+            timeout: 1000,
+          });
+        } else {
+          setTimeout(resolve, 100);
+        }
+      });
 
       engine = await CreateWebWorkerMLCEngine(
         worker,
         selectedModelId,
         {
-          initProgressCallback: (report: any) => {
+          initProgressCallback: async (report: any) => {
 
             onProgress?.(report);
 
             if (isMemoryCritical(isMobile)) {
-              console.warn("[WEBLLM] INIT THROTTLED");
-              throw new Error("INIT_THROTTLED");
+              await emergencyWebLLMCleanup();
+
+              throw new Error(
+                "MEMORY_PRESSURE_BLOCKED_INIT"
+              );
             }
           },
 
@@ -180,12 +203,9 @@ export async function initEngine(
               SYSTEM_CONFIG.LLM.attention_sink_size,
           },
 
-          /* =================================================
-             🧠 FIX CRÍTICO: CACHE ADAPTATIVO
-          ================================================= */
           useIndexedDBCache: useCache,
 
-          enableProgressiveLoading: true,
+          enableProgressiveLoading: !isMobile,
         } as any
       );
 
