@@ -72,8 +72,8 @@ function isMemoryCritical(
   if (!mem) return false;
 
   const limit = isMobile
-    ? 200 * 1024 * 1024
-    : 400 * 1024 * 1024;
+  ? 450 * 1024 * 1024
+  : 900 * 1024 * 1024;
 
   return mem > limit;
 }
@@ -115,26 +115,9 @@ export async function emergencyWebLLMCleanup() {
        INDEXEDDB
     ========================================= */
 
-    if (indexedDB.databases) {
-      const dbs =
-        await indexedDB.databases();
-
-      await Promise.all(
-        dbs.map(async (db) => {
-          if (
-            db.name
-              ?.toLowerCase()
-              .includes("webllm")
-          ) {
-            try {
-              indexedDB.deleteDatabase(
-                db.name
-              );
-            } catch {}
-          }
-        })
-      );
-    }
+console.warn(
+  "[WEBLLM] Keeping IndexedDB cache for faster reloads"
+);
 
     console.warn(
       "[WEBLLM] Emergency cleanup completed"
