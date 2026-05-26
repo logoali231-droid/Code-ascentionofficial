@@ -13,6 +13,8 @@ self.onmessage = async (event) => {
     // 🧠 contexto cognitivo
     const adaptive = await getAdaptiveMetrics(difficulty, topic);
 
+    const safeProfile = adaptive.rawProfile ?? "standard";
+
     const graph = await getKnowledgeGraph(courseId || topic);
 
     const memory = await buildMemoryContext({
@@ -26,9 +28,9 @@ self.onmessage = async (event) => {
   topic,
   learningState: level,
   courseId: courseId || topic,
-  userProfile: JSON.stringify(memory),
-  customStyle: style,
-  profile: adaptive.rawProfile,
+  userProfile: JSON.stringify(memory ?? {}),
+  customStyle: style ?? "",
+  profile: safeProfile as CognitiveProfile,
 });
 
     const temperature =
