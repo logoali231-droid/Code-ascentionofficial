@@ -7,7 +7,7 @@ import { calculateLevel, computeLessonXp } from "@/lib/others/level";
 import { Language } from "@/lib/sandbox/engines";
 import { useEffect, useState } from "react";
 import CodeEditor from "./CodeEditor";
-import { identifyCourseBrain } from "./lib/brain/courseBrain";
+import { identifyCourseBrain } from "./lib/brain/courseBrain.ts";
 const detector = new GibberishDetector();
 
 interface Exercise {
