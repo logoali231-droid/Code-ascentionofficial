@@ -58,14 +58,21 @@ export function getCognitiveInstruction(profile: CognitiveProfile): string {
  * Constrói o prompt final injetando o perfil cognitivo adaptativo e preservando
  * integralmente as diretrizes de estilo e formato personalizadas do curso.
  */
-export async function buildCoursePrompt(
-  topic: string,
-  learningState: string,
-  courseId: string,
-  userProfile: string,
-  customStyle: string,
-  profile: CognitiveProfile,
-) {
+export async function buildCoursePrompt({
+  topic,
+  learningState,
+  courseId,
+  userProfile,
+  customStyle,
+  profile,
+}: {
+  topic: string;
+  learningState: string;
+  courseId: string;
+  userProfile?: string;
+  customStyle?: string;
+  profile: CognitiveProfile;
+}) {
   const graph = await getKnowledgeGraph(courseId);
   const cognitiveStyle = getCognitiveInstruction(profile);
 
