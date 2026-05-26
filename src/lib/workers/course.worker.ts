@@ -1,9 +1,9 @@
 import { runLLM } from "@/lib/llm/llmExecutor";
-import { buildMemoryContext } from "./lib/others/vectorMemory";
-import { getKnowledgeGraph } from "./lib/others/knowledgeGraph";
-import { validateCourse } from "./lib/others/courseValidator";
-import { getAdaptiveMetrics } from "./lib/others/adaptiveMetrics";
-
+import { buildMemoryContext } from "@/lib/others/vectorMemory";
+import { getKnowledgeGraph, getReviewConcepts } from "@/lib/others/knowledgeGraph";
+import { cleanAndParseCourseJSON } from "@/lib/others/safeParse";
+import { validateCourse } from "@/lib/others/courseValidator";
+import { getUserStrengthsAndWeaknesses } from "@/lib/others/userMemory";
 self.onmessage = async (event) => {
   const { topic, style, level, difficulty, courseId } = event.data;
 
