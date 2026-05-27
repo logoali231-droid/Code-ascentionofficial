@@ -9,6 +9,7 @@ import { runtimeQueue } from "./generationQueue";
 import { buildPromptFragments } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
+import { getWebLLM } from "./webllmLoader";
 /* =========================================
    GENERATE REINFORCEMENT
 ========================================= */
@@ -267,70 +268,64 @@ Return ONLY valid JSON.
   // GENERATION
   // =========================================
 
-  try {
-    const rawRes = await runtimeQueue.enqueue(async () => {
-      const { generate } = await getWebLLM();
+try {
+  const rawRes = await runtimeQueue.enqueue(async () => {
+    const { generate } = await getWebLLM();
 
-      return generate(
-        prompt,
-        0.6,
-        undefined,
-        signal,
-      ); (
-        prompt,
-        struggling ? 0.45 : 0.6,
-        undefined,
-        signal,
-      );
-    }, 1);
+    return generate(
+      prompt,
+      struggling ? 0.45 : 0.6,
+      undefined,
+      signal,
+    );
+  }, 1);
 
-    let fullResponse = "";
+  let fullResponse = "";
 
-    if (rawRes) {
-      if (typeof rawRes === "string") {
-        fullResponse = rawRes;
-      } else {
-        const chunks: string[] = [];
+  if (rawRes) {
+    if (typeof rawRes === "string") {
+      fullResponse = rawRes;
+    } else {
+      const chunks: string[] = [];
 
-        for await (const chunk of rawRes) {
-          const content =
-            typeof chunk === "string"
-              ? chunk
-              : (chunk as any)
+      for await (const chunk of rawRes) {
+        const content =
+          typeof chunk === "string"
+            ? chunk
+            : (chunk as any)
                 ?.choices?.[0]
                 ?.delta?.content || "";
 
-          if (!content) continue;
+        if (!content) continue;
 
-          chunks.push(content);
+        chunks.push(content);
 
-          // MOBILE HARD LIMIT
-          if (chunks.length > 120) {
-            break;
-          }
+        if (chunks.length > 120) {
+          break;
         }
-
-        fullResponse = chunks.join("");
-
-        fullResponse = hardCap(
-          fullResponse,
-          5000,
-        );
       }
-    }
 
-    const parsed =
-      cleanAndParseCourseJSON(fullResponse);
+      fullResponse = chunks.join("");
 
-    if (parsed) {
-      return parsed;
+      fullResponse = hardCap(
+        fullResponse,
+        5000,
+      );
     }
-  } catch (error) {
-    console.error(
-      "Reinforcement Generation Failure:",
-      error,
-    );
   }
+
+  const parsed =
+    cleanAndParseCourseJSON(fullResponse);
+
+  if (parsed) {
+    return parsed;
+  }
+} catch (error) {
+  console.error(
+    "Reinforcement Generation Failure:",
+    error,
+  );
+}
 
   // =========================================
   // FALLBACK

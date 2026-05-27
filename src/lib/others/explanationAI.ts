@@ -500,23 +500,18 @@ Return ONLY valid JSON.
       );
 
       return {
-        title:
-          lesson?.title || "Explanation",
+  explanation:
+    "The reasoning path diverged from the core concept.",
 
-        content:
-          lesson?.content ||
-          lesson?.summary ||
-          "Adaptive explanation fallback activated.",
+  fix:
+    "Re-evaluate the logic step by step using the correct conceptual model.",
 
-        analogy:
-          "The neural bridge partially stabilized.",
+  analogy:
+    "Like debugging a function with one incorrect condition branch.",
 
-        keyTakeaway:
-          "Focus on the core concept first.",
-
-        difficulty:
-          lesson?.difficulty || currentLevel,
-      };
+  keyTakeaway:
+    "Focus on the reasoning structure before the final answer.",
+};
     }
 
     return parsed;
@@ -528,22 +523,17 @@ Return ONLY valid JSON.
     );
 
     return {
-      title:
-        lesson?.title ||
-        "Explanation Failure",
+  explanation:
+    "The reasoning path diverged from the core concept.",
 
-      content:
-        "The explanation pipeline encountered instability.",
+  fix:
+    "Re-evaluate the logic step by step using the correct conceptual model.",
 
-      analogy:
-        "Like a compiler losing its syntax tree mid-build.",
+  analogy:
+    "Like debugging a function with one incorrect condition branch.",
 
-      keyTakeaway:
-        "Retry generation with lighter context.",
-
-      difficulty:
-        lesson?.difficulty ||
-        currentLevel,
-    };
+  keyTakeaway:
+    "Focus on the reasoning structure before the final answer.",
+};
   }
 }
