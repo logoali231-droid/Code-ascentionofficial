@@ -42,13 +42,19 @@ export default function NewCoursePage() {
     useState<CognitiveProfile>("Standard");
 
   const [customStyle, setCustomStyle] = useState("");
+  const isMounted = useRef(true);
+  useEffect(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
+
 
   useEffect(() => {
     async function loadUser() {
       const userData = await get("user", "main");
 
       setUser(userData);
-
       if (userData?.cognitive) {
         setCognitiveProfile(userData.cognitive);
       }
@@ -59,14 +65,9 @@ export default function NewCoursePage() {
 
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isMounted = useRef(true);
+    
 
-    useEffect(() => {
-      return () => {
-        isMounted.current = false;
-      };
-    }, []);
-
+    
     if (!topic.trim() || loading) return;
 
     if (gibberishDetector.isTotalGibberish(topic, "promptTheme")) {
@@ -286,7 +287,7 @@ Spaced Repetition Targets: [${reviewStr}]
     } catch (err) {
   console.error("Forge Error:", err);
 
-  abortController.abort(); // 🧠 mata stream se estiver vivo
+  abortController.abort();
 
   if (isMounted.current) {
     setStatus("LINK_CRITICAL_FAILURE");
@@ -298,7 +299,7 @@ Spaced Repetition Targets: [${reviewStr}]
       setIsForging(false);
     }
   }, 1200);
-      };
+    }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
