@@ -2,7 +2,7 @@
 
 import { getWeakTopics, getSuggestedTopics } from "@/lib/others/curriculumState";
 import { getReviewConcepts } from "@/lib/others/mastery";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { get, save } from "@/lib/others/db";
 import { generate } from "@/lib/others/webllm";
@@ -11,6 +11,7 @@ import { suggestDifficulty } from "@/lib/others/learningState";
 import { playSound } from "@/lib/others/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
+
 
 import {
   Cpu,
