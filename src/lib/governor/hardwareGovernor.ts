@@ -5,35 +5,39 @@ export interface HardwareLimits {
   batchSize: number;
 }
 
-// Configurações baseadas em tiers de performance
 const LIMITS = {
-  LOW: { maxContextSize: 1024, tier: 'LOW' as const, batchSize: 1 }, // Ex: M23 / Mobile
-  MID: { maxContextSize: 2200, tier: 'MID' as const, batchSize: 1 },
-  HIGH: { maxContextSize: 5000, tier: 'HIGH' as const, batchSize: 4 }, // Ex: Desktop
+  LOW: { maxContextSize: 1024, tier: 'LOW' as const, batchSize: 1 },  // M23 e similares
+  MID: { maxContextSize: 2200, tier: 'MID' as const, batchSize: 2 },  // S20, S21, Intermediários
+  HIGH: { maxContextSize: 5000, tier: 'HIGH' as const, batchSize: 4 }, // Desktop / S24+
 };
 
 export const HardwareGovernor = {
   getLimits: (): HardwareLimits => {
-    // 1. Detecção segura (SSR-safe)
-    const isMobile = typeof window !== "undefined" 
-      && /Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent);
-    getPedagogicalConstraints: (isMobile: boolean) => {
-    return {
-      maxTokensPerModule: isMobile ? 800 : 2000,
-      detailLevel: isMobile ? "concise" : "detailed",
-      allowDeepNesting: !isMobile,
-      // Você pode adicionar mais propriedades conforme necessário
-    };
-  },
-    // 2. Determinação de Tier
-    if (isMobile) return { ...LIMITS.LOW, isMobile };
+    if (typeof window === "undefined") return { ...LIMITS.HIGH, isMobile: false };
+
+    const ua = navigator.userAgent;
+    const isMobile = /Mobi|Android|iP(hone|od|ad)/i.test(ua);
     
-    // Default para desktop ou dispositivos desconhecidos
-    return { ...LIMITS.HIGH, isMobile };
+    // Tiering simples baseado em performance percebida
+    // Em produção, você pode usar navigator.deviceMemory ou hardwareConcurrency
+    if (!isMobile) return { ...LIMITS.HIGH, isMobile };
+    
+    // Se for mobile, vamos tentar identificar se é um dispositivo "premium" (ex: S24 tem mais núcleos)
+    const isHighEndMobile = (navigator.hardwareConcurrency || 0) >= 8;
+    
+    if (isHighEndMobile) return { ...LIMITS.MID, isMobile };
+    return { ...LIMITS.LOW, isMobile };
   },
 
-  // Método auxiliar para decidir se deve aplicar "throttling" térmico
+  getPedagogicalConstraints: (tier: 'LOW' | 'MID' | 'HIGH') => {
+    return {
+      maxTokensPerModule: tier === 'LOW' ? 600 : tier === 'MID' ? 1200 : 2000,
+      detailLevel: tier === 'LOW' ? 'concise' : 'detailed',
+      allowDeepNesting: tier !== 'LOW',
+    };
+  },
+
   shouldThrottle: (): boolean => {
-    return HardwareGovernor.getLimits().isMobile;
+    return HardwareGovernor.getLimits().tier === 'LOW';
   }
 };
