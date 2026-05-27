@@ -14,6 +14,9 @@ export function cancelGeneration() {
 }
 
 let worker: Worker | null = null;
+
+let workerCleanupTimeout:
+  ReturnType<typeof setTimeout> | null = null;
 let engine: MLCEngineInterface | null = null;
 
 let initPromise: Promise<MLCEngineInterface> | null = null;
@@ -39,6 +42,26 @@ function isMobile() {
 function memoryMB() {
   const mem = (performance as any)?.memory?.usedJSHeapSize;
   return mem ? mem / 1024 / 1024 : 0;
+}
+function scheduleWorkerCleanup() {
+  if (workerCleanupTimeout) {
+    clearTimeout(workerCleanupTimeout);
+  }
+
+  workerCleanupTimeout = setTimeout(async () => {
+    if (generationLock) return;
+
+    console.warn("[WEBLLM] Idle cleanup triggered");
+
+    await localUnloadEngine();
+  }, 45000);
+}
+
+function isLowMemoryDevice() {
+  const ram =
+    (navigator as any)?.deviceMemory ?? 4;
+
+  return ram <= 4;
 }
 
 /* =========================================================
@@ -291,10 +314,12 @@ export async function* generate(
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-      max_tokens: isMobile() ? 512 : 1024,
+      max_tokens: isLowMemoryDevice()
+        ? 256
+        : isMobile()
+          ? 384
+          : 1024,
     } as any);
-
-
 
     for await (const chunk of stream as any) {
 
@@ -314,5 +339,6 @@ export async function* generate(
 
   } finally {
     generationLock = false;
+    scheduleWorkerCleanup();
   }
 }

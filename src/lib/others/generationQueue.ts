@@ -1,3 +1,5 @@
+import { SYSTEM_CONFIG } from "@/config/system";
+
 export interface QueueTask {
   id: string;
   priority: number;
@@ -84,14 +86,26 @@ class RuntimeQueue {
   }
 
   public abortAll() {
-    this.queue.forEach((task) => {
-      task.controller.abort();
-      task.reject(new DOMException("Context switched.", "AbortError"));
-    });
-    this.queue = [];
-    this.activeCount = 0;
-  }
+  this.queue.forEach((task) => {
+    task.controller.abort();
+
+    task.reject(
+      new DOMException(
+        "Context switched.",
+        "AbortError",
+      ),
+    );
+  });
+
+  this.queue = [];
+
+  // NÃO resetar activeCount brutalmente
+  // deixa finalizar naturalmente
+}
 }
 
-export const runtimeQueue = new RuntimeQueue(2);
+export const runtimeQueue =
+  new RuntimeQueue(
+    SYSTEM_CONFIG.QUEUE.maxConcurrent,
+  );
 

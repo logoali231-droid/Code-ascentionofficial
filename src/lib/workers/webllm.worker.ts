@@ -62,7 +62,7 @@ function resetIdleTimer() {
       self.close();
     }
 
-  }, 5 * 60_000);
+  }, 60_000);
 }
 
 /* =========================================================
@@ -200,13 +200,8 @@ self.onmessage = async (msg: MessageEvent) => {
       msg.includes("context lost")
     ) {
       console.warn("[WEBLLM WORKER] HARD RESET TRIGGERED");
-
-      handler = null;
-
-      state = "idle";
-
-      // aggressive recovery delay
-      await delay(200);
+      await shutdown("memory_pressure");
+      return;
     }
   }
 };

@@ -11,6 +11,7 @@ import { getMemory, getUserProfile } from "./userMemory";
 import { generate } from "./webllm";
 import { serializeHistory, hardCap } from "./contextSerializer";
 
+
 /* =========================================
    MAIN EXPLANATION GENERATOR
 ========================================= */
@@ -50,18 +51,23 @@ export async function generateExplanationAI(
   // MEMORY SYSTEMS
   // =========================================
 
-  const rawMemory = course?.id
-    ? await getMemorySummary(course.id)
-    : "";
+  const [
+    rawMemory,
+    rawCurriculumStats,
+  ] = await Promise.all([
+    course?.id
+      ? getMemorySummary(course.id)
+      : "",
+
+    course?.id
+      ? summarizeCurriculum(course.id)
+      : "",
+  ]);
 
   const compressedMemory = hardCap(
     rawMemory || "",
     1800,
   );
-
-  const rawCurriculumStats = course?.id
-    ? await summarizeCurriculum(course.id)
-    : "";
 
   const curriculumStats = hardCap(
     rawCurriculumStats || "",
@@ -72,6 +78,8 @@ export async function generateExplanationAI(
     serializeHistory(history, 6),
     1400,
   );
+
+
 
   // =========================================
   // ADAPTIVE COGNITIVE FRAGMENTS
@@ -170,7 +178,12 @@ TITLE:
 ${lesson?.title || "Untitled"}
 
 SUMMARY:
-${lesson?.summary || lesson?.description || ""}
+${hardCap(
+    lesson?.summary ||
+    lesson?.description ||
+    "",
+    600,
+  )}
 
 EXISTING CONTENT:
 ${lessonContent}
@@ -224,30 +237,33 @@ Return ONLY valid JSON.
       if (typeof res === "string") {
         fullResponse = res;
       } else {
+        const chunks: string[] = [];
+
         for await (const chunk of res) {
           const content =
             typeof chunk === "string"
               ? chunk
-              : (chunk as any).choices?.[0]?.delta?.content || "";
+              : (chunk as any)
+                ?.choices?.[0]
+                ?.delta?.content || "";
 
-          for await (const chunk of res) {
-            const content =
-              typeof chunk === "string"
-                ? chunk
-                : (chunk as any)
-                  .choices?.[0]
-                  ?.delta?.content || "";
+          if (!content) continue;
 
-            fullResponse += content;
+          chunks.push(content);
 
-            if (fullResponse.length > 8000) {
-              break;
-            }
+          // HARD LIMIT MOBILE SAFE
+          if (chunks.length > 180) {
+            break;
           }
-
-          // HARD TOKEN GUARD
-
         }
+
+        fullResponse = chunks.join("");
+
+        // FINAL HARD CAP
+        fullResponse = hardCap(
+          fullResponse,
+          8000,
+        );
       }
     }
 
@@ -290,8 +306,11 @@ export async function explainError(
   { question, correct, userAnswer, userExplanation, course }: any,
   signal?: AbortSignal,
 ) {
-  const profile = await getUserProfile();
-  const memory = await getMemory();
+  const [profile, memory] =
+    await Promise.all([
+      getUserProfile(),
+      getMemory(),
+    ]);
 
   const relatedWeakness =
     Object.entries(memory?.weaknesses || {}).sort(
@@ -396,18 +415,31 @@ Return ONLY valid JSON.
       if (typeof res === "string") {
         fullResponse = res;
       } else {
+        const chunks: string[] = [];
+
         for await (const chunk of res) {
           const content =
             typeof chunk === "string"
               ? chunk
-              : (chunk as any).choices?.[0]?.delta?.content || "";
+              : (chunk as any)
+                ?.choices?.[0]
+                ?.delta?.content || "";
 
-          fullResponse += content;
+          if (!content) continue;
 
-          if (fullResponse.length > 5000) {
+          chunks.push(content);
+
+          if (chunks.length > 120) {
             break;
           }
         }
+
+        fullResponse = chunks.join("");
+
+        fullResponse = hardCap(
+          fullResponse,
+          5000,
+        );
       }
     }
 

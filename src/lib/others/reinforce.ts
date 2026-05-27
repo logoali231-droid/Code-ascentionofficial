@@ -7,7 +7,10 @@ import { buildPromptFragments, compressContext } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
 import { generate } from "./webllm";
-
+import {
+  serializeHistory,
+  hardCap,
+} from "./contextSerializer";
 /* =========================================
    GENERATE REINFORCEMENT
 ========================================= */
@@ -76,13 +79,29 @@ export async function generateReinforcement(
   // MEMORY COMPRESSION
   // =========================================
 
-  const compressedErrors = compressContext(
-    JSON.stringify(recentErrors),
+  const compressedErrors = hardCap(
+    recentErrors
+      .slice(-4)
+      .map(
+        (e: any) =>
+          `Q:${e?.question || ""}
+A:${e?.userAnswer || ""}
+C:${e?.correct || ""}`,
+      )
+      .join("\n\n"),
     700,
   );
 
-  const compressedWeaknesses = compressContext(
-    JSON.stringify(memory?.weaknesses || {}),
+  const compressedWeaknesses = hardCap(
+    Object.entries(
+      memory?.weaknesses || {},
+    )
+      .slice(0, 8)
+      .map(
+        ([key, value]) =>
+          `${key}:${value}`,
+      )
+      .join("\n"),
     500,
   );
 
@@ -171,17 +190,12 @@ ${moduleContext}
 ERROR TRACE
 ================================
 
-ORIGINAL QUESTION:
-${error?.question || ""}
-
-USER ANSWER:
-${error?.userAnswer || ""}
-
-CORRECT ANSWER:
-${error?.correct || ""}
-
 USER EXPLANATION:
-${error?.userExplanation || "None"}
+${hardCap(
+  error?.userExplanation || "None",
+  500,
+)}
+
 
 ================================
 WEAKNESS MEMORY
@@ -271,25 +285,32 @@ Return ONLY valid JSON.
       if (typeof rawRes === "string") {
         fullResponse = rawRes;
       } else {
+        const chunks: string[] = [];
+
         for await (const chunk of rawRes) {
           const content =
             typeof chunk === "string"
               ? chunk
-              : (chunk as any).choices?.[0]?.delta?.content || "";
+              : (chunk as any)
+                ?.choices?.[0]
+                ?.delta?.content || "";
 
-          const chunks: string[] = [];
+          if (!content) continue;
 
           chunks.push(content);
 
-          if (chunks.length > 200) break;
-
-          const fullResponse = chunks.join("");;
-
-          // HARD TOKEN GUARD
-          if (fullResponse.length > 5000) {
+          // MOBILE HARD LIMIT
+          if (chunks.length > 120) {
             break;
           }
         }
+
+        fullResponse = chunks.join("");
+
+        fullResponse = hardCap(
+          fullResponse,
+          5000,
+        );
       }
     }
 

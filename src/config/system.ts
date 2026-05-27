@@ -14,9 +14,9 @@ export interface Model {
   sizeMb: number;
 
   recommendedFor:
-    | "LOW"
-    | "MID"
-    | "HIGH";
+  | "LOW"
+  | "MID"
+  | "HIGH";
 
   /* =========================================================
      MOBILE SAFETY FLAGS
@@ -101,50 +101,9 @@ const SYSTEM_CONFIG = {
     ===================================================== */
 
     MOBILE: {
-      /*
-        1024 mantém estabilidade
-        no Chrome Android/Samsung.
-      */
-
-      context_window_size: 1024,
-
-      /*
-        Principal redução de KV cache.
-      */
-
-      sliding_window_size: 128,
-
-      /*
-        Evita geração longa assassina.
-      */
-
-      max_tokens: 192,
-
-      /*
-        Limite conservador de VRAM/WebGPU.
-      */
-
-      gpuLimitMb: 384,
-
-      /*
-        Android mata tabs facilmente.
-      */
-
-      aggressiveUnload: true,
-
-      /*
-        Delay antes de descarregar engine
-        quando app fica em background.
-      */
-
-      backgroundUnloadMs: 45000,
-
-      /*
-        Apenas 1 geração simultânea.
-      */
-
-      maxConcurrentGenerations: 1,
-    },
+      context_window_size: 768,
+      sliding_window_size: 256,
+    }
   },
 
   /* =========================================================
