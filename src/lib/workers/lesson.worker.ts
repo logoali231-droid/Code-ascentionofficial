@@ -4,7 +4,7 @@ import {
   buildExplanationPrompt,
 } from "@/lib/others/lessonGenerator";
 import { getAdaptiveMetrics } from "@/lib/others/adaptive";
-
+ 
 self.onmessage = async (event) => {
   const { course, history } = event.data;
 
