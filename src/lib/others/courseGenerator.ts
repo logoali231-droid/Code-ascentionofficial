@@ -33,14 +33,16 @@ export async function generateCourse({
   courseId?: string;
 }): Promise<any> {
 const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
- const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(isMobile);
+const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(isMobile);
+const limits = HardwareGovernor.getLimits();
+const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
   
  const cognitiveFragments = buildPromptFragments({
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
-    customConstraints?: pedagogicalConstraints,
-    isMobile?: isMobile
+    customConstraints: constraints,
+    isMobile: limits.isMobile,
     
     reinforcement: false,
   });
