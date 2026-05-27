@@ -37,12 +37,14 @@ export async function generateCourse({
     difficulty: difficulty || 1,
     mastery: 50,
     customConstraints?: pedagogicalConstraints
+    
     reinforcement: false,
   });
 
-  const isMob = typeof window !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
-  const maxContextSize = isMob ? 2200 : 5000;
+  // O Governor agora encapsula a checagem e retorna o contrato de recursos
 
+// Opcional: Pegue as restrições pedagógicas baseadas no dispositivo
+const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(isMobile);
   const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
 
   const compressedMaterial = baseMaterial
