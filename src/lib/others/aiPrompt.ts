@@ -65,6 +65,7 @@ export async function buildCoursePrompt({
   userProfile,
   customStyle,
   profile,
+  isMobile
 }: {
   topic: string;
   learningState: string;
@@ -72,6 +73,7 @@ export async function buildCoursePrompt({
   userProfile?: string;
   customStyle?: string;
   profile: CognitiveProfile;
+  isMobile?: boolean;
 }) {
   const graph = await getKnowledgeGraph(courseId);
   const cognitiveStyle = getCognitiveInstruction(profile);
