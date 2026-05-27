@@ -1,5 +1,6 @@
 "use client";
 
+import { HardwareGovernor } from "@/lib/governor/hardwareGovernor";
 import { buildMemoryContext } from "./vectorMemory";
 import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { cleanAndParseCourseJSON } from "./safeParse";
@@ -35,11 +36,14 @@ export async function generateCourse({
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
+    customConstraints?: pedagogicalConstraints
     reinforcement: false,
   });
 
   const isMob = typeof window !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
   const maxContextSize = isMob ? 2200 : 5000;
+
+  const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
 
   const compressedMaterial = baseMaterial
     ? compressContext(baseMaterial, maxContextSize)
