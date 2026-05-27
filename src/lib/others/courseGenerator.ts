@@ -32,11 +32,13 @@ export async function generateCourse({
   cognitive?: string;
   courseId?: string;
 }): Promise<any> {
+  const { isMobile } = HardwareGovernor.getLimits();
  const cognitiveFragments = buildPromptFragments({
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
-    customConstraints?: pedagogicalConstraints
+    customConstraints?: pedagogicalConstraints,
+    isMobile?: isMobile
     
     reinforcement: false,
   });
