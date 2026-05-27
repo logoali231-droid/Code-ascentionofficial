@@ -33,8 +33,9 @@ export async function generateCourse({
   courseId?: string;
 }): Promise<any> {
 const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
-const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
 const limits = HardwareGovernor.getLimits();
+const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
+
 const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
   
  const cognitiveFragments = buildPromptFragments({
