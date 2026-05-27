@@ -42,27 +42,41 @@ function memoryMB() {
 
 function resolveModel(requested?: string) {
   const isMob = isMobile();
-  const ram = (navigator as any)?.deviceMemory ?? 4;
+
+  // deviceMemory é meia verdade no Android
+  const rawRam = (navigator as any)?.deviceMemory ?? 4;
+
+  // ajuste heurístico de zRAM (realista pra Android)
+  const effectiveRam = isMob
+    ? rawRam + 1.5
+    : rawRam;
 
   const models = SYSTEM_CONFIG.AVAILABLE_MODELS;
 
   const safeLow = models[0].model_id;
-
   const mid = models.find(m => m.recommendedFor === "MID")?.model_id;
-  const high = models.find(m => m.recommendedFor === "HIGH")?.model_id;
 
-  let selected =
-    requested ??
-    mid ??
-    safeLow;
+  let selected = requested ?? mid ?? safeLow;
 
-  const isPhi = selected.includes("Phi");
+  const isPhi = selected.toLowerCase().includes("phi");
 
-  if (isMob && ram < 6 && isPhi) {
+  // 🔥 NOVA REGRA: Phi permitido em 4GB+ reais com zRAM
+  const allowPhi =
+    isMob
+      ? effectiveRam >= 5.2   // 4GB + zRAM realista
+      : true;
+
+  // 🚫 bloqueio agora é mais justo, não agressivo
+  if (isMob && isPhi && !allowPhi) {
+    console.warn("[MODEL] Phi blocked - insufficient effective RAM", {
+      rawRam,
+      effectiveRam,
+    });
     selected = safeLow;
   }
 
-  if (isMob && ram < 3) {
+  // fallback de segurança real
+  if (isMob && effectiveRam < 3.2) {
     selected = safeLow;
   }
 
@@ -156,7 +170,18 @@ export async function initEngine(
       const selectedModelId = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
+       const resolvedModelId = selectedModelId;
 
+if (modelId && modelId !== resolvedModelId) {
+  console.info("[MODEL RESOLUTION]", {
+    requested: modelId,
+    resolved: resolvedModelId,
+    reason: "hardware_constraints"
+  });
+}
+      if (currentModel && currentModel !== selectedModelId) {
+  await localUnloadEngine();
+      }
       /* =====================================================
          WORKER SINGLETON
       ===================================================== */
