@@ -13,100 +13,197 @@ import { get } from "./db";
 /* =========================================
    MAIN EXPLANATION GENERATOR
 ========================================= */
+
 export async function generateExplanationAI(
   { lesson, history, course }: any,
   signal?: AbortSignal,
 ) {
-  // ALTERADO: Busca paralela no banco para não travar a UI e carregar os dados reais de level e mastery
+  // =========================================
+  // PARALLEL USER STATE LOAD
+  // =========================================
+
   const [profile, userStats] = await Promise.all([
     getUserProfile(),
-    get("user", "main"), // Busca os dados de XP/Level/Mastery gerenciados pela economia
+    get("user", "main"),
   ]);
 
-  // ADICIONADO: Declaração das variáveis que estavam gerando o erro de compilação
+  // =========================================
+  // REAL USER STATE
+  // =========================================
+
   const currentLevel = userStats?.level || 1;
   const currentMastery = userStats?.mastery || 50;
+  const cognitiveProfile = profile?.cognitive || "Standard";
 
-  // 1. ADICIONADO: Recupera o resumo de memória otimizado para o curso atual
-  const compressedMemory = course?.id ? await getMemorySummary(course.id) : "";
+  // =========================================
+  // USER-CONTROLLED STYLE LAYER
+  // =========================================
 
-  // 2. ADICIONADO: Recupera o estado atualizado em tempo real da árvore de maestria
-  const curriculumStats = course?.id
-    ? await summarizeCurriculum(course.id)
-    : "";
-
-  // Mantemos o histórico recente do chat comprimido para manter a coerência da sessão atual
-  const compressedHistory = compressContext(
-    JSON.stringify(history || []),
-    1200,
-  );
-
-  const cognitiveFragments = buildPromptFragments({
-    cognitive: profile?.cognitive || "Standard",
-    difficulty: currentLevel, // Alinhado com o economy
-    mastery: currentMastery, // Alinhado com a maestria global real do banco
-    reinforcement: false,
-  });
-  // O estilo de ensino agora é uma fusão entre o pedido do perfil, estilo personalizado e o prompt do curso,
-  //  garantindo que a voz seja consistente com as preferências do usuário e o contexto do curso.
   const teachingStyle =
     profile?.explanationStyle ||
     profile?.customStyle ||
     course?.stylePrompt ||
-    "Explain clearly";
-  const cognitiveProfileName = profile?.cognitive || "Standard";
+    "Explain clearly and progressively";
+
+  // =========================================
+  // MEMORY SYSTEMS
+  // =========================================
+
+  const compressedMemory = course?.id
+    ? await getMemorySummary(course.id)
+    : "";
+
+  const curriculumStats = course?.id
+    ? await summarizeCurriculum(course.id)
+    : "";
+
+  const compressedHistory = compressContext(
+    JSON.stringify(history || []),
+    900,
+  );
+
+  // =========================================
+  // ADAPTIVE COGNITIVE FRAGMENTS
+  // =========================================
+
+  const cognitiveFragments = buildPromptFragments({
+    cognitive: cognitiveProfile,
+    difficulty: currentLevel,
+    mastery: currentMastery,
+    reinforcement: false,
+  });
+
+  // =========================================
+  // MODULE CONTEXT
+  // =========================================
+
+  const moduleContext = `
+CURRENT MODULE:
+${lesson?.moduleTitle || lesson?.module || "Unknown Module"}
+
+MODULE SUMMARY:
+${lesson?.moduleSummary || "No module summary available"}
+
+MODULE DIFFICULTY:
+${lesson?.difficulty || currentLevel}
+`;
+
+  // =========================================
+  // LIGHTWEIGHT PROMPT
+  // =========================================
 
   const prompt = `
-You are an elite adaptive programming tutor.
-Your mission is to maximize understanding, retention, clarity, and intuition.
+You are an elite adaptive programming tutor operating inside the Code Ascension procedural education system.
 
-=================================
-CORE ADAPTATION LAYER (READ FIRST)
-=================================
+Your mission:
+Generate ONLY the explanation layer for the CURRENT lesson node.
+
+DO NOT generate:
+- complete courses
+- giant tutorials
+- excessive theory dumping
+- repetitive summaries
+- markdown books
+- long introductions
+
+Generate ONLY:
+- focused conceptual explanation
+- progressive intuition building
+- concise technical guidance
+- adaptive educational pacing
+
+================================
+COGNITIVE ADAPTATION LAYER
+================================
 ${cognitiveFragments}
 
-- COGNITIVE PROFILE DIRECTIVE: You must structure your text formatting, length, and content pacing strictly tailored to the "${cognitiveProfileName}" profile requirement above.
-- TEACHING PERSONA DIRECTIVE: You must speak, explain, and contextualize using the following persona/style: "${teachingStyle}".
+COGNITIVE PROFILE:
+${cognitiveProfile}
+
+TEACHING STYLE:
+${teachingStyle}
 
 ================================
-COMPRESSED USER LONG-TERM MEMORY
+USER STATE
 ================================
-${compressedMemory || "No memory snapshot available yet."}
+LEVEL:
+${currentLevel}
+
+GLOBAL MASTERY:
+${currentMastery}
 
 ================================
-REAL-TIME SKILL MASTERY TREE
+LONG TERM MEMORY
 ================================
-${curriculumStats || "Graph initializing."}
+${compressedMemory || "No memory snapshot available."}
 
 ================================
-CURRENT LESSON & SESSION CONTEXT
+CURRICULUM STATE
 ================================
-TITLE: ${lesson?.title || "Unknown"}
-EXPLANATION: ${lesson?.explanation || ""}
-CONTENT: ${lesson?.content || ""}
-
-COMPRESSED CHAT HISTORY: ${compressedHistory}
+${curriculumStats || "Curriculum graph initializing."}
 
 ================================
-CRITICAL EXECUTION RULES
+MODULE CONTEXT
 ================================
-1. FUSE COGNITIVE + STYLE: You MUST merge the requested style ("${teachingStyle}") with the structural needs of the cognitive profile ("${cognitiveProfileName}"). For example, if the profile asks for short text blocks and aggressive dopamine hits (TDAH), write those fast blocks using the persona's voice and vocabulary.
-2. Use the "COMPRESSED USER LONG-TERM MEMORY" and "REAL-TIME SKILL MASTERY TREE" to avoid topics the user is already failing at or to build connections with areas where they already have high mastery.
-3. Avoid giant walls of text; strictly prefer layered explanations or structural pacing required by the profile.
-4. Output MUST be purely a valid JSON object matching this schema:
+${moduleContext}
+
+================================
+LESSON INPUT
+================================
+TITLE:
+${lesson?.title || "Untitled"}
+
+SUMMARY:
+${lesson?.summary || lesson?.description || ""}
+
+EXISTING CONTENT:
+${lesson?.content || lesson?.explanation || ""}
+
+================================
+RECENT SESSION HISTORY
+================================
+${compressedHistory}
+
+================================
+EXECUTION RULES
+================================
+
+- Respect the cognitive profile STRICTLY.
+- Respect the user teaching style STRICTLY.
+- Keep explanations compact and mobile-friendly.
+- Prefer layered explanations over dense paragraphs.
+- Start from intuition before syntax.
+- Use examples only when necessary.
+- Avoid repeating previous lesson information.
+- Connect concepts to prior mastery when possible.
+- If mastery is high, reduce beginner explanations.
+- If mastery is low, increase scaffolding gradually.
+- Maintain adaptive pacing.
+- Keep token generation controlled.
+- Avoid unnecessary verbosity.
+
+================================
+OUTPUT RULES
+================================
+
+Return ONLY valid JSON.
+
 {
-  "title": "A custom title written in the persona style",
-  "content": "The actual adapted explanation text body",
-  "analogy": "A brilliant technical analogy matching the teaching style context"
+  "title": "Adaptive explanation title",
+  "content": "Main explanation body",
+  "analogy": "Short conceptual analogy",
+  "keyTakeaway": "One sentence summary",
+  "difficulty": ${lesson?.difficulty || currentLevel}
 }
 `;
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-      return generate(prompt, 0.7, undefined, signal);
+      return generate(prompt, 0.65, undefined, signal);
     }, 1);
 
     let fullResponse = "";
+
     if (res) {
       if (typeof res === "string") {
         fullResponse = res;
@@ -116,35 +213,52 @@ CRITICAL EXECUTION RULES
             typeof chunk === "string"
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
+
           fullResponse += content;
+
+          // HARD TOKEN GUARD
+          if (fullResponse.length > 8000) {
+            break;
+          }
         }
       }
     }
 
     const parsed = cleanAndParseCourseJSON(fullResponse);
 
-    // ADICIONADO o await aqui, pois a validação agora lê o IndexedDB
     if (!parsed || !(await validateExplanation(parsed))) {
-      console.warn("Explanation validation failed or parse error.");
+      console.warn("Explanation validation failed.");
+
       return {
         title: lesson?.title || "Explanation",
         content:
-          lesson?.explanation ||
-          "Neural link stable, but content refinement failed.",
-        analogy: "A temporary glitch in the data stream.",
+          lesson?.content ||
+          lesson?.summary ||
+          "Adaptive explanation fallback activated.",
+        analogy: "The neural bridge partially stabilized.",
+        keyTakeaway: "Focus on the core concept first.",
+        difficulty: lesson?.difficulty || currentLevel,
       };
     }
 
     return parsed;
   } catch (error) {
     console.error("AI Explanation Error:", error);
-    return null;
+
+    return {
+      title: lesson?.title || "Explanation Failure",
+      content: "The explanation pipeline encountered instability.",
+      analogy: "Like a compiler losing its syntax tree mid-build.",
+      keyTakeaway: "Retry generation with lighter context.",
+      difficulty: lesson?.difficulty || currentLevel,
+    };
   }
 }
 
 /* =========================================
    ERROR EXPLANATION
 ========================================= */
+
 export async function explainError(
   { question, correct, userAnswer, userExplanation, course }: any,
   signal?: AbortSignal,
@@ -153,12 +267,14 @@ export async function explainError(
   const memory = await getMemory();
 
   const relatedWeakness =
-    Object.entries(memory.weaknesses || {}).sort(
+    Object.entries(memory?.weaknesses || {}).sort(
       (a: any, b: any) => (b[1] as number) - (a[1] as number),
     )[0]?.[0] || "unknown";
 
+  const cognitiveProfile = profile?.cognitive || "Standard";
+
   const cognitiveFragments = buildPromptFragments({
-    cognitive: profile?.cognitive || "Standard",
+    cognitive: cognitiveProfile,
     difficulty: profile?.level || 1,
     mastery: 35,
     reinforcement: true,
@@ -169,47 +285,86 @@ export async function explainError(
     profile?.customStyle ||
     course?.stylePrompt ||
     "Supportive and clear";
-  const cognitiveProfileName = profile?.cognitive || "Standard";
 
   const prompt = `
-You are an expert debugger and mentor.
-The user made a mistake. Your task is to explain WHY the correct answer is right and why the user's logic might have tripped up.
+You are an adaptive debugging mentor.
 
-=================================
-ADAPTATION SPECS
-=================================
+Your mission:
+Explain the reasoning mistake clearly and efficiently.
+
+DO NOT:
+- generate giant lectures
+- shame the user
+- generate unnecessary theory
+- repeat the question excessively
+
+Generate ONLY:
+- concise mistake analysis
+- corrected reasoning path
+- conceptual repair guidance
+
+================================
+COGNITIVE PROFILE
+================================
 ${cognitiveFragments}
-COGNITIVE STRUCTURE: ${cognitiveProfileName}
-MENTOR TEACHING STYLE: ${teachingStyle}
 
-=================================
-ERROR DATA TRACE
-=================================
-QUESTION: ${question}
-CORRECT ANSWER: ${correct}
-USER'S ANSWER: ${userAnswer}
-USER'S REASONING: ${userExplanation || "None provided"}
-RELATED WEAKNESS: ${relatedWeakness}
+PROFILE:
+${cognitiveProfile}
 
-=================================
-CRITICAL OUTPUT RULES
-=================================
-1. Use the requested MENTOR TEACHING STYLE (${teachingStyle}) to write the response tokens. If the style is sarcastic, point out the error sarcastically. If it's motivational, cheer them up.
-2. Respect the COGNITIVE STRUCTURE (${cognitiveProfileName}) limits (e.g. text density, formatting, bullet points).
-3. Return ONLY a strict JSON block:
+STYLE:
+${teachingStyle}
+
+================================
+ERROR TRACE
+================================
+QUESTION:
+${question}
+
+CORRECT ANSWER:
+${correct}
+
+USER ANSWER:
+${userAnswer}
+
+USER REASONING:
+${userExplanation || "None provided"}
+
+RELATED WEAKNESS:
+${relatedWeakness}
+
+================================
+EXECUTION RULES
+================================
+
+- Respect the user's cognitive profile.
+- Respect the user's preferred teaching style.
+- Keep explanation concise.
+- Focus on WHY the mistake happened.
+- Rebuild the mental model progressively.
+- Avoid aggressive wording.
+- Keep formatting lightweight.
+
+================================
+OUTPUT
+================================
+
+Return ONLY valid JSON.
+
 {
-  "explanation": "Brief breakdown of the mistake written in your persona style",
-  "fix": "How to think about this next time, formatted for the cognitive profile",
-  "analogy": "A simple comparison matching the persona's vibe"
+  "explanation": "Why the mistake happened",
+  "fix": "Correct reasoning path",
+  "analogy": "Short conceptual comparison",
+  "keyTakeaway": "One-line correction insight"
 }
 `;
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-      return generate(prompt, 0.7, undefined, signal);
+      return generate(prompt, 0.6, undefined, signal);
     }, 1);
 
     let fullResponse = "";
+
     if (res) {
       if (typeof res === "string") {
         fullResponse = res;
@@ -219,7 +374,12 @@ CRITICAL OUTPUT RULES
             typeof chunk === "string"
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
+
           fullResponse += content;
+
+          if (fullResponse.length > 5000) {
+            break;
+          }
         }
       }
     }
@@ -227,6 +387,12 @@ CRITICAL OUTPUT RULES
     return cleanAndParseCourseJSON(fullResponse);
   } catch (error) {
     console.error("Error Explanation Failure:", error);
-    return null;
+
+    return {
+      explanation: "The correction pipeline failed to stabilize.",
+      fix: "Retry with smaller contextual scope.",
+      analogy: "Like debugging with missing stack traces.",
+      keyTakeaway: "Focus on the reasoning chain.",
+    };
   }
 }

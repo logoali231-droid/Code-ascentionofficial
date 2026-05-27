@@ -7,6 +7,11 @@ import { detectSystemCapabilities } from "./modelManager";
 /* =========================================================
    STATE MACHINE (V2 MAX CORE)
 ========================================================= */
+let cancelled = false;
+
+export function cancelGeneration() {
+  cancelled = true;
+}
 
 let worker: Worker | null = null;
 let engine: MLCEngineInterface | null = null;
@@ -134,7 +139,7 @@ export async function emergencyWebLLMCleanup() {
         .filter(k => k.includes("webllm"))
         .map(k => caches.delete(k))
     );
-  } catch {}
+  } catch { }
 }
 
 /* =========================================================
@@ -170,17 +175,17 @@ export async function initEngine(
       const selectedModelId = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
-       const resolvedModelId = selectedModelId;
+      const resolvedModelId = selectedModelId;
 
-if (modelId && modelId !== resolvedModelId) {
-  console.info("[MODEL RESOLUTION]", {
-    requested: modelId,
-    resolved: resolvedModelId,
-    reason: "hardware_constraints"
-  });
-}
+      if (modelId && modelId !== resolvedModelId) {
+        console.info("[MODEL RESOLUTION]", {
+          requested: modelId,
+          resolved: resolvedModelId,
+          reason: "hardware_constraints"
+        });
+      }
       if (currentModel && currentModel !== selectedModelId) {
-  await localUnloadEngine();
+        await localUnloadEngine();
       }
       /* =====================================================
          WORKER SINGLETON
@@ -286,12 +291,20 @@ export async function* generate(
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-      signal,
       max_tokens: isMobile() ? 512 : 1024,
     } as any);
 
+
+
     for await (const chunk of stream as any) {
+
+      if (cancelled) {
+        cancelled = false;
+        break;
+      }
+
       const text = chunk?.choices?.[0]?.delta?.content;
+
       if (text) yield text;
     }
 

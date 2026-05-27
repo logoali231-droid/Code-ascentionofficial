@@ -1,15 +1,10 @@
 "use client";
 
 import { generate } from "./webllm";
-
 import { getAdaptiveMetrics } from "./adaptive";
-
-import { getMemory } from "./userMemory";
-
+import { getMemory, getUserProfile } from "./userMemory";
 import { get } from "./db";
-
 import { cleanAndParseCourseJSON } from "./safeParse";
-
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
 
@@ -17,292 +12,315 @@ import { runtimeQueue } from "./generationQueue";
    GENERATE REINFORCEMENT
 ========================================= */
 
-export async function generateReinforcement(error: any, course: any) {
-  const baseDifficulty = error?.difficulty || 1;
+export async function generateReinforcement(
+  error: any,
+  course: any,
+  signal?: AbortSignal,
+) {
+  // =========================================
+  // USER STATE
+  // =========================================
 
-  const user = await get("user", "main");
+  const [user, profile, memory, metrics] = await Promise.all([
+    get("user", "main"),
+    getUserProfile(),
+    getMemory(),
+    getAdaptiveMetrics(),
+  ]);
 
-  const memory = await getMemory();
+  // =========================================
+  // CORE STATE
+  // =========================================
 
   const topic = course?.topic || "programming";
 
   const level = course?.level || "beginner";
 
-  /* =========================================
-     ADAPTIVE METRICS
-  ========================================= */
+  const cognitiveProfile =
+    profile?.cognitive ||
+    user?.cognitive ||
+    "Standard";
 
-  const metrics = await getAdaptiveMetrics();
+  const teachingStyle =
+    profile?.explanationStyle ||
+    profile?.customStyle ||
+    course?.stylePrompt ||
+    "Explain clearly and progressively";
 
-  /*
-    FINAL DIFFICULTY:
-    mistura:
-    - adaptive system
-    - error difficulty
-    - struggling state
-  */
+  // =========================================
+  // DIFFICULTY ENGINE
+  // =========================================
 
-  let difficulty = Math.round((metrics.difficulty + baseDifficulty) / 2);
+  const baseDifficulty = error?.difficulty || 1;
 
-  const recentErrors = memory.lastErrors?.slice(-5) || [];
+  let difficulty = Math.round(
+    ((metrics?.difficulty || 1) + baseDifficulty) / 2,
+  );
 
-  const sameTopicErrors = memory.lastErrors.filter(
-    (e: any) => e.topic === topic,
-  ).length;
+  const recentErrors = memory?.lastErrors?.slice(-5) || [];
+
+  const sameTopicErrors =
+    memory?.lastErrors?.filter(
+      (e: any) => e.topic === topic,
+    )?.length || 0;
 
   const struggling = sameTopicErrors >= 3;
-
-  /*
-    se struggling:
-    reduz dificuldade REALMENTE
-  */
 
   if (struggling) {
     difficulty = Math.max(1, difficulty - 1);
   }
 
-  /*
-    clamp
-  */
-
   difficulty = Math.min(5, Math.max(1, difficulty));
 
-  /* =========================================
-     PROMPT FRAGMENTS
-  ========================================= */
+  // =========================================
+  // MEMORY COMPRESSION
+  // =========================================
+
+  const compressedErrors = compressContext(
+    JSON.stringify(recentErrors),
+    700,
+  );
+
+  const compressedWeaknesses = compressContext(
+    JSON.stringify(memory?.weaknesses || {}),
+    500,
+  );
+
+  // =========================================
+  // COGNITIVE FRAGMENTS
+  // =========================================
 
   const cognitiveFragments = buildPromptFragments({
-    cognitive: user?.cognitive || "Standard",
-
+    cognitive: cognitiveProfile,
     difficulty,
-
     mastery: struggling ? 30 : 65,
-
     reinforcement: true,
   });
 
-  const compressedErrors = compressContext(JSON.stringify(recentErrors), 1200);
+  // =========================================
+  // MODULE CONTEXT
+  // =========================================
 
-  const compressedWeaknesses = compressContext(
-    JSON.stringify(memory.weaknesses || {}),
-    1000,
-  );
+  const moduleContext = `
+CURRENT MODULE:
+${error?.moduleTitle || "Unknown Module"}
 
-  /* =========================================
-     PROMPT
-  ========================================= */
+MODULE DIFFICULTY:
+${error?.difficulty || difficulty}
+
+ACTIVE CONCEPT:
+${error?.concept || error?.topic || topic}
+`;
+
+  // =========================================
+  // LIGHTWEIGHT PROMPT
+  // =========================================
 
   const prompt = `
-You are an elite adaptive programming tutor.
+You are an adaptive reinforcement engine operating inside the Code Ascension procedural learning architecture.
 
 Your mission:
-repair understanding,
-not just test memory.
+Repair ONE specific misunderstanding efficiently.
+
+DO NOT generate:
+- full lessons
+- giant explanations
+- long tutorials
+- excessive theory
+- unrelated concepts
+- motivational speeches
+
+Generate ONLY:
+- focused reinforcement
+- conceptual repair
+- minimal corrective guidance
+- adaptive retry challenge
+
+================================
+COGNITIVE ADAPTATION
+================================
 
 ${cognitiveFragments}
 
+COGNITIVE PROFILE:
+${cognitiveProfile}
+
+TEACHING STYLE:
+${teachingStyle}
+
 ================================
-TASK
+USER STATE
 ================================
 
-Create ONE reinforcement exercise
-focused ONLY on the user's mistake.
-
-================================
-COURSE CONTEXT
-================================
-
-TOPIC:
-${topic}
-
-USER LEVEL:
+LEVEL:
 ${level}
 
-COGNITIVE PROFILE:
-${user?.cognitive || "Standard"}
+STRUGGLING:
+${struggling ? "true" : "false"}
 
-STYLE:
-${course?.stylePrompt || "Explain clearly"}
+TARGET DIFFICULTY:
+${difficulty}
 
 ================================
-ERROR CONTEXT
+MODULE CONTEXT
+================================
+
+${moduleContext}
+
+================================
+ERROR TRACE
 ================================
 
 ORIGINAL QUESTION:
-${error.question}
+${error?.question || ""}
 
-USER WRONG ANSWER:
-${error.userAnswer}
+USER ANSWER:
+${error?.userAnswer || ""}
 
 CORRECT ANSWER:
-${error.correct}
+${error?.correct || ""}
+
+USER EXPLANATION:
+${error?.userExplanation || "None"}
 
 ================================
-ADAPTIVE STATE
+WEAKNESS MEMORY
 ================================
 
-BASE ERROR DIFFICULTY:
-${baseDifficulty}
-
-ADAPTIVE SYSTEM DIFFICULTY:
-${metrics.difficulty}
-
-FINAL TARGET DIFFICULTY:
-${difficulty}
-
-USER STATE:
-${struggling ? "STRUGGLING" : "LEARNING"}
+${compressedWeaknesses || "None"}
 
 ================================
-WEAKNESSES
+RECENT ERROR HISTORY
 ================================
 
-${compressedWeaknesses}
+${compressedErrors || "None"}
 
 ================================
-RECENT ERRORS
+EXECUTION RULES
 ================================
 
-${compressedErrors}
-
-================================
-RULES
-================================
-
-- Return ONLY valid JSON
-- No markdown
-- No explanations outside JSON
-- Focus ONLY on the mistake
-- Avoid introducing unrelated concepts
-- Repair the misunderstanding
-- Reinforce mental model
-- Keep continuity with previous mistakes
-
-================================
-STYLE RULES
-================================
-
-Maintain the teaching style consistently,
-BUT clarity comes first.
+- Focus ONLY on the failed concept.
+- Keep generation lightweight.
+- Keep explanations compact.
+- Avoid repeating the original question excessively.
+- Avoid introducing new abstraction layers.
+- Repair the mental model progressively.
+- Maintain continuity with previous mistakes.
+- Respect the cognitive profile strictly.
+- Respect the teaching style strictly.
+- Prefer clarity over depth.
+- Keep output mobile-friendly.
+- Keep token generation controlled.
 
 ================================
 DIFFICULTY RULES
 ================================
 
-If user is STRUGGLING:
+If STRUGGLING:
 - simplify wording
+- isolate one concept
 - reduce abstraction
-- isolate ONE concept
 - reduce cognitive load
+- use smaller reasoning steps
 
 Otherwise:
-- match FINAL TARGET DIFFICULTY
 - encourage active reasoning
+- maintain adaptive challenge
+- avoid trivial answers
 
 ================================
-COGNITIVE RULES
+OUTPUT RULES
 ================================
 
-ADHD / tdah:
-- short blocks
-- minimal text
-- fast feedback
-- one concept only
-
-Deep_Dive:
-- deeper reasoning
-- conceptual understanding
-
-Visual_Logic:
-- patterns
-- examples
-- comparisons
-
-Standard:
-- balanced pacing
-
-================================
-LEVEL RULES
-================================
-
-beginner:
-- avoid jargon
-- practical intuition
-
-intermediate:
-- moderate abstraction
-
-advanced:
-- technical precision
-
-NEVER exceed user level.
-
-================================
-OUTPUT FORMAT
-================================
+Return ONLY valid JSON.
 
 {
   "type": "short | multiple_choice | code | logic",
 
-  "question": "...",
+  "question": "Reinforcement challenge",
 
-  "options": ["..."],
+  "options": [],
 
-  "answer": "...",
+  "answer": "Correct answer",
 
-  "explanation": "short explanation"
+  "explanation": "Short conceptual repair explanation",
+
+  "hint": "Tiny optional guidance",
+
+  "difficulty": ${difficulty}
 }
 `;
 
-  const rawRes = await runtimeQueue.enqueue(async () => {
-    return generate(prompt);
-  });
+  // =========================================
+  // GENERATION
+  // =========================================
 
-  // 2. Coletor Neural: Converte Stream/Undefined para String
-  let res = "";
-  if (rawRes) {
-    if (typeof rawRes === "string") {
-      res = rawRes;
-    } else {
-      // Consome o stream do WebLLM para o Samsung M23 não travar
-      for await (const chunk of rawRes) {
-        const content =
-          typeof chunk === "string"
-            ? chunk
-            : (chunk as any).choices?.[0]?.delta?.content || "";
-        res += content;
+  try {
+    const rawRes = await runtimeQueue.enqueue(async () => {
+      return generate(
+        prompt,
+        struggling ? 0.45 : 0.6,
+        undefined,
+        signal,
+      );
+    }, 1);
+
+    let fullResponse = "";
+
+    if (rawRes) {
+      if (typeof rawRes === "string") {
+        fullResponse = rawRes;
+      } else {
+        for await (const chunk of rawRes) {
+          const content =
+            typeof chunk === "string"
+              ? chunk
+              : (chunk as any).choices?.[0]?.delta?.content || "";
+
+          fullResponse += content;
+
+          // HARD TOKEN GUARD
+          if (fullResponse.length > 5000) {
+            break;
+          }
+        }
       }
     }
+
+    const parsed =
+      cleanAndParseCourseJSON(fullResponse);
+
+    if (parsed) {
+      return parsed;
+    }
+  } catch (error) {
+    console.error(
+      "Reinforcement Generation Failure:",
+      error,
+    );
   }
 
-  // 3. Agora o 'res' é garantidamente uma string para o safeParse
-  const parsed = cleanAndParseCourseJSON(res);
-
-  if (parsed) {
-    return parsed;
-  }
-
-  /* =========================================
-     FALLBACK (Permanece igual...)
-  ========================================= */
-
-  if (parsed) {
-    return parsed;
-  }
-
-  /* =========================================
-     FALLBACK
-  ========================================= */
+  // =========================================
+  // FALLBACK
+  // =========================================
 
   return {
     type: "short",
 
-    question: `Let's retry carefully:\n${error.question}`,
+    question: `Retry carefully:\n${error?.question || ""}`,
 
-    answer: error.correct || "",
+    options: [],
+
+    answer: error?.correct || "",
 
     explanation: struggling
-      ? "Focus on the core concept only."
-      : "Retry focusing on the correct reasoning.",
+      ? "Focus on one core concept at a time."
+      : "Retry using the correct reasoning path.",
+
+    hint: struggling
+      ? "Break the problem into smaller steps."
+      : "Look carefully at the logic flow.",
+
+    difficulty,
   };
 }

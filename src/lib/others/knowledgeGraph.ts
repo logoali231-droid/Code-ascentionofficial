@@ -127,7 +127,7 @@ export async function refreshUnlocks(
   return graph;
 }
 
-export function getNextConcept(graph: KnowledgeGraph): ConceptNode | null {
+export function getNextConcept(graph: KnowledgeGraph, id: any): ConceptNode | null {
   const available = graph.nodes.filter((n) => n.unlocked && !n.completed);
   if (!available.length) return null;
   return available.sort((a, b) => (a.mastery || 0) - (b.mastery || 0))[0];

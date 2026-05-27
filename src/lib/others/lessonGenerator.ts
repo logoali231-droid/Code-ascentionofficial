@@ -5,119 +5,360 @@ import {
   getNextConcept,
   getReviewConcepts,
 } from "./knowledgeGraph";
+
 import { buildPromptFragments } from "./promptFragments";
 import { compressContext } from "./contextMemory";
 import { getUserProfile } from "./userMemory";
 import { buildMemoryContext } from "./vectorMemory";
+
 import { CognitiveProfile } from "@/types/core";
+
 import { eventBus, EventType } from "./eventBus";
 
+/* =========================================================
+   TYPES
+========================================================= */
+
 export interface LessonPlan {
+  module: any;
+  moduleIndex: number;
+  moduleDifficulty: number;
+
   conceptTitle: string;
   conceptId: string;
   conceptDifficulty: number;
+
   shouldReview: boolean;
+
   compressedHistory: string;
   memoryContext: string;
   promptFragments: string;
   reviewText: string;
+
   course: any;
   profile: any;
 }
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function resolveActiveModule(course: any) {
+  const modules = course?.modules || [];
+
+  // primeiro módulo incompleto
+  const active =
+    modules.find((m: any) => !m.completed) ||
+    modules[0];
+
+  return active;
+}
+
+function resolveModuleIndex(course: any, moduleId: string) {
+  return (
+    course?.modules?.findIndex(
+      (m: any) => m.id === moduleId
+    ) ?? 0
+  );
+}
+
+/* =========================================================
+   GENERATE LESSON PLAN
+========================================================= */
 
 export async function generateLessonPlan(params: {
   course: any;
   history?: any[];
 }): Promise<LessonPlan> {
   const { course, history = [] } = params;
+
   const profile = await getUserProfile();
 
+  /* =====================================================
+     ACTIVE MODULE
+  ===================================================== */
+
+  const activeModule = resolveActiveModule(course);
+
+  const moduleIndex = resolveModuleIndex(
+    course,
+    activeModule?.id
+  );
+
+  const moduleDifficulty =
+    activeModule?.difficulty ||
+    course?.difficulty ||
+    1;
+
+  /* =====================================================
+     KNOWLEDGE GRAPH
+  ===================================================== */
+
   const graph = await getKnowledgeGraph(course.id);
-  const nextConcept = graph ? getNextConcept(graph) : null;
-  const reviewTargets = graph ? getReviewConcepts(graph) : [];
 
-  const conceptTitle = nextConcept?.title || "Core Fundamentals";
-  const conceptId = nextConcept?.id || "core_fundamentals";
-  const conceptDifficulty = nextConcept?.difficulty || course.difficulty || 1;
+  // 🔥 AGORA contextualizado por módulo
+  const nextConcept = graph
+    ? getNextConcept(graph, activeModule?.id)
+    : null;
 
-  const compressedHistory = compressContext(JSON.stringify(history || []), 400);
+  const reviewTargets = graph
+    ? getReviewConcepts(graph)
+    : [];
 
-  const memoryContext = await buildMemoryContext({
-    query: `\n${course.topic}\n${conceptTitle}\n${compressedHistory}\n`,
-    tags: [course.topic, course.level],
-    concepts: [conceptTitle],
-    limit: 4,
-  });
+  /* =====================================================
+     CONCEPT STATE
+  ===================================================== */
 
-  const shouldReview = reviewTargets.length >= 3;
+  const conceptTitle =
+    nextConcept?.title ||
+    activeModule?.title ||
+    "Core Fundamentals";
+
+  const conceptId =
+    nextConcept?.id ||
+    activeModule?.id ||
+    "core_fundamentals";
+
+  const conceptDifficulty =
+    nextConcept?.difficulty ||
+    moduleDifficulty;
+
+  /* =====================================================
+     HISTORY COMPRESSION
+  ===================================================== */
+
+  const compressedHistory = compressContext(
+    JSON.stringify(history || []),
+    500
+  );
+
+  /* =====================================================
+     MEMORY CONTEXT
+  ===================================================== */
+
+  const memoryContext =
+    await buildMemoryContext({
+      query: `
+${course.topic}
+${activeModule?.title}
+${conceptTitle}
+${compressedHistory}
+      `,
+      tags: [
+        course.topic,
+        course.level,
+        activeModule?.title || "module",
+      ],
+      concepts: [conceptTitle],
+      limit: 4,
+    });
+
+  /* =====================================================
+     REVIEW ENGINE
+  ===================================================== */
+
+  const shouldReview =
+    reviewTargets.length >= 3;
+
   const reviewText = shouldReview
-    ? `\nREVIEW TARGETS:\n${reviewTargets
-      .slice(0, 3)
-      .map((r) => `${r.title} (${r.mastery})`)
-      .join(", ")}\n\nIMPORTANT:\nReinforce weak concepts naturally.\n`
+    ? `
+REVIEW TARGETS:
+${reviewTargets
+  .slice(0, 3)
+  .map((r) => `${r.title} (${r.mastery})`)
+  .join(", ")}
+
+IMPORTANT:
+Reinforce weak concepts naturally.
+`
     : "";
 
-  const promptFragments = buildPromptFragments({
-    cognitive: (profile?.cognitive || "Standard") as CognitiveProfile,
-    difficulty: conceptDifficulty,
-    mastery: nextConcept?.mastery || 0,
-    reinforcement: shouldReview,
-  });
+  /* =====================================================
+     COGNITIVE FRAGMENTS
+  ===================================================== */
+
+  const promptFragments =
+    buildPromptFragments({
+      cognitive:
+        (
+          profile?.cognitive ||
+          "Standard"
+        ) as CognitiveProfile,
+
+      difficulty: conceptDifficulty,
+
+      mastery:
+        nextConcept?.mastery || 0,
+
+      reinforcement: shouldReview,
+    });
+
+  /* =====================================================
+     FINAL PLAN
+  ===================================================== */
 
   return {
+    module: activeModule,
+
+    moduleIndex,
+
+    moduleDifficulty,
+
     conceptTitle,
     conceptId,
     conceptDifficulty,
+
     shouldReview,
+
     compressedHistory,
+
     memoryContext,
+
     promptFragments,
+
     reviewText,
+
     course,
+
     profile,
   };
 }
 
-export function buildExplanationPrompt(plan: LessonPlan): string {
+/* =========================================================
+   EXPLANATION PROMPT
+========================================================= */
+
+export function buildExplanationPrompt(
+  plan: LessonPlan
+): string {
+  // 🔥 user prompt continua soberano
+  const userStyle =
+    plan.course?.stylePrompt?.trim() ||
+    "Explain clearly and progressively";
+
   return `
-You are an adaptive programming tutor working inside Code Ascension local PWA interface.
+You are an adaptive programming tutor operating inside the Code Ascension procedural learning runtime.
 
-COURSE:
+Your role:
+Generate ONE atomic adaptive lesson for the current concept.
+
+DO NOT generate:
+- entire modules
+- future concepts
+- giant tutorials
+- multiple lessons
+- giant markdown articles
+
+================================
+COURSE
+================================
 ${plan.course.topic}
-CURRENT CONCEPT:
-${plan.conceptTitle}
-USER LEVEL:
-${plan.course.level}
-DIFFICULTY:
-${plan.conceptDifficulty}
-LEARNING STYLE:
-${plan.course?.stylePrompt || "Explain clearly and progressively"}
 
+================================
+CURRENT MODULE
+================================
+TITLE:
+${plan.module?.title}
+
+SUMMARY:
+${plan.module?.summary}
+
+MODULE DIFFICULTY:
+${plan.moduleDifficulty}
+
+================================
+CURRENT CONCEPT
+================================
+${plan.conceptTitle}
+
+CONCEPT DIFFICULTY:
+${plan.conceptDifficulty}
+
+================================
+USER PROFILE
+================================
+COGNITIVE PROFILE:
+${plan.profile?.cognitive || "Standard"}
+
+USER LEVEL:
+${plan.course?.level || "Beginner"}
+
+================================
+USER TEACHING STYLE
+================================
+${userStyle}
+
+IMPORTANT:
+The user's custom teaching style has priority.
+Adapt structure and pacing around it.
+Do not override the requested teaching style.
+
+================================
+COGNITIVE FRAGMENTS
+================================
 ${plan.promptFragments}
+
+================================
+REVIEW CONTEXT
+================================
 ${plan.reviewText}
 
-RELEVANT MEMORY:
+================================
+MEMORY CONTEXT
+================================
 ${plan.memoryContext || "No relevant memory."}
 
-RECENT HISTORY:
+================================
+RECENT HISTORY
+================================
 ${plan.compressedHistory}
 
-TASK:
-Generate ONLY the lesson explanation.
+================================
+LESSON RULES
+================================
+- Generate ONLY ONE lesson.
+- Keep progression atomic.
+- Focus on conceptual intuition first.
+- Then explain syntax mechanics.
+- Then provide one practical example.
 
-RULES:
-- Avoid giant text walls. Break content into progressive atomic chunks.
-- Focus on conceptual intuition first, then target specific syntax mechanics.
-- CRITICAL: Use cyberpunk color scheme hex codes (e.g., #00ffcc for active neon ciano, #ff0055 for failure/deletions) for any code blocks UI mentions or terminal log mockups.
+- Avoid giant text walls.
+- Break information into small chunks.
+- Use progressive pacing.
+- Avoid discussing future modules.
 
-RETURN JSON:
+- Respect the user's cognitive profile.
+- Respect the user's requested teaching style.
+
+================================
+OUTPUT RULES
+================================
+- Output ONLY JSON.
+- No markdown fences.
+- No explanations outside JSON.
+
+================================
+RETURN JSON
+================================
 {
-  "title": "A short, engaging title for this concept",
-  "explanation": "The core conceptual explanation (markdown supported)",
-  "content": "Practical examples or code snippets to illustrate the concept"
+  "title": "Short engaging concept title",
+
+  "explanation": "Compact adaptive conceptual explanation with markdown support",
+
+  "content": "One practical example or code snippet"
 }
+
+================================
+FINAL HARD RULES
+================================
+- Stop generation immediately after final JSON brace.
+- Never generate multiple lessons.
 `;
 }
+
+/* =========================================================
+   EXERCISE PROMPT
+========================================================= */
 
 export function buildExercisePrompt({
   plan,
@@ -128,67 +369,155 @@ export function buildExercisePrompt({
   explanation: any;
   index: number;
 }): string {
+  const userStyle =
+    plan.course?.stylePrompt?.trim() ||
+    "Explain clearly";
+
   return `
-You are generating ONE adaptive exercise for the active topic.
+You are generating ONE adaptive exercise for the current concept.
 
-COURSE:
+================================
+COURSE
+================================
 ${plan.course.topic}
-CONCEPT:
-${plan.conceptTitle}
-LESSON TITLE:
-${explanation?.title}
-LESSON EXPLANATION:
-${explanation?.explanation}
-DIFFICULTY:
-${plan.conceptDifficulty}
-LEARNING STYLE:
-${plan.course?.stylePrompt || "Explain clearly"}
 
+================================
+MODULE
+================================
+${plan.module?.title}
+
+================================
+CURRENT CONCEPT
+================================
+${plan.conceptTitle}
+
+================================
+LESSON TITLE
+================================
+${explanation?.title}
+
+================================
+LESSON EXPLANATION
+================================
+${explanation?.explanation}
+
+================================
+DIFFICULTY
+================================
+${plan.conceptDifficulty}
+
+================================
+USER STYLE
+================================
+${userStyle}
+
+================================
+COGNITIVE FRAGMENTS
+================================
 ${plan.promptFragments}
 
-RULES:
-- Generate ONLY ONE exercise matching the requested schema.
-- Type can be: "mcq" (Multiple Choice Question), "ordering" (Rearrange code blocks), or "code" (Write full snippet/function inside a non-sandbox code block).
-- Avoid trick questions, focus purely on functional progression.
+================================
+EXERCISE RULES
+================================
+- Generate ONLY ONE exercise.
+- Exercise must target ONLY the current concept.
+- Do not reference future concepts.
+- Do not reference future modules.
+- Avoid trick questions.
+- Focus on functional progression.
 
-CRITICAL CONDITION FOR "expectedAnswer":
-- IF "type" is "mcq" or "ordering": DO NOT include the "expectedAnswer" block in the JSON response under any circumstance.
-- IF "type" is "code": You MUST strictly include the "expectedAnswer" shard object below. This metadata acts as a temporary blueprint file read by the Evaluator AI engine to check semantic intent, accepting syntax variations, alternative variable names, and code structures.
+Exercise types:
+- "mcq"
+- "ordering"
+- "code"
 
-RETURN JSON SPECIFICATION:
+================================
+EXPECTED ANSWER RULES
+================================
+- IF type is "mcq" or "ordering":
+  DO NOT include expectedAnswer.
+
+- IF type is "code":
+  You MUST include expectedAnswer.
+
+================================
+OUTPUT RULES
+================================
+- Output ONLY JSON.
+- No markdown fences.
+- No explanations outside JSON.
+
+================================
+RETURN JSON
+================================
 {
   "id": "${crypto.randomUUID()}",
+
   "type": "mcq | code | ordering",
-  "question": "Clear problem statement outlining goals and code constraints",
-  "options": ["Option A", "Option B"], // Keep empty if type is "code"
-  "answer": "Correct option index string for MCQ/Ordering, or mandatory assertion keyword for code",
-  "explanation": "Pedagogical correction explanation formatted to user's style preference",
-  
-  // CONDITIONAL FIELD: Only include if type === "code"
+
+  "question": "Clear problem statement",
+
+  "options": ["Option A", "Option B"],
+
+  "answer": "Correct answer",
+
+  "explanation": "Compact pedagogical correction",
+
   "expectedAnswer": {
-    "codeTemplate": "Initial skeleton code function signature exposed in the editor view",
-    "solutionExample": "The optimal target solution code snippet",
-    "mandatoryTokens": ["function", "return"],
+    "codeTemplate": "Starter code",
+
+    "solutionExample": "Reference implementation",
+
+    "mandatoryTokens": [
+      "function",
+      "return"
+    ],
+
     "allowedVariations": [
-      "Alternative variable naming or equivalent short arrow syntax expressions",
-      "Inversion of conditional check logic blocks"
+      "Alternative naming",
+      "Equivalent syntax"
     ]
   }
 }
+
+================================
+FINAL HARD RULES
+================================
+- Stop generation immediately after final JSON brace.
+- Never generate multiple exercises.
 `;
 }
 
-export async function completeLessonPlan(plan: LessonPlan): Promise<void> {
-  if (plan?.course?.id && plan?.conceptId) {
-    const traceId = eventBus.generateTraceId();
+/* =========================================================
+   COMPLETE LESSON PLAN
+========================================================= */
+
+export async function completeLessonPlan(
+  plan: LessonPlan
+): Promise<void> {
+  if (
+    plan?.course?.id &&
+    plan?.conceptId
+  ) {
+    const traceId =
+      eventBus.generateTraceId();
+
     eventBus.emit({
       type: EventType.EXERCISE_PASSED,
+
       source: "lessonGenerator.ts",
+
       traceId,
+
       payload: {
         xpEarned: 0,
+
         coinsEarned: 0,
+
         conceptId: plan.conceptId,
+
+        moduleId: plan.module?.id,
+
         automatedSync: true,
       },
     });

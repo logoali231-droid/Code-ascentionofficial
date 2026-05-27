@@ -82,25 +82,59 @@ INSTRUCTION:
 3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
 `;
 
-  const prompt = `
-You are an elite curriculum architect.
-Your mission: create a coherent, progressive, adaptive programming course structure.
+const prompt = `
+You are an elite adaptive curriculum architect operating inside the Code Ascension procedural learning system.
+
+Your role:
+Design a lightweight, progressive, cognitively adaptive course roadmap optimized for local on-device AI generation.
+
+Your mission:
+Generate ONLY the high-level curriculum structure.
+
+DO NOT generate:
+- lessons
+- explanations
+- exercises
+- quizzes
+- markdown tutorials
+- giant text blocks
+- implementation details
+- nested learning trees
+
+Generate ONLY:
+- module progression
+- conceptual dependency order
+- adaptive difficulty scaling
+- roadmap sequencing
 
 ${cognitiveFragments}
 ${adaptiveContext}
 
 ================================
+USER PROFILE
+================================
+COGNITIVE_PROFILE:
+${cognitive || "Standard"}
+
+USER_LEVEL:
+${level}
+
+TARGET_DIFFICULTY:
+${difficulty}/5
+
+================================
 COURSE CONFIG
 ================================
-TOPIC: ${topic}
-STYLE: ${style}
-LEVEL: ${level}
-DIFFICULTY: ${difficulty}/5
+TOPIC:
+${topic}
+
+STYLE:
+${style || "adaptive"}
 
 ================================
 TEACHING STYLE
 ================================
-${stylePrompt || "Explain clearly and simply"}
+${stylePrompt || "Explain clearly and progressively"}
 
 ================================
 BASE MATERIAL
@@ -108,25 +142,126 @@ BASE MATERIAL
 ${compressedMaterial || "none"}
 
 ================================
-COURSE RULES
+ADAPTIVE PEDAGOGICAL RULES
 ================================
-- Scale complexity gradually across the timeline.
-- ADHD / tdah profile: shorter modules, clearer visual segmentation chunks.
-- Deep_Dive profile: deeper engineering theory and internal mechanics.
-- Visual_Logic profile: intense pattern architecture, diagrams, and functional analogies.
+
+GENERAL:
+- Build a coherent learning progression.
+- Respect prerequisite ordering strictly.
+- Earlier modules must establish mental models first.
+- Mid modules must introduce composition and abstraction.
+- Late modules must focus on architecture, debugging, optimization, scaling, and real-world edge cases.
+
+COGNITIVE ADAPTATION:
+- ADHD / tdah profile:
+  * smaller conceptual jumps
+  * lower reading density
+  * shorter progression loops
+  * fast reward cadence
+  * visual segmentation
+
+- Deep_Dive profile:
+  * lower-level internals
+  * runtime mechanics
+  * architecture reasoning
+  * systems engineering depth
+  * optimization-focused progression
+
+- Visual_Logic profile:
+  * dependency-oriented sequencing
+  * conceptual grouping
+  * architecture mapping
+  * structural progression emphasis
+
+USER EXPERTISE ADAPTATION:
+- Beginner users:
+  * prioritize foundations
+  * avoid abstraction too early
+  * focus on practical intuition
+
+- Intermediate users:
+  * reduce repetitive fundamentals
+  * introduce composition patterns faster
+  * increase implementation complexity
+
+- Advanced users:
+  * skip beginner explanations
+  * prioritize systems thinking
+  * focus on architecture, optimization, concurrency, debugging, scaling, and edge cases
+
+================================
+MODULE GENERATION RULES
+================================
+- Generate between 4 and 8 modules maximum.
+- NEVER generate more than 8 modules.
+- Modules must remain lightweight for mobile devices.
+- Each module represents ONE major conceptual phase.
+- Modules must increase difficulty progressively.
+- Modules must remain flat and compact.
+
+NEVER generate:
+- nested lessons
+- lesson arrays
+- submodules
+- giant summaries
+- deep explanation text
+
+================================
+DIFFICULTY SCALING
+================================
+Difficulty progression model:
+
+1 → foundations
+2 → controlled application
+3 → abstraction and composition
+4 → architecture and systems thinking
+5 → optimization, scaling, edge cases
+
+================================
+SUMMARY RULES
+================================
+- Keep summaries under 20 words.
+- Use compact wording.
+- Avoid verbose descriptions.
 
 ================================
 OUTPUT FORMAT
 ================================
-Return ONLY valid JSON.
+Return ONLY valid compact JSON.
+
 {
   "title": "Course primary title",
-  "description": "Adaptive course syllabus overview mapping out modules",
+
+  "description": "High-level adaptive roadmap overview",
+
   "tags": ["topic", "level"],
-  "lessons": [
-    { "title": "Module Lesson Title", "summary": "Granular lesson overview mapping dependencies", "difficulty": 1 }
+
+  "modules": [
+    {
+      "id": "module_1",
+
+      "title": "Core Fundamentals",
+
+      "summary": "Foundational concepts and mental models",
+
+      "difficulty": 1,
+
+      "generated": false,
+
+      "completed": false,
+
+      "locked": false
+    }
   ]
 }
+
+================================
+FINAL HARD RULES
+================================
+- Output ONLY JSON.
+- Do not include markdown fences.
+- Do not explain your reasoning.
+- Stop generation immediately after the final JSON closing brace.
 `;
 
   try {
