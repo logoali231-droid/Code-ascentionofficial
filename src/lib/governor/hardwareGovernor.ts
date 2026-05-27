@@ -17,7 +17,14 @@ export const HardwareGovernor = {
     // 1. Detecção segura (SSR-safe)
     const isMobile = typeof window !== "undefined" 
       && /Mobi|Android|iP(hone|od|ad)/i.test(navigator.userAgent);
-    
+    getPedagogicalConstraints: (isMobile: boolean) => {
+    return {
+      maxTokensPerModule: isMobile ? 800 : 2000,
+      detailLevel: isMobile ? "concise" : "detailed",
+      allowDeepNesting: !isMobile,
+      // Você pode adicionar mais propriedades conforme necessário
+    };
+  },
     // 2. Determinação de Tier
     if (isMobile) return { ...LIMITS.LOW, isMobile };
     
