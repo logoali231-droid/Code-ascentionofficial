@@ -6,7 +6,7 @@ let workerTimeout: ReturnType<typeof setTimeout> | null = null;
 function getComputeWorker() {
   if (!worker) {
     console.log("[ComputeWorker] Spawning worker...");
-    worker = new Worker(new URL("../workers/compute.workers.ts", import.meta.url), {
+    worker = new Worker(new URL("../workers/compute.worker.ts", import.meta.url), {
       type: "module",
     });
   }
