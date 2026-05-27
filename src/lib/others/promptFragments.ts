@@ -21,6 +21,22 @@ Rules:
 - Avoid robotic phrasing
 `;
 
+/* =========================================================
+   HARDWARE FRAGMENT
+   Define o comportamento de saída baseado no dispositivo
+========================================================= */
+export function buildHardwareFragment(isMobile: boolean) {
+  if (!isMobile) return ""; // Desktop não precisa de restrições especiais
+
+  return `
+ADAPTIVE_HARDWARE_LIMITS (MOBILE_MODE):
+- PRIORITIZE: Extremely high information density.
+- AVOID: Excessive whitespace, long sentences, and verbose intros.
+- FORMAT: Use bullet points and compact JSON structures.
+- GOAL: Minimize scrolling and total token count while maintaining depth.
+`;
+}
+
 /* =========================
    ANTI AI-SOUP RULES
 ========================= */
@@ -214,42 +230,26 @@ export function buildPromptFragments({
   difficulty,
   mastery,
   reinforcement,
+  isMobile = false, // Adicionado
 }: {
   cognitive?: CognitiveProfile;
-
   difficulty?: number;
-
   mastery?: number;
-
   reinforcement?: boolean;
+  isMobile?: boolean; // Adicionado
 }) {
   return `
 ${pedagogyRules}
-
 ${antiSoupRules}
-
 ${exerciseRules}
-
 ${theoryRules}
-
 ${reinforcement ? reinforcementRules : ""}
-
 ${getCognitiveRules(cognitive)}
-
 ${getDifficultyRules(difficulty || 1)}
-
 ${getMasteryRules(mastery || 0)}
+${buildHardwareFragment(isMobile)} 
 `;
 }
-
-// ADD THIS TO:
-// src/lib/promptFragments.ts
-
-/* =========================================================
-   LIGHTWEIGHT FRAGMENTS
-   Used by lessonGenerator
-========================================================= */
-
 /* =========================================================
    COGNITIVE FRAGMENT
 ========================================================= */
