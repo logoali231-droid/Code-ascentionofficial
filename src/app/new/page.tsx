@@ -64,6 +64,8 @@ export default function NewCoursePage() {
     loadUser();
   }, []);
 
+
+  const abortController = new AbortController();
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -158,7 +160,7 @@ Spaced Repetition Targets: [${reviewStr}]
       const estimatedMaxChars = 35000;
       const hardMaxChars = 50000;
 
-      const abortController = new AbortController();
+      
 
       const generator = generate(
         fullPrompt,
