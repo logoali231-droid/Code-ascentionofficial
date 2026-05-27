@@ -33,7 +33,7 @@ export async function generateCourse({
   courseId?: string;
 }): Promise<any> {
 const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
-const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(isMobile);
+const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
 const limits = HardwareGovernor.getLimits();
 const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
   
@@ -41,11 +41,10 @@ const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
-    customConstraints: constraints,
-    isMobile: limits.isMobile,
-    
     reinforcement: false,
-  });
+    customConstraints: pedagogicalConstraints,
+    isMobile: limits.isMobile // Mantenha isso se o buildPromptFragments ainda precisar do booleano
+});
 
   // O Governor agora encapsula a checagem e retorna o contrato de recursos
 
