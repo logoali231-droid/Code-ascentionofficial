@@ -9,6 +9,7 @@ import { buildPromptFragments, compressContext } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
 import { generate } from "./webllm";
+import { serializeHistory, hardCap } from "./contextSerializer";
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
@@ -49,17 +50,27 @@ export async function generateExplanationAI(
   // MEMORY SYSTEMS
   // =========================================
 
-  const compressedMemory = course?.id
+  const rawMemory = course?.id
     ? await getMemorySummary(course.id)
     : "";
 
-  const curriculumStats = course?.id
+  const compressedMemory = hardCap(
+    rawMemory || "",
+    1800,
+  );
+
+  const rawCurriculumStats = course?.id
     ? await summarizeCurriculum(course.id)
     : "";
 
-  const compressedHistory = compressContext(
-    JSON.stringify(history || []),
-    900,
+  const curriculumStats = hardCap(
+    rawCurriculumStats || "",
+    1600,
+  );
+
+  const compressedHistory = hardCap(
+    serializeHistory(history, 6),
+    1400,
   );
 
   // =========================================
@@ -91,7 +102,12 @@ ${lesson?.difficulty || currentLevel}
   // =========================================
   // LIGHTWEIGHT PROMPT
   // =========================================
-
+  const lessonContent = hardCap(
+    lesson?.content ||
+    lesson?.explanation ||
+    "",
+    2200,
+  );
   const prompt = `
 You are an elite adaptive programming tutor operating inside the Code Ascension procedural education system.
 
@@ -157,7 +173,7 @@ SUMMARY:
 ${lesson?.summary || lesson?.description || ""}
 
 EXISTING CONTENT:
-${lesson?.content || lesson?.explanation || ""}
+${lessonContent}
 
 ================================
 RECENT SESSION HISTORY
@@ -214,18 +230,23 @@ Return ONLY valid JSON.
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          const chunks: string[] = [];
+          for await (const chunk of res) {
+            const content =
+              typeof chunk === "string"
+                ? chunk
+                : (chunk as any)
+                  .choices?.[0]
+                  ?.delta?.content || "";
 
-          chunks.push(content);
+            fullResponse += content;
 
-          if (chunks.length > 200) break;
-
-          const fullResponse = chunks.join("");;
+            if (fullResponse.length > 8000) {
+              break;
+            }
+          }
 
           // HARD TOKEN GUARD
-          if (fullResponse.length > 8000) {
-            break;
-          }
+
         }
       }
     }
@@ -381,13 +402,7 @@ Return ONLY valid JSON.
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          const chunks: string[] = [];
-
-          chunks.push(content);
-
-          if (chunks.length > 200) break;
-
-          const fullResponse = chunks.join("");;
+          fullResponse += content;
 
           if (fullResponse.length > 5000) {
             break;

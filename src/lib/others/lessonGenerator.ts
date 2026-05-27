@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  serializeHistory,
+  hardCap,
+} from "./contextSerializer";
+
+import {
   getKnowledgeGraph,
   getNextConcept,
   getReviewConcepts,
@@ -31,11 +36,15 @@ export interface LessonPlan {
   shouldReview: boolean;
 
   compressedHistory: string;
+
   memoryContext: string;
+
   promptFragments: string;
+
   reviewText: string;
 
   course: any;
+
   profile: any;
 }
 
@@ -72,6 +81,10 @@ export async function generateLessonPlan(params: {
 }): Promise<LessonPlan> {
   const { course, history = [] } = params;
 
+  /* =====================================================
+     USER PROFILE
+  ===================================================== */
+
   const profile = await getUserProfile();
 
   /* =====================================================
@@ -82,7 +95,7 @@ export async function generateLessonPlan(params: {
 
   const moduleIndex = resolveModuleIndex(
     course,
-    activeModule?.id
+    activeModule?.id,
   );
 
   const moduleDifficulty =
@@ -96,9 +109,11 @@ export async function generateLessonPlan(params: {
 
   const graph = await getKnowledgeGraph(course.id);
 
-  // 🔥 AGORA contextualizado por módulo
   const nextConcept = graph
-    ? getNextConcept(graph, activeModule?.id)
+    ? getNextConcept(
+        graph,
+        activeModule?.id,
+      )
     : null;
 
   const reviewTargets = graph
@@ -127,31 +142,34 @@ export async function generateLessonPlan(params: {
      HISTORY COMPRESSION
   ===================================================== */
 
-  const compressedHistory = compressContext(
-    JSON.stringify(history || []),
-    500
-  );
+  const compressedHistory =
+    compressContext(
+      serializeHistory(history),
+      400,
+    );
 
   /* =====================================================
      MEMORY CONTEXT
   ===================================================== */
 
-  const memoryContext =
+  const rawMemoryContext =
     await buildMemoryContext({
-      query: `
-${course.topic}
-${activeModule?.title}
-${conceptTitle}
-${compressedHistory}
-      `,
+      query: `${course.topic}\n${conceptTitle}`,
+
       tags: [
         course.topic,
         course.level,
-        activeModule?.title || "module",
       ],
+
       concepts: [conceptTitle],
-      limit: 4,
+
+      limit: 3,
     });
+
+  const memoryContext = hardCap(
+    rawMemoryContext || "",
+    1800,
+  );
 
   /* =====================================================
      REVIEW ENGINE
@@ -165,7 +183,10 @@ ${compressedHistory}
 REVIEW TARGETS:
 ${reviewTargets
   .slice(0, 3)
-  .map((r) => `${r.title} (${r.mastery})`)
+  .map(
+    (r) =>
+      `${r.title} (${r.mastery})`,
+  )
   .join(", ")}
 
 IMPORTANT:
@@ -185,12 +206,14 @@ Reinforce weak concepts naturally.
           "Standard"
         ) as CognitiveProfile,
 
-      difficulty: conceptDifficulty,
+      difficulty:
+        conceptDifficulty,
 
       mastery:
         nextConcept?.mastery || 0,
 
-      reinforcement: shouldReview,
+      reinforcement:
+        shouldReview,
     });
 
   /* =====================================================
@@ -205,7 +228,9 @@ Reinforce weak concepts naturally.
     moduleDifficulty,
 
     conceptTitle,
+
     conceptId,
+
     conceptDifficulty,
 
     shouldReview,
