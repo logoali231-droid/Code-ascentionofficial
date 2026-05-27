@@ -1,17 +1,16 @@
 "use client";
 
-import { generate } from "./webllm";
-import { cleanAndParseCourseJSON } from "./safeParse";
-import { buildPromptFragments } from "./promptFragments";
-import { buildMemoryContext } from "./vectorMemory";
-import { getUserProfile } from "./userMemory";
-import { runtimeQueue } from "./generationQueue";
 import { save } from "./db"; // Adicionado para persistência fragmentada
+import { runtimeQueue } from "./generationQueue";
+import { buildPromptFragments } from "./promptFragments";
+import { cleanAndParseCourseJSON } from "./safeParse";
+import { getUserProfile } from "./userMemory";
+import { buildMemoryContext } from "./vectorMemory";
 
 import {
+  buildConstraintPrompt,
   buildDynamicConstraint,
   registerConstraint,
-  buildConstraintPrompt,
 } from "./conceptConstraints";
 
 import { validateLesson } from "./lessonValidator";
@@ -116,7 +115,14 @@ RETURN JSON:
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
-        return generate(prompt);
+        const { generate } = await getWebLLM();
+
+        return generate(
+          prompt,
+          0.6,
+          undefined,
+          signal,
+        ); (prompt);
       },
       1,
     );
@@ -230,7 +236,14 @@ RETURN JSON:
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
-        return generate(prompt);
+        const { generate } = await getWebLLM();
+
+        return generate(
+          prompt,
+          0.6,
+          undefined,
+          signal,
+        ); (prompt);
       },
       1,
     );

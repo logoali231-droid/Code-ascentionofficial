@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+
 import bundleAnalyzer from "@next/bundle-analyzer";
 
 const withBundleAnalyzer = bundleAnalyzer({
@@ -8,8 +9,18 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig = {
   reactStrictMode: false,
 
+  swcMinify: true,
+
   experimental: {
     esmExternals: "loose",
+
+    /*
+      reduz pressão de memória
+      em builds grandes
+    */
+    optimizePackageImports: [
+      "@mlc-ai/web-llm",
+    ],
   },
 
   transpilePackages: [
@@ -21,24 +32,47 @@ const nextConfig = {
   },
 
   webpack: (config, { isServer }) => {
+
+    /* =====================================================
+       FALLBACKS
+    ===================================================== */
+
     config.resolve.fallback = {
+      ...config.resolve.fallback,
+
       fs: false,
       path: false,
       crypto: false,
       stream: false,
+      perf_hooks: false,
     };
+
+    /* =====================================================
+       WEBASSEMBLY
+    ===================================================== */
 
     config.experiments = {
       ...config.experiments,
+
       asyncWebAssembly: true,
       layers: true,
+      topLevelAwait: true,
     };
+
+    /* =====================================================
+       ALIASES
+    ===================================================== */
 
     config.resolve.alias = {
       ...config.resolve.alias,
+
       "pino-pretty": false,
       encoding: false,
     };
+
+    /* =====================================================
+       SERVER EXTERNALS
+    ===================================================== */
 
     if (isServer) {
       config.externals.push({
@@ -47,6 +81,19 @@ const nextConfig = {
       });
     }
 
+    /* =====================================================
+       HUGE WARNING FILTER
+       (webllm spam)
+    ===================================================== */
+
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+
+      /Critical dependency/,
+
+      /Failed to parse source map/,
+    ];
+
     return config;
   },
 
@@ -54,19 +101,45 @@ const nextConfig = {
     return [
       {
         source: "/(.*)",
+
         headers: [
+
+          /* =================================================
+             WEBGPU / SHAREDARRAYBUFFER
+          ================================================= */
+
           {
             key: "Cross-Origin-Opener-Policy",
             value: "same-origin",
           },
+
           {
             key: "Cross-Origin-Embedder-Policy",
             value: "require-corp",
           },
-          // Solução para o erro [Violation] Permissions policy violation: unload
+
+          /* =================================================
+             PERMISSIONS
+          ================================================= */
+
           {
             key: "Permissions-Policy",
-            value: "unload=*",
+            value:
+              "camera=(), microphone=(), geolocation=(), unload=*",
+          },
+
+          /* =================================================
+             CACHE
+          ================================================= */
+
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
         ],
       },

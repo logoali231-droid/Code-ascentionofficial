@@ -1,16 +1,14 @@
 "use client";
 
 import { getAdaptiveMetrics } from "./adaptive";
+import {
+  hardCap
+} from "./contextSerializer";
 import { get } from "./db";
 import { runtimeQueue } from "./generationQueue";
-import { buildPromptFragments, compressContext } from "./promptFragments";
+import { buildPromptFragments } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
-import { generate } from "./webllm";
-import {
-  serializeHistory,
-  hardCap,
-} from "./contextSerializer";
 /* =========================================
    GENERATE REINFORCEMENT
 ========================================= */
@@ -192,9 +190,9 @@ ERROR TRACE
 
 USER EXPLANATION:
 ${hardCap(
-  error?.userExplanation || "None",
-  500,
-)}
+    error?.userExplanation || "None",
+    500,
+  )}
 
 
 ================================
@@ -271,7 +269,14 @@ Return ONLY valid JSON.
 
   try {
     const rawRes = await runtimeQueue.enqueue(async () => {
+      const { generate } = await getWebLLM();
+
       return generate(
+        prompt,
+        0.6,
+        undefined,
+        signal,
+      ); (
         prompt,
         struggling ? 0.45 : 0.6,
         undefined,

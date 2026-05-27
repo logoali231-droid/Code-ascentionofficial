@@ -1,16 +1,15 @@
 "use client";
 
 import { getMemorySummary } from "./contextMemory";
+import { hardCap, serializeHistory } from "./contextSerializer";
 import { summarizeCurriculum } from "./curriculumState";
 import { get } from "./db";
 import { validateExplanation } from "./explanationValidator";
 import { runtimeQueue } from "./generationQueue";
-import { buildPromptFragments, compressContext } from "./promptFragments";
+import { buildPromptFragments } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
-import { generate } from "./webllm";
-import { serializeHistory, hardCap } from "./contextSerializer";
-
+import { getWebLLM } from "./webllmLoader";
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
@@ -228,7 +227,14 @@ Return ONLY valid JSON.
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-      return generate(prompt, 0.65, undefined, signal);
+      const { generate } = await getWebLLM();
+
+      return generate(
+        prompt,
+        0.65,
+        undefined,
+        signal,
+      );
     }, 1);
 
     let fullResponse = "";
@@ -251,7 +257,7 @@ Return ONLY valid JSON.
 
           chunks.push(content);
 
-          // HARD LIMIT MOBILE SAFE
+          // MOBILE SAFE LIMIT
           if (chunks.length > 180) {
             break;
           }
@@ -267,41 +273,71 @@ Return ONLY valid JSON.
       }
     }
 
-    const parsed = cleanAndParseCourseJSON(fullResponse);
+    const parsed =
+      cleanAndParseCourseJSON(fullResponse);
 
-    if (!parsed || !(await validateExplanation(parsed))) {
-      console.warn("Explanation validation failed.");
+    if (
+      !parsed ||
+      !(await validateExplanation(parsed))
+    ) {
+      console.warn(
+        "Explanation validation failed."
+      );
 
       return {
-        title: lesson?.title || "Explanation",
+        title:
+          lesson?.title || "Explanation",
+
         content:
           lesson?.content ||
           lesson?.summary ||
           "Adaptive explanation fallback activated.",
-        analogy: "The neural bridge partially stabilized.",
-        keyTakeaway: "Focus on the core concept first.",
-        difficulty: lesson?.difficulty || currentLevel,
+
+        analogy:
+          "The neural bridge partially stabilized.",
+
+        keyTakeaway:
+          "Focus on the core concept first.",
+
+        difficulty:
+          lesson?.difficulty || currentLevel,
       };
     }
 
     return parsed;
+
   } catch (error) {
-    console.error("AI Explanation Error:", error);
+    console.error(
+      "AI Explanation Error:",
+      error,
+    );
 
     return {
-      title: lesson?.title || "Explanation Failure",
-      content: "The explanation pipeline encountered instability.",
-      analogy: "Like a compiler losing its syntax tree mid-build.",
-      keyTakeaway: "Retry generation with lighter context.",
-      difficulty: lesson?.difficulty || currentLevel,
+      title:
+        lesson?.title ||
+        "Explanation Failure",
+
+      content:
+        "The explanation pipeline encountered instability.",
+
+      analogy:
+        "Like a compiler losing its syntax tree mid-build.",
+
+      keyTakeaway:
+        "Retry generation with lighter context.",
+
+      difficulty:
+        lesson?.difficulty ||
+        currentLevel,
     };
   }
+
+  /* =========================================
+     ERROR EXPLANATION
+  ========================================= */
+
+
 }
-
-/* =========================================
-   ERROR EXPLANATION
-========================================= */
-
 export async function explainError(
   { question, correct, userAnswer, userExplanation, course }: any,
   signal?: AbortSignal,
@@ -406,7 +442,14 @@ Return ONLY valid JSON.
 
   try {
     const res = await runtimeQueue.enqueue(async () => {
-      return generate(prompt, 0.6, undefined, signal);
+      const { generate } = await getWebLLM();
+
+      return generate(
+        prompt,
+        0.65,
+        undefined,
+        signal,
+      );
     }, 1);
 
     let fullResponse = "";
@@ -429,29 +472,78 @@ Return ONLY valid JSON.
 
           chunks.push(content);
 
-          if (chunks.length > 120) {
+          // MOBILE SAFE LIMIT
+          if (chunks.length > 180) {
             break;
           }
         }
 
         fullResponse = chunks.join("");
 
+        // FINAL HARD CAP
         fullResponse = hardCap(
           fullResponse,
-          5000,
+          8000,
         );
       }
     }
 
-    return cleanAndParseCourseJSON(fullResponse);
+    const parsed =
+      cleanAndParseCourseJSON(fullResponse);
+
+    if (
+      !parsed ||
+      !(await validateExplanation(parsed))
+    ) {
+      console.warn(
+        "Explanation validation failed."
+      );
+
+      return {
+        title:
+          lesson?.title || "Explanation",
+
+        content:
+          lesson?.content ||
+          lesson?.summary ||
+          "Adaptive explanation fallback activated.",
+
+        analogy:
+          "The neural bridge partially stabilized.",
+
+        keyTakeaway:
+          "Focus on the core concept first.",
+
+        difficulty:
+          lesson?.difficulty || currentLevel,
+      };
+    }
+
+    return parsed;
+
   } catch (error) {
-    console.error("Error Explanation Failure:", error);
+    console.error(
+      "AI Explanation Error:",
+      error,
+    );
 
     return {
-      explanation: "The correction pipeline failed to stabilize.",
-      fix: "Retry with smaller contextual scope.",
-      analogy: "Like debugging with missing stack traces.",
-      keyTakeaway: "Focus on the reasoning chain.",
+      title:
+        lesson?.title ||
+        "Explanation Failure",
+
+      content:
+        "The explanation pipeline encountered instability.",
+
+      analogy:
+        "Like a compiler losing its syntax tree mid-build.",
+
+      keyTakeaway:
+        "Retry generation with lighter context.",
+
+      difficulty:
+        lesson?.difficulty ||
+        currentLevel,
     };
   }
 }

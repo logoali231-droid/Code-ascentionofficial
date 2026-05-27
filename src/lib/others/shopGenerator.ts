@@ -1,4 +1,3 @@
-import { generate } from "./webllm";
 import { cleanAndParseCourseJSON } from "./safeParse";
 
 export async function generateItem(prompt: string) {
