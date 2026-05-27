@@ -77,7 +77,7 @@ export interface Explanation {
 
 export interface TelemetryMetric {
   id?: number;
-  type: "execution_time" | "memory_leak" | "engine_fault" | "bundle_time";
+  type: "execution_time" | "memory_leak" | "engine_fault" | "bundle_time" | "execution_error";
   engine: string;
   language: string;
   duration: number;

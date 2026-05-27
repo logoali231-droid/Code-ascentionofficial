@@ -1,6 +1,5 @@
 import { ENGINE_REGISTRY, ExecutionResult, resolveEngine } from "./engines";
 import { sandboxProcessManager } from "./sandboxProcessManager";
-// CORREÇÃO: Importe a instância 'telemetry' em vez da classe
 import { telemetry } from "./telemetryManager";
 
 export async function runSandbox(
@@ -18,8 +17,8 @@ export async function runSandbox(
     return { output: [], error: errorMsg };
   }
 
-  // Definição clara do ID de execução para garantir consistência
-  const executionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Uso de UUID para melhor consistência
+  const executionId = crypto.randomUUID();
   const startTime = performance.now();
   let firstTokenReceived = false;
 
@@ -36,16 +35,20 @@ export async function runSandbox(
           firstTokenReceived = true;
           const ttft = performance.now() - startTime;
 
-          // APLIQUE ESTA ESTRUTURA: Remova chaves extras como 'topic' ou 'metric'
-          // se o seu 'TelemetryMetric' não as possuir explicitamente.
+          // Registro de Time to First Token (TTFT)
           telemetry.record({
-            value: ttft,
-            context: { language, executionId, type: 'TTFT' },
             type: "execution_time",
-            engine: "",
-            language: "",
-            duration: 0,
-            success: false
+            value: ttft,
+            engine: engineType,
+            language: language,
+            duration: ttft,
+            success: true,
+            context: { 
+                language, 
+                executionId, 
+                type: 'TTFT', 
+                engine: engineType 
+            },
           });
         }
 
@@ -55,16 +58,18 @@ export async function runSandbox(
 
     const totalLatency = performance.now() - startTime;
 
-    // APLIQUE ESTA ESTRUTURA: Certifique-se que estas chaves (value, context)
-    // coincidem com as propriedades definidas na interface TelemetryMetric.
+    // Registro de Latência Total
     telemetry.record({
-      value: totalLatency,
-      context: { engine: engineType, type: 'EXECUTION_LATENCY' },
       type: "execution_time",
-      engine: "",
-      language: "",
-      duration: 0,
-      success: false
+      value: totalLatency,
+      engine: engineType,
+      language: language,
+      duration: totalLatency,
+      success: !result.error, // True se não houve erro
+      context: { 
+          executionId, 
+          type: 'EXECUTION_LATENCY' 
+      },
     });
 
     if (result.error) {
@@ -77,12 +82,21 @@ export async function runSandbox(
     return result;
 
   } catch (err: any) {
-    if (signal?.aborted || err.name === 'AbortError') {
-      proc.pushLog(`[EXIT] Process aborted by user`);
-      return { output: [], error: "Execution aborted" };
-    }
+    const isAbort = signal?.aborted || err.name === 'AbortError';
+    
+    proc.pushLog(isAbort ? `[EXIT] Process aborted by user` : `[ERROR] ${err.message}`);
+    
+    // Opcional: Registrar erro na telemetria
+    telemetry.record({
+      type: "execution_error",
+      value: 0,
+      engine: engineType,
+      language: language,
+      duration: performance.now() - startTime,
+      success: false,
+      context: { executionId, error: err.message }
+    });
 
-    proc.crash(err.message);
-    return { output: [], error: err.message };
+    return { output: [], error: isAbort ? "Execution aborted" : err.message };
   }
 }

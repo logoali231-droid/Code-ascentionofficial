@@ -1,26 +1,33 @@
-// Adicione ou atualize esta função utilitária em src/lib/others/safeParse.ts ou diretamente no streamer
 export function cleanAndParseCourseJSON(rawText: string): any | null {
-  let cleanText = rawText.trim();
-
-  // 1. Limpa blocos de código Markdown gerados frequentemente por LLMs locais
-  if (cleanText.includes("```json")) {
-    cleanText = cleanText.split("```json")[1].split("```")[0];
-  } else if (cleanText.includes("```")) {
-    cleanText = cleanText.split("```")[1].split("```")[0];
-  }
-
-  // 2. Localiza cirurgicamente a primeira chave de abertura e a última de fechamento
-  const firstBracket = cleanText.indexOf("{");
-  const lastBracket = cleanText.lastIndexOf("}");
-
-  if (firstBracket !== -1 && lastBracket !== -1) {
-    cleanText = cleanText.substring(firstBracket, lastBracket + 1);
-  }
-
   try {
-    return JSON.parse(cleanText);
-  } catch (error) {
-    console.error("[NEURAL:PARSE:ERROR] Falha crítica ao processar a estrutura do curso:", error);
+    // 1. Tenta o parse direto e limpo primeiro
+    return JSON.parse(rawText.trim());
+  } catch (e) {
+    // 2. Extração Heurística Absoluta (Ignora todo o ruído/markdown)
+    console.warn("[PARSE:HEURISTIC] Falha no parse direto. Isolando blocos estruturais...");
+    
+    // Procura do primeiro '{' até o último '}' 
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const cleanJSON = rawText.substring(firstBrace, lastBrace + 1);
+      
+      // Limpeza de escaping problemático comum em modelos menores
+      const sanitizedJSON = cleanJSON
+        .replace(/\n/g, "")
+        .replace(/\r/g, "")
+        .replace(/\t/g, " ");
+
+      try {
+        return JSON.parse(sanitizedJSON);
+      } catch (innerError) {
+        console.error("[NEURAL:PARSE:ERROR] Estrutura extraída corrompida:", innerError);
+        return null;
+      }
+    }
+    
+    console.error("[NEURAL:PARSE:ERROR] Delimitadores JSON não encontrados.");
     return null;
   }
 }

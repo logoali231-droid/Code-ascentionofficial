@@ -31,15 +31,18 @@ export async function generateCourse({
   cognitive?: string;
   courseId?: string;
 }): Promise<any> {
-  const cognitiveFragments = buildPromptFragments({
+ const cognitiveFragments = buildPromptFragments({
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
     reinforcement: false,
   });
 
+  const isMob = typeof window !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
+  const maxContextSize = isMob ? 2200 : 5000;
+
   const compressedMaterial = baseMaterial
-    ? compressContext(baseMaterial, 5000)
+    ? compressContext(baseMaterial, maxContextSize)
     : "";
   const userAnalysis = await getUserStrengthsAndWeaknesses();
 
@@ -264,18 +267,21 @@ FINAL HARD RULES
 - Stop generation immediately after the final JSON closing brace.
 `;
 
-  try {
-    const rawRes = await runLLM(prompt);
+try {
+    const rawRes = await runtimeQueue.enqueue(
+      async (_signal) => {
+        return await runLLM(prompt);
+      },
+      1 // Prioridade 1 (Alta) para geração do curso
+    );
 
-// ✅ FIX 1: garantir tipo seguro
-const fullResponse =
-  typeof rawRes === "string"
-    ? rawRes
-    : JSON.stringify(rawRes);
+    // ✅ FIX 1: garantir tipo seguro
+    const fullResponse =
+      typeof rawRes === "string"
+        ? rawRes
+        : JSON.stringify(rawRes);
 
-// (ou alternativa mais simples: const fullResponse = rawRes as string;)
-
-const parsed = cleanAndParseCourseJSON(fullResponse);
+    const parsed = cleanAndParseCourseJSON(fullResponse);
 
     if (!parsed || !validateCourse(parsed)) {
       console.error(
@@ -285,11 +291,15 @@ const parsed = cleanAndParseCourseJSON(fullResponse);
         title: `${topic} Course`,
         description: `Foundational guide for ${topic}.`,
         tags: [topic, level],
-        lessons: [
+        modules: [
           {
+            id: `module_${Date.now()}`,
             title: `Introduction to ${topic}`,
             summary: `Foundations of ${topic}.`,
             difficulty: 1,
+            generated: false,
+            completed: false,
+            locked: false
           },
         ],
       };
@@ -301,3 +311,4 @@ const parsed = cleanAndParseCourseJSON(fullResponse);
     return null;
   }
 }
+

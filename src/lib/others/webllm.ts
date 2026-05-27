@@ -195,7 +195,7 @@ export async function initEngine(
 
       const specs = await detectSystemCapabilities();
 
-      const selectedModelId = resolveModel(
+      let selectedModelId = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
       const resolvedModelId = selectedModelId;
@@ -207,7 +207,13 @@ export async function initEngine(
           reason: "hardware_constraints"
         });
       }
-      if (currentModel && currentModel !== selectedModelId) {
+
+      // 🔥 ESTRATÉGIA 1: Single-model lockdown mode
+      // Impede que o mobile destrua a VRAM tentando recarregar outro modelo
+      if (isMob && currentModel && currentModel !== selectedModelId) {
+        console.warn("[LOCKDOWN] Model switching bloqueado no mobile. Mantendo a instância atual congelada:", currentModel);
+        selectedModelId = currentModel;
+      } else if (currentModel && currentModel !== selectedModelId) {
         await localUnloadEngine();
       }
       /* =====================================================
@@ -267,6 +273,9 @@ export async function initEngine(
               : SYSTEM_CONFIG.LLM.sliding_window_size,
 
             attention_sink_size: SYSTEM_CONFIG.LLM.attention_sink_size,
+
+            // 🔥 ESTRATÉGIA 3: Processamento linear rígido
+            batch_size: isMob ? 1 : undefined,
           },
 
           useIndexedDBCache: useCache,
@@ -330,9 +339,15 @@ export async function* generate(
 
       const text = chunk?.choices?.[0]?.delta?.content;
 
-      if (text) yield text;
+      if (text) {
+        yield text;
+        // 🔥 ESTRATÉGIA 4: Throttling Térmico Essencial
+        // Um delay minúsculo impede que o M23 sature o Thread Pool do Android
+        if (isMobile()) {
+          await delay(4);
+        }
+      }
     }
-
   } catch (err) {
     await emergencyWebLLMCleanup();
     throw err;

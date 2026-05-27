@@ -1,6 +1,6 @@
 "use client";
 
-import { evaluateLogic } from "./evaluator.logic";
+import { evaluate } from "./computeExecutor";
 import { updateMastery } from "./curriculumState";
 import { getAdaptiveMetrics } from "./adaptive";
 import { addXP, addCoins } from "./economy";
@@ -66,8 +66,14 @@ export async function evaluateExercise({
     },
   });
 
-  let correct = await evaluateLogic(userAnswer, expected);
-
+  let correct = false;
+  try {
+    correct = await evaluate(userAnswer, expected);
+  } catch (e) {
+    console.error("Worker Evaluation Failed, falling back to basic check", e);
+    // Fallback opcional se o worker falhar
+    correct = userAnswer.trim().toLowerCase() === expected.trim().toLowerCase();
+  }
   const userStats = await getUser();
   const userFactionId = userStats?.factionId || "";
   const userXp = userStats?.xp || 0;

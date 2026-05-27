@@ -1,5 +1,8 @@
 import { cleanAndParseCourseJSON } from "./safeParse";
 
+// Defina o tipo esperado do retorno da IA
+type LLMResponse = string | AsyncIterable<any>;
+
 export async function generateItem(prompt: string) {
   const fullPrompt = `
 You are a game shop generator.
@@ -22,16 +25,15 @@ USER REQUEST:
 ${prompt}
 `;
 
-  // 1. Pega o retorno bruto (pode vir como Stream do WebLLM)
-  const rawRes = await generate(fullPrompt);
+  // Agora garantimos que rawRes tem um tipo válido
+  const rawRes: LLMResponse = await generate(fullPrompt);
 
-  // 2. Coletor Neural: Transforma Stream em String única
   let res = "";
   if (rawRes) {
     if (typeof rawRes === "string") {
       res = rawRes;
     } else {
-      // Consome o stream pedaço por pedaço para não travar o Samsung M23
+      // Agora o TS reconhece rawRes como AsyncIterable
       for await (const chunk of rawRes) {
         const content =
           typeof chunk === "string"
@@ -42,18 +44,17 @@ ${prompt}
     }
   }
 
-  // 3. Agora o 'res' é garantidamente uma string para o safeParse
   const parsed = cleanAndParseCourseJSON(res);
-
   if (parsed) return parsed;
 
-  /* =========================================
-     FALLBACK
-  ========================================= */
   return {
     name: "Glitched Relic",
     description: "Something went wrong in the matrix",
     price: 9999,
     effect: "cosmetic",
   };
+}
+
+async function generate(_fullPrompt: string): Promise<LLMResponse> {
+  throw new Error("Function not implemented.");
 }

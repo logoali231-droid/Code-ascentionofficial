@@ -14,6 +14,7 @@ import {
 } from "./conceptConstraints";
 
 import { validateLesson } from "./lessonValidator";
+import { getWebLLM } from "./webllmLoader";
 
 export interface StreamedLesson {
   title: string;
@@ -121,7 +122,7 @@ RETURN JSON:
           prompt,
           0.6,
           undefined,
-          signal,
+          _signal,
         ); (prompt);
       },
       1,
@@ -242,8 +243,8 @@ RETURN JSON:
           prompt,
           0.6,
           undefined,
-          signal,
-        ); (prompt);
+          _signal,
+        );
       },
       1,
     );
