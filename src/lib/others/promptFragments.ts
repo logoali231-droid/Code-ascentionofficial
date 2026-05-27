@@ -231,7 +231,7 @@ export function buildPromptFragments({
   mastery,
   reinforcement,
   customConstraints, 
-  isMobile           
+  isMobile = false,         
 }: {
   cognitive?: CognitiveProfile;
   difficulty?: number;
