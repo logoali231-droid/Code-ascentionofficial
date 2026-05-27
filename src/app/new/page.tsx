@@ -59,6 +59,13 @@ export default function NewCoursePage() {
 
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
 
     if (!topic.trim() || loading) return;
 
@@ -145,17 +152,30 @@ Spaced Repetition Targets: [${reviewStr}]
 
       setStatus("FORGING_CURRICULUM_DATA...");
 
-      const generator = generate(fullPrompt);
-
-      let cleanContent = "";
-
       let simulatedProgress = 40;
-
       const estimatedMaxChars = 35000;
       const hardMaxChars = 50000;
 
+      const abortController = new AbortController();
+
+      const generator = generate(
+        fullPrompt,
+        0.7,
+        undefined,
+        abortController.signal
+      );
+
+      let cleanContent = "";
+
       for await (const chunk of generator) {
-        cleanContent += chunk;
+
+  // 🧠 evita update depois de desmontar componente
+  if (!isMounted.current) {
+    abortController.abort();
+    break;
+  }
+
+  cleanContent += chunk;
 
         // =====================================================
         // HARD SAFETY LIMIT
@@ -197,11 +217,11 @@ Spaced Repetition Targets: [${reviewStr}]
         const uiProgress =
           Math.floor(simulatedProgress);
 
-        setProgress(uiProgress);
-
-        setStatus(
-          `DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`,
-        );
+        if (isMounted.current) {
+         setProgress(uiProgress);
+         setStatus( `DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`
+         );
+        }
       }
 
       if (!cleanContent.trim()) {
@@ -264,19 +284,21 @@ Spaced Repetition Targets: [${reviewStr}]
       }, 1000);
 
     } catch (err) {
-      console.error("Forge Error:", err);
+  console.error("Forge Error:", err);
 
-      setStatus("LINK_CRITICAL_FAILURE");
+  abortController.abort(); // 🧠 mata stream se estiver vivo
 
-      playSound("error", 0.5);
+  if (isMounted.current) {
+    setStatus("LINK_CRITICAL_FAILURE");
+    setLoading(false);
+  }
 
-      setLoading(false);
-
-      setTimeout(() => {
-        setIsForging(false);
-      }, 1200);
+  setTimeout(() => {
+    if (isMounted.current) {
+      setIsForging(false);
     }
-  };
+  }, 1200);
+      };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
