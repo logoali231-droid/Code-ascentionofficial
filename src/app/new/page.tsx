@@ -300,6 +300,7 @@ Spaced Repetition Targets: [${reviewStr}]
     }
   }, 1200);
     }
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
