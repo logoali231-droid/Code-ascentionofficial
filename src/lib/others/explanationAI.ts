@@ -1,14 +1,14 @@
 "use client";
 
-import { generate } from "./webllm";
-import { getUserProfile, getMemory } from "./userMemory";
-import { buildPromptFragments, compressContext } from "./promptFragments";
-import { runtimeQueue } from "./generationQueue";
-import { cleanAndParseCourseJSON } from "./safeParse";
-import { validateExplanation } from "./explanationValidator";
 import { getMemorySummary } from "./contextMemory";
 import { summarizeCurriculum } from "./curriculumState";
 import { get } from "./db";
+import { validateExplanation } from "./explanationValidator";
+import { runtimeQueue } from "./generationQueue";
+import { buildPromptFragments, compressContext } from "./promptFragments";
+import { cleanAndParseCourseJSON } from "./safeParse";
+import { getMemory, getUserProfile } from "./userMemory";
+import { generate } from "./webllm";
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
@@ -214,7 +214,13 @@ Return ONLY valid JSON.
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          fullResponse += content;
+          const chunks: string[] = [];
+
+          chunks.push(content);
+
+          if (chunks.length > 200) break;
+
+          const fullResponse = chunks.join("");;
 
           // HARD TOKEN GUARD
           if (fullResponse.length > 8000) {
@@ -375,7 +381,13 @@ Return ONLY valid JSON.
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          fullResponse += content;
+          const chunks: string[] = [];
+
+          chunks.push(content);
+
+          if (chunks.length > 200) break;
+
+          const fullResponse = chunks.join("");;
 
           if (fullResponse.length > 5000) {
             break;

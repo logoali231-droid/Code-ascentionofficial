@@ -1,8 +1,8 @@
 "use client";
 
 import { generateCourse } from "./courseGenerator";
-import { cleanAndParseCourseJSON } from "./safeParse";
 import { validateCourse } from "./courseValidator";
+import { cleanAndParseCourseJSON } from "./safeParse";
 
 
 export async function streamCourseGeneration(params: any) {
@@ -18,12 +18,18 @@ export async function streamCourseGeneration(params: any) {
       } else {
         // 2. Consome os pedaços (chunks) em tempo real conforme são computados na WebGPU
         for await (const chunk of rawRes) {
-          const content = typeof chunk === "string" 
-            ? chunk 
+          const content = typeof chunk === "string"
+            ? chunk
             : (chunk as any).choices?.[0]?.delta?.content || "";
-          
-          fullResponse += content;
-          
+
+          const chunks: string[] = [];
+
+          chunks.push(content);
+
+          if (chunks.length > 200) break;
+
+          const fullResponse = chunks.join("");;
+
           // Opcional: Dispare um eventBus aqui se quiser renderizar o progresso do texto na interface!
           // eventBus.emit(EventType.COURSE_STREAM_CHUNK, content);
         }
@@ -38,7 +44,7 @@ export async function streamCourseGeneration(params: any) {
 
   if (!parsed || !validateCourse(parsed)) {
     console.warn("[FALLBACK:ACTIVATED] Ativando malha adaptativa de contingência.");
-    
+
     // Fallback Adaptativo Avançado (Evita parecer estático ou genérico)
     return {
       title: `${params.topic} - Estrutura de Estabilidade`,

@@ -1,12 +1,12 @@
 "use client";
 
-import { generate } from "./webllm";
 import { getAdaptiveMetrics } from "./adaptive";
-import { getMemory, getUserProfile } from "./userMemory";
 import { get } from "./db";
-import { cleanAndParseCourseJSON } from "./safeParse";
-import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
+import { buildPromptFragments, compressContext } from "./promptFragments";
+import { cleanAndParseCourseJSON } from "./safeParse";
+import { getMemory, getUserProfile } from "./userMemory";
+import { generate } from "./webllm";
 
 /* =========================================
    GENERATE REINFORCEMENT
@@ -277,7 +277,13 @@ Return ONLY valid JSON.
               ? chunk
               : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          fullResponse += content;
+          const chunks: string[] = [];
+
+          chunks.push(content);
+
+          if (chunks.length > 200) break;
+
+          const fullResponse = chunks.join("");;
 
           // HARD TOKEN GUARD
           if (fullResponse.length > 5000) {
