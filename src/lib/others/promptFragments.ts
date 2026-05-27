@@ -225,18 +225,20 @@ export function compressContext(text: string, max = 1200) {
    FINAL PROMPT BUILDER
 ========================= */
 
-export function buildPromptFragments({
+exportexport function buildPromptFragments({
   cognitive,
   difficulty,
   mastery,
   reinforcement,
-  isMobile = false, // Adicionado
+  customConstraints, 
+  isMobile           
 }: {
   cognitive?: CognitiveProfile;
   difficulty?: number;
   mastery?: number;
   reinforcement?: boolean;
-  isMobile?: boolean; // Adicionado
+  customConstraints?: any; 
+  isMobile?: boolean;      
 }) {
   return `
 ${pedagogyRules}
