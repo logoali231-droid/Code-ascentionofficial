@@ -225,7 +225,7 @@ export function compressContext(text: string, max = 1200) {
    FINAL PROMPT BUILDER
 ========================= */
 
-exportexport function buildPromptFragments({
+export function buildPromptFragments({
   cognitive,
   difficulty,
   mastery,
