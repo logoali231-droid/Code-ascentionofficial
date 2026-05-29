@@ -124,3 +124,18 @@ export interface IEngineExecutor {
     onLog?: (chunk: string, type: 'stdout' | 'stderr' | 'meta') => void // Adicione o 'type' aqui
   ): Promise<ExecutionResult>;
 }
+
+
+
+
+export type ExecutionRoute =
+  | "LOCAL_WORKER"
+  | "WASM_RUNTIME"
+  | "AZURE_SANDBOX";
+
+export interface SandboxInput {
+  code: string;
+  language: string;
+  userId?: string;
+  workspaceId?: string;
+}

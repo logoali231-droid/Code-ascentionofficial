@@ -5,14 +5,7 @@ import {
   SandboxWorkspace,
 } from "./types";
 
-import {
-  generateManifest,
-} from "./workspaceManifest";
 
-
-
-
-// Em src/lib/sandbox/workspace/workspaceSnapshot.ts
 export interface WorkspaceSnapshot {
   manifest: {
     rootHash: string;
