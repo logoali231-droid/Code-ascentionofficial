@@ -1,6 +1,6 @@
 "use client";
 
-import { fullClientCacheReset } from "@/lib/others/cleanCache";
+import { resetAppAndClearData } from "@/lib/others/cleanCache";
 import { get, save } from "@/lib/others/db";
 import { precompileNeuralModules } from "@/lib/others/neuralBundler";
 import { playSound } from "@/lib/others/sounds";
@@ -248,7 +248,7 @@ export default function MachineLockPage() {
             {/* CACHE RESET */}
             <button
               onClick={async () => {
-                await fullClientCacheReset();
+                await resetAppAndClearData();
                 alert("Cache limpo. Recarregue o sistema.");
               }}
               className="w-full mt-3 bg-slate-900/40 border border-slate-700 text-slate-400 p-3 rounded-xl text-xs uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-300 transition-all"

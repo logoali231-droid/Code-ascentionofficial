@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { exportUserMind } from "@/lib/others/memoryExport";
 import { importUserMind } from "@/lib/others/memoryImport";
 import { save, db, get, performStorageCleanup } from "@/lib/others/db";
+import {
+  loginWithGoogle,
+  cloudExportMind,
+  cloudImportMind,
+} from "src/lib/others/cloudMemory";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 /* ============================================================================
    COMPONENT: BANNED TERMS MANAGER (Anti-Cortex Filter)
@@ -24,7 +30,7 @@ function BannedTermsManager() {
 
   async function handleAddTerm() {
     if (!newTerm.trim()) return;
-    
+
     const cleaned = newTerm.trim().toLowerCase();
     if (bannedTerms.includes(cleaned)) return;
 
@@ -101,6 +107,8 @@ function BannedTermsManager() {
    MAIN PAGE: PROFILE PAGE
 ============================================================================ */
 export default function ProfilePage() {
+
+  const { data: session } = useSession();
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
@@ -174,11 +182,57 @@ export default function ProfilePage() {
           </label>
           <input
             type="file"
-            accept=".json"
-            onChange={handleImport}
+            accept=".caiprofile,.json" onChange={handleImport}
             className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-bold file:bg-[#00FF00] file:text-black hover:file:opacity-80 cursor-pointer"
           />
         </div>
+      </div>
+
+      {/* GOOGLE LOGIN */}
+      <div className="space-y-3 border border-slate-800 p-4 rounded bg-slate-900/30">
+
+        <h2 className="text-sm uppercase opacity-70">
+          Neural Identity Sync
+        </h2>
+
+        {!session ? (
+          <button
+            onClick={() => signIn("google")}
+            className="w-full border border-white text-white hover:bg-white hover:text-black p-4 rounded transition-all font-bold uppercase"
+          >
+            Entrar com Google
+          </button>
+        ) : (
+          <>
+            <div className="text-xs text-slate-400">
+              Conectado como:
+              <div className="text-[#00FF00] mt-1">
+                {session.user?.email}
+              </div>
+            </div>
+
+            <button
+              onClick={cloudExportMind}
+              className="w-full border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black p-4 rounded transition-all font-bold uppercase"
+            >
+              Salvar Consciência na Nuvem
+            </button>
+
+            <button
+              onClick={cloudImportMind}
+              className="w-full border border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-black p-4 rounded transition-all font-bold uppercase"
+            >
+              Restaurar da Nuvem
+            </button>
+
+            <button
+              onClick={() => signOut()}
+              className="w-full border border-red-500 text-red-400 hover:bg-red-500 hover:text-black p-4 rounded transition-all font-bold uppercase"
+            >
+              Sair
+            </button>
+          </>
+        )}
       </div>
 
       <div className="pt-10">

@@ -40,115 +40,41 @@ function matchesAny(name: string, list: string[]) {
    MAIN RESET
 ========================================================= */
 
-export async function fullClientCacheReset(
-  options: CacheResetOptions = {}
-) {
-  const {
-    wipeIndexedDB = false,
-    preserveWebLLM = true,
-    preserveWorkspace = true,
-    aggressive = false,
-    dryRun = false,
-  } = options;
-
-  console.log("[CACHE] Reset started");
-
-  /* =====================================================
-     STORAGE (SAFE CLEAR)
-  ===================================================== */
-
+export async function resetAppAndClearData() {
   try {
-    if (!dryRun) {
-      localStorage.clear();
-      sessionStorage.clear();
-    }
-  } catch (e) {
-    console.warn("[CACHE] storage clear failed", e);
-  }
+    // 1. Limpa todas as storages básicas
+    localStorage.clear();
+    sessionStorage.clear();
 
-  /* =====================================================
-     CACHE API (SMART DELETE)
-  ===================================================== */
-
-  try {
-    if ("caches" in window) {
+    // 2. Limpa o Cache Storage (onde o WebLLM guarda os modelos/pesos)
+    if ('caches' in window) {
       const keys = await caches.keys();
-
-      await Promise.all(
-        keys.map(async (key) => {
-          const isWebLLM = matchesAny(key, WEBLLM_KEYWORDS);
-
-          if (preserveWebLLM && isWebLLM && !aggressive) {
-            console.log("[CACHE] keep webllm cache:", key);
-            return;
-          }
-
-          if (!dryRun) {
-            await caches.delete(key);
-          }
-        })
-      );
+      await Promise.all(keys.map(key => caches.delete(key)));
     }
-  } catch (e) {
-    console.warn("[CACHE] cache api failed", e);
-  }
 
-  /* =====================================================
-     INDEXEDDB (FIXED + FALLBACK SAFE)
-  ===================================================== */
-
-  if (wipeIndexedDB) {
-    try {
-      const dbs: any[] =
-        typeof indexedDB.databases === "function"
-          ? await indexedDB.databases()
-          : []; // fallback safe
-
+    // 3. Limpa o IndexedDB (bancos de dados do navegador)
+    if ('indexedDB' in window) {
+      const dbs = await indexedDB.databases();
       for (const db of dbs) {
-        const name = db?.name;
-        if (!name) continue;
-
-        const isWebLLM = matchesAny(name, WEBLLM_KEYWORDS);
-        const isWorkspace = matchesAny(name, WORKSPACE_KEYWORDS);
-
-        if (preserveWebLLM && isWebLLM && !aggressive) {
-          console.log("[CACHE] keep webllm db:", name);
-          continue;
-        }
-
-        if (preserveWorkspace && isWorkspace && !aggressive) {
-          console.log("[CACHE] keep workspace db:", name);
-          continue;
-        }
-
-        if (dryRun) {
-          console.log("[CACHE][DRY] would delete:", name);
-          continue;
-        }
-
-        await new Promise<void>((resolve) => {
-          const req = indexedDB.deleteDatabase(name);
-
-          req.onsuccess = () => resolve();
-          req.onerror = () => resolve(); // fail-safe
-          req.onblocked = () => resolve();
-        });
-
-        console.log("[CACHE] deleted db:", name);
+        if (db.name) indexedDB.deleteDatabase(db.name);
       }
-    } catch (e) {
-      console.warn("[CACHE] indexeddb cleanup failed", e);
     }
+
+    // 4. Remove o Service Worker do PWA para evitar cache de scripts antigos
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+    }
+
+    // 5. Recarrega a página limpando o cache do navegador
+    window.location.reload();
+    
+  } catch (error) {
+    console.error("Erro ao limpar dados do site:", error);
+    // Força o reload mesmo se algo falhar
+    window.location.reload(); 
   }
-
-  /* =====================================================
-     GC HINT (OPTIONAL)
-  ===================================================== */
-
-  try {
-    // @ts-ignore
-    globalThis.gc?.();
-  } catch {}
-
-  console.log("[CACHE] Reset complete");
 }
+
