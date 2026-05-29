@@ -102,6 +102,9 @@ function BannedTermsManager() {
 async function login() {
   await supabase.auth.signInWithOAuth({
     provider: "google",
+    options: {
+      redirectTo: window.location.origin,
+    },
   });
 }
 
@@ -113,19 +116,17 @@ export default function ProfilePage() {
 const [session, setSession] = useState<any>(null);
 
 useEffect(() => {
-  supabase.auth.getSession().then(({ data }: any) => {
+  supabase.auth.getSession().then(({ data }) => {
     setSession(data.session);
   });
 
   const { data: listener } = supabase.auth.onAuthStateChange(
-    (_event: string, session: any) => {
+    (_event, session) => {
       setSession(session);
     }
   );
 
-  return () => {
-    listener.subscription.unsubscribe();
-  };
+  return () => listener.subscription.unsubscribe();
 }, []);
 
   async function handleReset() {
