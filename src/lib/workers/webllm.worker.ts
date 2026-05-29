@@ -19,7 +19,7 @@ let idleTimer: any = null;
 const delay = (ms: number) =>
   new Promise((r) => setTimeout(r, ms));
 
-const isRecentlyActive = (ms = 5000) =>
+const isRecentlyActive = (ms = 15000) =>
   Date.now() - lastActivity < ms;
 
 /* =========================================================
@@ -44,7 +44,7 @@ function resetIdleTimer() {
       return;
     }
 
-    if (state === "active" && isRecentlyActive(3000)) {
+    if (state === "active" && isRecentlyActive(15000)) {
       // still hot, delay cleanup
       resetIdleTimer();
       return;
@@ -59,10 +59,11 @@ function resetIdleTimer() {
     try {
       await safeDrainAndClose();
     } finally {
-      self.close();
+      state = "idle";
+      resetIdleTimer();
     }
 
-  }, 60_000);
+  }, 180_000);
 }
 
 /* =========================================================
@@ -81,18 +82,33 @@ function getHandler() {
 ========================================================= */
 
 async function safeDrainAndClose() {
+
   try {
 
-    // give GPU / queue time to flush
-    await delay(150);
+    await delay(300);
 
-    handler = null;
+    if (handler) {
 
-    // GC hint (best effort only)
+      try {
+
+        // força flush do pipeline
+        await Promise.race([
+          // @ts-ignore
+          handler.unload?.(),
+          delay(2000)
+        ]);
+
+      } catch (err) {
+        console.warn("[WEBLLM WORKER] handler unload failed", err);
+      }
+
+      handler = null;
+    }
+
     // @ts-ignore
     globalThis.gc?.();
 
-    await delay(150);
+    await delay(300);
 
   } catch (err) {
     console.warn("[WEBLLM WORKER] drain failed", err);
@@ -121,7 +137,7 @@ async function shutdown(reason: string) {
     });
 
   } finally {
-    self.close();
+    state = "idle";
   }
 }
 
@@ -170,13 +186,17 @@ self.onmessage = async (msg: MessageEvent) => {
 
     state = "active";
 
-    const h = getHandler();
+    try {
 
-    await h.onmessage(msg);
+      const h = getHandler();
 
-    state = "idle";
-    resetIdleTimer();
+      await h.onmessage(msg);
 
+    } finally {
+
+      state = "idle";
+      resetIdleTimer();
+    }
   } catch (err) {
 
     const msg =

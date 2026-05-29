@@ -27,6 +27,8 @@ let isDownloading = false;
 let isInitializing = false;
 let generationLock = false;
 let isUnloading = false;
+let engineHealthy = false;
+let engineSession = 0;
 
 /* =========================================================
    HELPERS
@@ -49,12 +51,18 @@ function scheduleWorkerCleanup() {
   }
 
   workerCleanupTimeout = setTimeout(async () => {
-    if (generationLock) return;
+    if (
+      generationLock ||
+      isInitializing ||
+      isDownloading
+    ) {
+      return;
+    }
 
     console.warn("[WEBLLM] Idle cleanup triggered");
 
     await localUnloadEngine();
-  }, 45000);
+  }, 180000);
 }
 
 function isLowMemoryDevice() {
@@ -123,7 +131,13 @@ export async function localUnloadEngine() {
   if (isUnloading) return;
   isUnloading = true;
 
+  if (workerCleanupTimeout) {
+    clearTimeout(workerCleanupTimeout);
+    workerCleanupTimeout = null;
+  }
+
   try {
+    engineHealthy = false;
     if (engine) {
       await Promise.race([
         engine.unload(),
@@ -132,9 +146,34 @@ export async function localUnloadEngine() {
     }
 
     if (worker) {
-      worker.postMessage({ type: "ABORT" });
-      await delay(100);
-      worker.terminate();
+
+      const currentWorker = worker;
+
+      await new Promise<void>((resolve) => {
+
+        const timeout = setTimeout(() => {
+          clearTimeout(timeout);
+          resolve();
+        }, 3000);
+
+        const listener = (e: MessageEvent) => {
+
+          if (e.data?.type === "WORKER_SHUTDOWN") {
+
+            currentWorker.removeEventListener("message", listener);
+
+            clearTimeout(timeout);
+
+            resolve();
+          }
+        };
+
+        currentWorker.addEventListener("message", listener);
+
+        currentWorker.postMessage({ type: "ABORT" });
+      });
+
+      currentWorker.terminate();
     }
   } finally {
     engine = null;
@@ -174,7 +213,14 @@ export async function initEngine(
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
 
-  if (engine && currentModel === modelId) return engine;
+  if (
+    engine &&
+    engineHealthy &&
+    worker &&
+    currentModel === modelId
+  ) {
+    return engine;
+  }
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
@@ -227,12 +273,23 @@ export async function initEngine(
         );
 
         worker.onerror = async () => {
+          engineHealthy = false;
           await emergencyWebLLMCleanup();
         };
 
         worker.onmessageerror = async () => {
+          engineHealthy = false;
           await emergencyWebLLMCleanup();
         };
+
+        worker.addEventListener("message", (e) => {
+          if (
+            e.data?.type === "worker_error" ||
+            e.data?.type === "WORKER_SHUTDOWN"
+          ) {
+            engineHealthy = false;
+          }
+        });
       }
 
       await delay(isMob ? 120 : 40);
@@ -284,11 +341,16 @@ export async function initEngine(
       );
 
       currentModel = selectedModelId;
+      engineHealthy = true;
+      engineSession++;
+      console.log("[WEBLLM] ENGINE SESSION", engineSession);
 
       isDownloading = false;
       isInitializing = false;
 
       worker.postMessage({ type: "INIT_END" });
+
+      initPromise = null;
 
       return engine;
 
@@ -313,12 +375,16 @@ export async function* generate(
   signal?: AbortSignal
 ) {
 
-  if (generationLock) throw new Error("GEN_LOCK");
-  generationLock = true;
+  while (generationLock) {
+    await delay(30);
+  }
 
+  generationLock = true;
   try {
     const engineRef = await initEngine(undefined, onProgress);
 
+    const mySession = engineSession;
+    console.log("[WEBLLM] GENERATE USING SESSION", mySession);
     const stream = await engineRef.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       temperature,
@@ -332,6 +398,12 @@ export async function* generate(
 
     for await (const chunk of stream as any) {
 
+      if (
+        mySession !== engineSession ||
+        !engineHealthy
+      ) {
+        throw new Error("STALE_ENGINE");
+      }
       if (cancelled) {
         cancelled = false;
         break;
@@ -341,19 +413,29 @@ export async function* generate(
 
       if (text) {
         yield text;
-        // 🔥 ESTRATÉGIA 4: Throttling Térmico Essencial
-        // Um delay minúsculo impede que o M23 sature o Thread Pool do Android
         if (isMobile()) {
           await delay(4);
         }
       }
     }
-  } catch (err) {
-    await emergencyWebLLMCleanup();
-    throw err;
+  } catch (err: any) {
 
+    const msg =
+      err?.message || String(err);
+
+    if (
+      msg.includes("memory") ||
+      msg.includes("WebGPU") ||
+      msg.includes("STALE_ENGINE") ||
+      msg.includes("device")
+    ) {
+      await emergencyWebLLMCleanup();
+    }
+
+    throw err;
   } finally {
     generationLock = false;
     scheduleWorkerCleanup();
+    console.log("[WEBLLM] UNLOAD END");
   }
 }
