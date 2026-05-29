@@ -5,7 +5,6 @@ import { exportUserMind } from "@/lib/others/memoryExport";
 import { importUserMind } from "@/lib/others/memoryImport";
 import { save, db, get, performStorageCleanup } from "@/lib/others/db";
 import {
-  loginWithGoogle,
   cloudExportMind,
   cloudImportMind,
 } from "src/lib/others/cloudMemory";
@@ -188,27 +187,23 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* GOOGLE LOGIN */}
       <div className="space-y-3 border border-slate-800 p-4 rounded bg-slate-900/30">
 
         <h2 className="text-sm uppercase opacity-70">
-          Neural Identity Sync
+          Neural Cloud Sync
         </h2>
 
         {!session ? (
           <button
             onClick={() => signIn("google")}
-            className="w-full border border-white text-white hover:bg-white hover:text-black p-4 rounded transition-all font-bold uppercase"
+            className="w-full bg-white text-black p-4 rounded font-bold"
           >
             Entrar com Google
           </button>
         ) : (
           <>
-            <div className="text-xs text-slate-400">
-              Conectado como:
-              <div className="text-[#00FF00] mt-1">
-                {session.user?.email}
-              </div>
+            <div className="text-xs text-green-400">
+              LOGADO COMO: {session.user?.email}
             </div>
 
             <button
@@ -227,12 +222,13 @@ export default function ProfilePage() {
 
             <button
               onClick={() => signOut()}
-              className="w-full border border-red-500 text-red-400 hover:bg-red-500 hover:text-black p-4 rounded transition-all font-bold uppercase"
+              className="w-full bg-red-500 text-white p-4 rounded font-bold"
             >
               Sair
             </button>
           </>
         )}
+
       </div>
 
       <div className="pt-10">

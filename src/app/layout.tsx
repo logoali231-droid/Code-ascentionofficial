@@ -11,8 +11,7 @@ import type {
 } from "next";
 
 import Web3Provider from "@/providers/web3Provider";
-import AuthProvider from "@/providers/AuthProvider";
-
+import AuthProvider from "@/providers/sessionProvider"
 import ClientBody from "@/components/ClientBody";
 import DevConsoleBoot from "@/components/DevConsoleBoot";
 
@@ -73,13 +72,13 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
-        <ClientBody>
-          <AuthProvider>
+        <AuthProvider>
+          <ClientBody>
             <Web3Provider>
               {children}
             </Web3Provider>
-          </AuthProvider>
-        </ClientBody>
+          </ClientBody>
+        </AuthProvider>
 
         {process.env.NODE_ENV ===
           "development" && (

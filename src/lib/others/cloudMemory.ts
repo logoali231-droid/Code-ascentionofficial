@@ -1,108 +1,81 @@
 "use client";
 
+import { supabase } from "./supabase";
 import { db } from "./db";
-
-const API =
-  process.env.NEXT_PUBLIC_CLOUD_MEMORY_API!;
-
-/* =========================================================
-   GOOGLE LOGIN
-========================================================= */
-
-export async function loginWithGoogle() {
-  window.location.href =
-    `${API}/auth/google`;
-}
-
-/* =========================================================
-   EXPORT CLOUD
-========================================================= */
+import { getSession } from "next-auth/react";
 
 export async function cloudExportMind() {
+  const session = await getSession();
 
-  const [user, courses, errors, memory] =
-    await Promise.all([
-      db.user.get("main"),
-      db.courses.toArray(),
-      db.errors.toArray(),
-      db.memory.get("main"),
-    ]);
+  if (!session?.user?.email) {
+    alert("LOGIN NECESSÁRIO");
+    return;
+  }
+
+  const [user, courses, memory, errors] = await Promise.all([
+    db.user.get("main"),
+    db.courses.toArray(),
+    db.memory.toArray(),
+    db.errors.toArray(),
+  ]);
 
   const payload = {
-    version: "2.0",
-    timestamp: Date.now(),
-    payload: {
-      user,
-      courses,
-      errors,
-      memory,
-    },
-  };
-
-  const res = await fetch(
-    `${API}/memory/save`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error("Cloud save failed");
-  }
-
-  alert("CONSCIÊNCIA SALVA NA NUVEM");
-}
-
-/* =========================================================
-   IMPORT CLOUD
-========================================================= */
-
-export async function cloudImportMind() {
-
-  const res = await fetch(
-    `${API}/memory/load`,
-    {
-      credentials: "include",
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error("Cloud load failed");
-  }
-
-  const data = await res.json();
-
-  if (!data?.payload) {
-    throw new Error("Invalid cloud memory");
-  }
-
-  const {
     user,
     courses,
-    errors,
     memory,
-  } = data.payload;
+    errors,
+    exportedAt: Date.now(),
+  };
 
-  if (user) {
-    await db.user.put(user);
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({
+      id: session.user.email,
+      data: payload,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    console.error(error);
+    alert("FALHA CLOUD SAVE");
+    return;
   }
 
-  if (courses?.length) {
-    await db.courses.bulkPut(courses);
+  alert("CONSCIÊNCIA SALVA");
+}
+
+export async function cloudImportMind() {
+  const session = await getSession();
+
+  if (!session?.user?.email) {
+    alert("LOGIN NECESSÁRIO");
+    return;
   }
 
-  if (errors?.length) {
-    await db.errors.bulkPut(errors);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user.email)
+    .single();
+
+  if (error || !data) {
+    alert("NENHUM BACKUP");
+    return;
   }
 
-  if (memory) {
-    await db.memory.put(memory);
-  }
+  const payload = data.data;
+
+  if (payload.user)
+    await db.user.put(payload.user);
+
+  if (payload.courses)
+    await db.courses.bulkPut(payload.courses);
+
+  if (payload.memory)
+    await db.memory.bulkPut(payload.memory);
+
+  if (payload.errors)
+    await db.errors.bulkPut(payload.errors);
 
   alert("CONSCIÊNCIA RESTAURADA");
 
