@@ -180,7 +180,7 @@ export default function CoursePage() {
 
         const initEngine = await loadEngine();
 
-        if (controller.signal.aborted) return;
+
 
         await initEngine(undefined, (report) => {
           if (controller.signal.aborted) return;
@@ -192,28 +192,6 @@ export default function CoursePage() {
         });
 
         console.log("[COURSE] initEngine FINISHED");
-
-        if (controller.signal.aborted) return;
-
-        await startStreamingLesson(found, controller.signal);
-
-        if (!controller.signal.aborted) {
-          setLoadingCourse(false);
-        }
-
-        console.log("[COURSE] initEngine FINISHED");
-
-        if (controller.signal.aborted) return;
-
-        await startStreamingLesson(found, controller.signal);
-
-        if (!controller.signal.aborted) {
-          setLoadingCourse(false);
-        }
-
-        console.log(
-          "[COURSE] Engine initialized"
-        );
 
         if (controller.signal.aborted) return;
 
@@ -230,6 +208,7 @@ export default function CoursePage() {
             setLoadingCourse(false);
           });
         }
+
       } catch (err) {
         console.error(
           "[COURSE LOAD ERROR]",
@@ -282,13 +261,12 @@ export default function CoursePage() {
     signal?: AbortSignal
   ) {
     let heartbeatInterval:
-      | NodeJS.Timeout
-      | undefined;
+      | ReturnType<typeof setInterval>
+      | null = null;
 
     let timeout:
-      | NodeJS.Timeout
-      | undefined;
-
+      | ReturnType<typeof setTimeout>
+      | null = null;
     try {
       console.log(
         "[STREAM] Starting lesson stream pipeline"
@@ -311,15 +289,6 @@ export default function CoursePage() {
       ==================================== */
 
       let heartbeat = 0;
-
-      let heartbeatInterval:
-        | ReturnType<typeof setInterval>
-        | null = null;
-
-      let timeout:
-        | ReturnType<typeof setTimeout>
-        | null = null;
-
       heartbeatInterval = setInterval(() => {
         if (
           signal?.aborted ||
@@ -506,35 +475,31 @@ export default function CoursePage() {
           }
 
           const content =
-            chunk.choices?.[0]?.delta
-              ?.content || "";
+            chunk.choices?.[0]?.delta?.content || "";
 
           fullText += content;
 
           tokenCount++;
 
           if (tokenCount % 10 === 0) {
-            console.log(
-              `[AI] ${tokenCount} chunks processed`
-            );
-
             safeSetState(() => {
               setDownloadInfo({
-                text:
-                  `GENERATING THEORY • ` +
-                  `${tokenCount} CHUNKS`,
-                model:
-                  "Neural Engine v1.0",
+                text: `GENERATING THEORY • ${tokenCount} CHUNKS`,
+                model: "Neural Engine v1.0",
               });
             });
           }
 
-          safeSetState(() => {
-            setStreamedExplanation(
-              fullText
-            );
-          });
+          if (tokenCount % 5 === 0) {
+            safeSetState(() => {
+              setStreamedExplanation(fullText);
+            });
+          }
         }
+
+        safeSetState(() => {
+          setStreamedExplanation(fullText);
+        });
 
         console.log(
           "[AI] Token stream complete"
