@@ -19,6 +19,10 @@ export interface ConceptConstraint {
 
 const dynamicConstraints = new Map<string, ConceptConstraint>();
 
+const MAX_CONSTRAINTS = 100;
+const MAX_TRUTHS = 5;
+const MAX_FORBIDDEN = 5;
+
 /* =========================================================
    EXTRACT FUNDAMENTAL TRUTHS
 ========================================================= */
@@ -54,19 +58,19 @@ export function buildDynamicConstraint(
      DRIFT PREVENTION
   ----------------------------------------- */
 
-  forbidden.push(`Do not describe ${concept} as unrelated to ${topic}`);
+  forbidden.push(
+    `Do not describe ${concept} as unrelated to ${topic}`,
+  );
 
-  forbidden.push(`Avoid contradictory definitions of ${concept}`);
+  forbidden.push(
+    `Avoid contradictory definitions of ${concept}`,
+  );
 
   return {
     concept,
-
     truths,
-
     forbidden,
-
     confidence: 0.5,
-
     createdAt: Date.now(),
   };
 }
@@ -75,8 +79,12 @@ export function buildDynamicConstraint(
    STORE CONSTRAINT
 ========================================================= */
 
-export function registerConstraint(constraint: ConceptConstraint) {
-  const existing = dynamicConstraints.get(constraint.concept);
+export function registerConstraint(
+  constraint: ConceptConstraint,
+) {
+  const existing = dynamicConstraints.get(
+    constraint.concept,
+  );
 
   /* -----------------------------------------
      MERGE EVOLUTION
@@ -86,24 +94,55 @@ export function registerConstraint(constraint: ConceptConstraint) {
     dynamicConstraints.set(constraint.concept, {
       ...existing,
 
-      truths: [...new Set([...existing.truths, ...constraint.truths])],
+      truths: [
+        ...new Set([
+          ...existing.truths,
+          ...constraint.truths,
+        ]),
+      ].slice(-MAX_TRUTHS),
 
-      forbidden: [...new Set([...existing.forbidden, ...constraint.forbidden])],
+      forbidden: [
+        ...new Set([
+          ...existing.forbidden,
+          ...constraint.forbidden,
+        ]),
+      ].slice(-MAX_FORBIDDEN),
 
-      confidence: Math.min(existing.confidence + 0.05, 1),
+      confidence: Math.min(
+        existing.confidence + 0.05,
+        1,
+      ),
     });
 
     return;
   }
 
-  dynamicConstraints.set(constraint.concept, constraint);
+  /* -----------------------------------------
+     MEMORY LIMIT
+  ----------------------------------------- */
+
+  if (dynamicConstraints.size >= MAX_CONSTRAINTS) {
+    const oldestKey =
+      dynamicConstraints.keys().next().value;
+
+    if (oldestKey) {
+      dynamicConstraints.delete(oldestKey);
+    }
+  }
+
+  dynamicConstraints.set(
+    constraint.concept,
+    constraint,
+  );
 }
 
 /* =========================================================
    GET CONSTRAINT
 ========================================================= */
 
-export function getConstraint(concept: string) {
+export function getConstraint(
+  concept: string,
+) {
   return dynamicConstraints.get(concept);
 }
 
@@ -111,23 +150,31 @@ export function getConstraint(concept: string) {
    BUILD PROMPT CONSTRAINTS
 ========================================================= */
 
-export function buildConstraintPrompt(concept: string) {
-  const constraint = dynamicConstraints.get(concept);
+export function buildConstraintPrompt(
+  concept: string,
+) {
+  const constraint =
+    dynamicConstraints.get(concept);
 
   if (!constraint) {
     return "";
   }
 
+  const truths = constraint.truths
+    .slice(-3)
+    .join("\n- ");
+
+  const forbidden = constraint.forbidden
+    .slice(-3)
+    .join("\n- ");
+
   return `
-CONCEPT STABILITY RULES:
+CONCEPT STABILITY RULES
 
 CORE TRUTHS:
-${constraint.truths.map((t) => `- ${t}`).join("\n")}
+- ${truths}
 
 FORBIDDEN DRIFT:
-${constraint.forbidden.map((f) => `- ${f}`).join("\n")}
-
-IMPORTANT:
-Preserve conceptual consistency while remaining adaptive and creative.
-`;
+- ${forbidden}
+`.trim();
 }

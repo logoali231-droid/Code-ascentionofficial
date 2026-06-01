@@ -296,11 +296,10 @@ export async function initEngine(
 
       const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
 
-      const useCache =
-        !isMob && ((navigator as any).deviceMemory ?? 4) >= 4;
+      const useCache = true;
 
       isInitializing = true;
-      worker.postMessage({ type: "INIT_START" });
+
 
       await delay(isMob ? 300 : 60);
 
@@ -313,7 +312,10 @@ export async function initEngine(
           initProgressCallback: (r: any) => {
             onProgress?.(r);
 
-            if (memoryMB() > (isMob ? 420 : 900)) {
+            if (
+              !isMob &&
+              memoryMB() > 900
+            ) {
               throw new Error("MEMORY_DURING_INIT");
             }
           },
@@ -348,7 +350,7 @@ export async function initEngine(
       isDownloading = false;
       isInitializing = false;
 
-      worker.postMessage({ type: "INIT_END" });
+
 
       initPromise = null;
 

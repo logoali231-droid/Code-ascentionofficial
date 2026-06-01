@@ -13,13 +13,13 @@ export interface MemorySummary {
   mastery: number;
 }
 
-const MAX_RAW_ERRORS = 8;
-const MAX_HISTORY_ITEMS = 12;
+const MAX_RAW_ERRORS = 3;
+const MAX_HISTORY_ITEMS = 5;
 const SUMMARY_TRIGGER = 6;
 
 function cleanText(text?: string): string {
   if (!text) return "";
-  return text.replace(/\s+/g, " ").trim().slice(0, 600);
+  return text.replace(/\s+/g, " ").trim().slice(0, 120);
 }
 
 export function buildMemorySummary({ lessons, memory, mastery }: any): string {
@@ -30,41 +30,32 @@ export function buildMemorySummary({ lessons, memory, mastery }: any): string {
 
   const weaknesses = Object.entries(memory?.weaknesses || {})
     .sort((a: any, b: any) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 3)
     .map(([k]) => k)
     .join(", ");
 
   const strengths = Object.entries(memory?.topics || {})
     .sort((a: any, b: any) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 3)
     .map(([k]) => k)
     .join(", ");
 
   const recentErrors = (memory?.lastErrors || [])
     .slice(-MAX_RAW_ERRORS)
-    .map((e: any) => `${e.topic}: ${cleanText(e.input)}`)
-    .join(" | ");
+    .map((e: any) => e.topic)
+    .join(", ");
 
   return `
-USER LEARNING STATE
+MASTERY:${Math.round(mastery || 0)}
 
-Mastery:
-${mastery || 0}/100
+LESSONS:${recentLessons || "none"}
 
-Recent lessons:
-${recentLessons || "none"}
+STRONG:${strengths || "none"}
 
-Strong areas:
-${strengths || "none"}
+WEAK:${weaknesses || "none"}
 
-Weak areas:
-${weaknesses || "none"}
-
-Recent struggles:
-${recentErrors || "none"}
-`
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+ERRORS:${recentErrors || "none"}
+`.trim();
 }
 
 export function shouldUpdateSummary(lessonCount: number): boolean {
@@ -97,8 +88,15 @@ export async function getMemorySummary(courseId: string): Promise<string> {
   return data?.summary || "";
 }
 
-export function compressContext(text: string, max = 2500): string {
+export function compressContext(text: string, max = 1000): string {
   if (!text) return "";
   if (text.length <= max) return text;
-  return text.slice(0, max) + "\n\n[context compressed]";
+
+  const lines = text
+    .split("\n")
+    .filter(Boolean);
+
+  return lines
+    .slice(0, 20)
+    .join("\n");
 }

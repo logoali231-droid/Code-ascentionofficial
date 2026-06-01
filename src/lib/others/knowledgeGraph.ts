@@ -13,6 +13,7 @@ export interface ConceptNode {
   completed?: boolean;
   timesReviewed?: number;
   lastSeen?: number;
+  reviewPriority?: number;
 }
 
 export interface KnowledgeGraph {
@@ -93,8 +94,13 @@ export async function createKnowledgeGraph(
       completed: false,
       timesReviewed: 0,
       lastSeen: 0,
+      reviewPriority: 100,
     })),
   };
+
+  const MAX_NODES = 150;
+
+  graph.nodes = graph.nodes.slice(0, MAX_NODES);
 
   await save("memory", graph, `graph_${courseId}`);
   return graph;
@@ -114,36 +120,76 @@ export async function saveKnowledgeGraph(graph: KnowledgeGraph): Promise<void> {
 export async function refreshUnlocks(
   graph: KnowledgeGraph,
 ): Promise<KnowledgeGraph> {
+
+  const nodeMap = new Map(
+    graph.nodes.map(n => [n.id, n])
+  );
+
   graph.nodes = graph.nodes.map((node) => {
+
     if (node.unlocked) return node;
+
     const allMet = node.prerequisites.every((req) => {
-      const prq = graph.nodes.find((n) => n.id === req);
-      return prq ? (prq.mastery ?? 0) >= 0.7 : false;
+
+      const prq = nodeMap.get(req);
+
+      return prq
+        ? (prq.mastery ?? 0) >= 0.7
+        : false;
     });
-    return { ...node, unlocked: allMet };
+
+    return {
+      ...node,
+      unlocked: allMet,
+    };
   });
 
   await saveKnowledgeGraph(graph);
+
   return graph;
 }
 
 export function getNextConcept(graph: KnowledgeGraph, id: any): ConceptNode | null {
   const available = graph.nodes.filter((n) => n.unlocked && !n.completed);
   if (!available.length) return null;
-  return available.sort((a, b) => (a.mastery || 0) - (b.mastery || 0))[0];
+  let weakest = available[0];
+
+  for (const node of available) {
+    if ((node.mastery || 0) < (weakest.mastery || 0)) {
+      weakest = node;
+    }
+  }
+
+  return weakest;
 }
 
-export function getReviewConcepts(graph: KnowledgeGraph): ConceptNode[] {
+export function getReviewConcepts(
+  graph: KnowledgeGraph
+): ConceptNode[] {
+
   return graph.nodes
-    .filter((n) => (n.mastery || 0) > 0.25 && (n.mastery || 0) < 0.8)
-    .sort((a, b) => (a.mastery || 0) - (b.mastery || 0));
+    .filter(
+      (n) =>
+        (n.mastery || 0) > 0.25 &&
+        (n.mastery || 0) < 0.8
+    )
+    .sort(
+      (a, b) =>
+        (b.reviewPriority || 0) -
+        (a.reviewPriority || 0)
+    )
+    .slice(0, 10);
 }
+export function graphHasDeadEnds(
+  graph: KnowledgeGraph
+): boolean {
 
-export function graphHasDeadEnds(graph: KnowledgeGraph): boolean {
-  return graph.nodes.some(
-    (node) =>
-      node.prerequisites.length > 0 &&
-      node.prerequisites.every((req) => !graph.nodes.some((n) => n.id === req)),
+  const ids = new Set(
+    graph.nodes.map(n => n.id)
+  );
+
+  return graph.nodes.some(node =>
+    node.prerequisites.some(req => !ids.has(req))
   );
 }
 

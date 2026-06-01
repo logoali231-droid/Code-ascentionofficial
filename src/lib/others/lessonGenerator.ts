@@ -9,7 +9,16 @@ import {
   getKnowledgeGraph,
   getNextConcept,
   getReviewConcepts,
+  getGraphStats,
 } from "./knowledgeGraph";
+
+import {
+  getMemorySummary,
+} from "./contextMemory";
+
+import {
+  buildConstraintPrompt,
+} from "./conceptConstraints";
 
 import { buildPromptFragments } from "./promptFragments";
 import { compressContext } from "./contextMemory";
@@ -42,6 +51,12 @@ export interface LessonPlan {
   promptFragments: string;
 
   reviewText: string;
+
+  memorySummary: string;
+
+  constraintPrompt: string;
+
+  graphStats: any;
 
   course: any;
 
@@ -109,11 +124,18 @@ export async function generateLessonPlan(params: {
 
   const graph = await getKnowledgeGraph(course.id);
 
+  const graphStats = graph
+    ? getGraphStats(graph)
+    : null;
+
+  const memorySummary =
+    await getMemorySummary(course.id);
+
   const nextConcept = graph
     ? getNextConcept(
-        graph,
-        activeModule?.id,
-      )
+      graph,
+      activeModule?.id,
+    )
     : null;
 
   const reviewTargets = graph
@@ -128,6 +150,9 @@ export async function generateLessonPlan(params: {
     nextConcept?.title ||
     activeModule?.title ||
     "Core Fundamentals";
+
+  const constraintPrompt =
+    buildConstraintPrompt(conceptTitle);
 
   const conceptId =
     nextConcept?.id ||
@@ -182,12 +207,12 @@ export async function generateLessonPlan(params: {
     ? `
 REVIEW TARGETS:
 ${reviewTargets
-  .slice(0, 3)
-  .map(
-    (r) =>
-      `${r.title} (${r.mastery})`,
-  )
-  .join(", ")}
+      .slice(0, 3)
+      .map(
+        (r) =>
+          `${r.title} (${r.mastery})`,
+      )
+      .join(", ")}
 
 IMPORTANT:
 Reinforce weak concepts naturally.
@@ -222,30 +247,21 @@ Reinforce weak concepts naturally.
 
   return {
     module: activeModule,
-
     moduleIndex,
-
     moduleDifficulty,
-
     conceptTitle,
-
     conceptId,
-
     conceptDifficulty,
-
     shouldReview,
-
     compressedHistory,
-
     memoryContext,
-
     promptFragments,
-
     reviewText,
-
     course,
-
     profile,
+    memorySummary,
+    constraintPrompt,
+    graphStats,
   };
 }
 
@@ -300,6 +316,21 @@ CONCEPT DIFFICULTY:
 ${plan.conceptDifficulty}
 
 ================================
+KNOWLEDGE GRAPH STATUS
+================================
+TOTAL NODES:
+${plan.graphStats?.totalNodes || 0}
+
+COMPLETED:
+${plan.graphStats?.completed || 0}
+
+UNLOCKED:
+${plan.graphStats?.unlocked || 0}
+
+AVERAGE MASTERY:
+${plan.graphStats?.avgMastery || 0}
+
+================================
 USER PROFILE
 ================================
 COGNITIVE PROFILE:
@@ -333,6 +364,15 @@ MEMORY CONTEXT
 ================================
 ${plan.memoryContext || "No relevant memory."}
 
+================================
+LONG TERM LEARNING SUMMARY
+================================
+${plan.memorySummary || "No summary."}
+
+================================
+CONCEPT STABILITY
+================================
+${plan.constraintPrompt || ""}
 ================================
 RECENT HISTORY
 ================================

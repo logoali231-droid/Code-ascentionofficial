@@ -147,7 +147,10 @@ async function shutdown(reason: string) {
 
 self.onmessage = async (msg: MessageEvent) => {
   try {
-    const { type } = msg.data;
+    const type =
+      typeof msg.data === "object"
+        ? msg.data?.type
+        : undefined;
 
     touch();
 
@@ -155,22 +158,12 @@ self.onmessage = async (msg: MessageEvent) => {
        INIT START
     ===================================================== */
 
-    if (type === "INIT_START") {
-      state = "init";
-      resetIdleTimer();
+    if (
+      type === "INIT_START" ||
+      type === "INIT_END"
+    ) {
       return;
     }
-
-    /* =====================================================
-       INIT END
-    ===================================================== */
-
-    if (type === "INIT_END") {
-      state = "idle";
-      resetIdleTimer();
-      return;
-    }
-
     /* =====================================================
        ABORT
     ===================================================== */
@@ -189,6 +182,21 @@ self.onmessage = async (msg: MessageEvent) => {
     try {
 
       const h = getHandler();
+
+      if (
+        type === "ABORT" ||
+        type === "unload"
+      ) {
+        await shutdown("forced_abort");
+        return;
+      }
+
+      if (
+        type === "INIT_START" ||
+        type === "INIT_END"
+      ) {
+        return;
+      }
 
       await h.onmessage(msg);
 
@@ -215,8 +223,6 @@ self.onmessage = async (msg: MessageEvent) => {
 
     if (
       msg.includes("OOM") ||
-      msg.includes("memory") ||
-      msg.includes("WebGPU") ||
       msg.includes("context lost")
     ) {
       console.warn("[WEBLLM WORKER] HARD RESET TRIGGERED");

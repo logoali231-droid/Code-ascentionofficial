@@ -18,9 +18,19 @@ class RuntimeQueue {
   constructor(maxConcurrency = 2) {
     this.maxConcurrency = maxConcurrency;
     if (typeof window !== "undefined") {
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) this.abortAll();
-      });
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (
+            document.hidden &&
+            !/Android/i.test(
+              navigator.userAgent
+            )
+          ) {
+            this.abortAll();
+          }
+        }
+      );
     }
   }
 
@@ -86,22 +96,22 @@ class RuntimeQueue {
   }
 
   public abortAll() {
-  this.queue.forEach((task) => {
-    task.controller.abort();
+    this.queue.forEach((task) => {
+      task.controller.abort();
 
-    task.reject(
-      new DOMException(
-        "Context switched.",
-        "AbortError",
-      ),
-    );
-  });
+      task.reject(
+        new DOMException(
+          "Context switched.",
+          "AbortError",
+        ),
+      );
+    });
 
-  this.queue = [];
+    this.queue = [];
 
-  // NÃO resetar activeCount brutalmente
-  // deixa finalizar naturalmente
-}
+    // NÃO resetar activeCount brutalmente
+    // deixa finalizar naturalmente
+  }
 }
 
 export const runtimeQueue =

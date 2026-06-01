@@ -2,7 +2,7 @@
 
 import { HardwareGovernor } from "@/lib/governor/hardwareGovernor";
 import { buildMemoryContext } from "./vectorMemory";
-import { getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
+import { getGraphStats, getKnowledgeGraph, getReviewConcepts } from "./knowledgeGraph";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { buildPromptFragments, compressContext } from "./promptFragments";
 import { runtimeQueue } from "./generationQueue";
@@ -32,24 +32,24 @@ export async function generateCourse({
   cognitive?: string;
   courseId?: string;
 }): Promise<any> {
-const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
-const limits = HardwareGovernor.getLimits();
-const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
+  const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
+  const limits = HardwareGovernor.getLimits();
+  const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
 
-const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
-  
- const cognitiveFragments = buildPromptFragments({
+  const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
+
+  const cognitiveFragments = buildPromptFragments({
     cognitive: (cognitive || "Standard") as CognitiveProfile,
     difficulty: difficulty || 1,
     mastery: 50,
     reinforcement: false,
     customConstraints: pedagogicalConstraints,
     isMobile: limits.isMobile // Mantenha isso se o buildPromptFragments ainda precisar do booleano
-});
+  });
 
   // O Governor agora encapsula a checagem e retorna o contrato de recursos
 
-// Opcional: Pegue as restrições pedagógicas baseadas no dispositivo
+  // Opcional: Pegue as restrições pedagógicas baseadas no dispositivo
 
   const compressedMaterial = baseMaterial
     ? compressContext(baseMaterial, maxContextSize)
@@ -58,10 +58,21 @@ const constraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
 
   /* 1. KNOWLEDGE GRAPH PEDAGOGICAL HISTORY */
   let graphReviewText = "None yet";
+
+  let graphStats = {
+    totalNodes: 0,
+    completed: 0,
+    unlocked: 0,
+    avgMastery: 0,
+  };
+
   try {
     const graph = await getKnowledgeGraph(courseId || topic.toLowerCase());
     if (graph) {
       const reviewTargets = getReviewConcepts(graph);
+
+      graphStats = getGraphStats(graph);
+
       if (reviewTargets.length > 0) {
         graphReviewText = reviewTargets
           .map((r) => `${r.title} (Mastery: ${r.mastery})`)
@@ -85,7 +96,13 @@ USER ADAPTIVE PROFILE (MIND PALACE)
 ================================
 STRENGTHS: ${userAnalysis.strengths.join(", ") || "None yet"}
 WEAKNESSES: ${userAnalysis.weaknesses.join(", ") || "None yet"}
-PEDAGOGICAL_REVIEW_TARGETS: ${graphReviewText}
+PEDAGOGICAL_REVIEW_TARGETS:
+${graphReviewText}
+
+GRAPH_PROGRESS:
+Completed: ${graphStats.completed}
+Unlocked: ${graphStats.unlocked}
+Average Mastery: ${graphStats.avgMastery}
 HISTORICAL_VECTOR_MEMORIES:
 ${vectorMemoryContext || "No previous historical memory found for this context."}
 
@@ -95,7 +112,7 @@ INSTRUCTION:
 3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
 `;
 
-const prompt = `
+  const prompt = `
 You are an elite adaptive curriculum architect operating inside the Code Ascension procedural learning system.
 
 Your role:
@@ -277,7 +294,7 @@ FINAL HARD RULES
 - Stop generation immediately after the final JSON closing brace.
 `;
 
-try {
+  try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
         return await runLLM(prompt);

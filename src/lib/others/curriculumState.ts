@@ -2,6 +2,8 @@
 
 import { db, get, save, getAll } from "@/lib/others/db";
 
+const MAX_TOPICS_PER_COURSE = 300;
+
 export type TopicNode = {
   courseId: string; // Acoplado para viabilizar indexação e queries relacionais no Dexie
   topic: string;
@@ -38,8 +40,24 @@ export async function ensureTopic(
 ): Promise<TopicNode> {
   const key = `${courseId}_${normalizeTopic(topic)}`;
   let node = await getTopicState(courseId, topic);
-  
+
   if (!node) {
+
+    const allTopics = await getAll<TopicNode>(STORE);
+
+    const courseTopics = allTopics
+      .filter((t) => t.courseId === courseId)
+      .sort((a, b) => a.lastSeen - b.lastSeen);
+
+    if (courseTopics.length >= MAX_TOPICS_PER_COURSE) {
+      const oldest = courseTopics[0];
+
+      if (oldest) {
+        await (db as any)[STORE].delete(
+          `${oldest.courseId}_${normalizeTopic(oldest.topic)}`
+        );
+      }
+    }
     node = {
       courseId,
       topic,
@@ -117,12 +135,34 @@ export async function reinforceTopic(courseId: string, topic: string): Promise<v
   await save(STORE, node, key);
 }
 
+export async function cleanupCurriculum(
+  courseId: string
+) {
+  const allTopics = await getAll<TopicNode>(STORE);
+
+  const topics = allTopics
+    .filter((t) => t.courseId === courseId)
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+
+  const excess = topics.slice(300);
+
+  for (const topic of excess) {
+    await (db as any)[STORE].delete(
+      `${topic.courseId}_${normalizeTopic(topic.topic)}`
+    );
+  }
+}
+
 /**
  * Obtém os tópicos fracos mesclando dados em disco com alterações retidas no buffer L1
  */
 export async function getWeakTopics(courseId: string): Promise<TopicNode[]> {
   const allTopics = await getAll<TopicNode>(STORE);
-  const topics = allTopics.filter((t) => t.courseId === courseId);
+  const topics = allTopics.filter(
+    (t) =>
+      t.courseId === courseId &&
+      (t.mastery < 95 || t.confidence < 95)
+  );
 
   return topics
     .filter((t: TopicNode) => t.mastery < 50 || t.confidence < 40)
@@ -134,7 +174,11 @@ export async function getWeakTopics(courseId: string): Promise<TopicNode[]> {
  */
 export async function getSuggestedTopics(courseId: string): Promise<TopicNode[]> {
   const allTopics = await getAll<TopicNode>(STORE);
-  const topics = allTopics.filter((t) => t.courseId === courseId);
+  const topics = allTopics.filter(
+    (t) =>
+      t.courseId === courseId &&
+      (t.mastery < 95 || t.confidence < 95)
+  );
 
   return topics
     .sort((a: TopicNode, b: TopicNode) => {
@@ -148,11 +192,28 @@ export async function getSuggestedTopics(courseId: string): Promise<TopicNode[]>
 /**
  * Serializa de forma consistente o progresso curricular do buffer unificado para o contexto da IA
  */
-export async function summarizeCurriculum(courseId: string): Promise<string> {
+export async function summarizeCurriculum(
+  courseId: string
+): Promise<string> {
+  const MAX_CONTEXT_TOPICS = 12;
+
   const allTopics = await getAll<TopicNode>(STORE);
-  const topics = allTopics.filter((t) => t.courseId === courseId);
+
+  const topics = allTopics
+    .filter(
+      (t) =>
+        t.courseId === courseId &&
+        (t.mastery < 95 || t.confidence < 95)
+    )
+    .sort((a, b) => b.lastSeen - a.lastSeen)
+    .slice(0, MAX_CONTEXT_TOPICS);
 
   return topics
-    .map((t: TopicNode) => `${t.topic}: mastery ${t.mastery}/100, confidence ${t.confidence}/100`)
+    .map(
+      (t) =>
+        `${t.topic}: M${Math.round(t.mastery)} C${Math.round(
+          t.confidence
+        )}`
+    )
     .join("\n");
 }
