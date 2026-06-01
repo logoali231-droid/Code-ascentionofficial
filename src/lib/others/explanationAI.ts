@@ -10,10 +10,48 @@ import { buildPromptFragments } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
 import { getWebLLM } from "./webllmLoader";
+import {
+  getConceptMastery,
+} from "./mastery";
+
+function getExplanationBudget(
+  mastery: number,
+  confidence: number,
+) {
+  const trusted =
+    confidence >= 0.5;
+
+  if (trusted && mastery >= 0.85) {
+    return {
+      memory: 0,
+      history: 0,
+      content: 500,
+      mode: "expert",
+    };
+  }
+
+  if (trusted && mastery >= 0.65) {
+    return {
+      memory: 300,
+      history: 300,
+      content: 700,
+      mode: "intermediate",
+    };
+  }
+
+  return {
+    memory: 800,
+    history: 600,
+    content: 1200,
+    mode: "learning",
+  };
+}
 
 /* =========================================
    MAIN EXPLANATION GENERATOR
 ========================================= */
+
+
 
 export async function generateExplanationAI(
   { lesson, history, course }: any,
@@ -33,8 +71,30 @@ export async function generateExplanationAI(
   // =========================================
 
   const currentLevel = userStats?.level || 1;
+  const conceptId =
+    lesson?.concept ||
+    lesson?.slug ||
+    lesson?.title ||
+    "unknown";
+
+  const conceptData =
+    await getConceptMastery(
+      conceptId,
+    );
+
+  const conceptMastery =
+    conceptData.mastery;
+
+  const conceptConfidence =
+    conceptData.confidence;
   const currentMastery = userStats?.mastery || 50;
   const cognitiveProfile = profile?.cognitive || "Standard";
+
+  const budget =
+    getExplanationBudget(
+      conceptMastery,
+      conceptConfidence,
+    );
 
   // =========================================
   // USER-CONTROLLED STYLE LAYER
@@ -50,33 +110,26 @@ export async function generateExplanationAI(
   // MEMORY SYSTEMS
   // =========================================
 
-  const [
-    rawMemory,
-    rawCurriculumStats,
-  ] = await Promise.all([
+  const rawMemory =
     course?.id
-      ? getMemorySummary(course.id)
-      : "",
+      ? await getMemorySummary(course.id)
+      : "";
+  const compressedMemory =
+    budget.memory > 0
+      ? hardCap(
+        rawMemory || "",
+        budget.memory,
+      )
+      : "";
 
-    course?.id
-      ? summarizeCurriculum(course.id)
-      : "",
-  ]);
 
-  const compressedMemory = hardCap(
-    rawMemory || "",
-    1800,
-  );
-
-  const curriculumStats = hardCap(
-    rawCurriculumStats || "",
-    1600,
-  );
-
-  const compressedHistory = hardCap(
-    serializeHistory(history, 6),
-    1400,
-  );
+  const compressedHistory =
+    budget.history > 0
+      ? hardCap(
+        serializeHistory(history, 3),
+        budget.history,
+      )
+      : "";
 
 
 
@@ -90,22 +143,6 @@ export async function generateExplanationAI(
     mastery: currentMastery,
     reinforcement: false,
   });
-
-  // =========================================
-  // MODULE CONTEXT
-  // =========================================
-
-  const moduleContext = `
-CURRENT MODULE:
-${lesson?.moduleTitle || lesson?.module || "Unknown Module"}
-
-MODULE SUMMARY:
-${lesson?.moduleSummary || "No module summary available"}
-
-MODULE DIFFICULTY:
-${lesson?.difficulty || currentLevel}
-`;
-
   // =========================================
   // LIGHTWEIGHT PROMPT
   // =========================================
@@ -113,115 +150,77 @@ ${lesson?.difficulty || currentLevel}
     lesson?.content ||
     lesson?.explanation ||
     "",
-    2200,
+    budget.content,
   );
   const prompt = `
-You are an elite adaptive programming tutor operating inside the Code Ascension procedural education system.
+SYSTEM:
+Adaptive programming tutor.
 
-Your mission:
-Generate ONLY the explanation layer for the CURRENT lesson node.
+Task:
+Generate ONLY a concise explanation for the current lesson.
 
-DO NOT generate:
-- complete courses
-- giant tutorials
-- excessive theory dumping
-- repetitive summaries
-- markdown books
-- long introductions
+Rules:
+- Respect cognitive profile.
+- Respect teaching style.
+- Intuition before syntax.
+- Compact explanations.
+- Avoid repetition.
+- Avoid long tutorials.
+- Connect with prior knowledge when useful.
+- Mobile-friendly.
+- Return JSON only.
 
-Generate ONLY:
-- focused conceptual explanation
-- progressive intuition building
-- concise technical guidance
-- adaptive educational pacing
-
-================================
-COGNITIVE ADAPTATION LAYER
-================================
-${cognitiveFragments}
-
-COGNITIVE PROFILE:
+PROFILE:
 ${cognitiveProfile}
 
-TEACHING STYLE:
+STYLE:
 ${teachingStyle}
 
-================================
-USER STATE
-================================
-LEVEL:
-${currentLevel}
+USER:
+lvl=${currentLevel}
+mastery=${currentMastery}
 
-GLOBAL MASTERY:
-${currentMastery}
+COGNITIVE:
+${cognitiveFragments}
 
-================================
-LONG TERM MEMORY
-================================
-${compressedMemory || "No memory snapshot available."}
+MEMORY:
+${compressedMemory || "none"}
 
-================================
-CURRICULUM STATE
-================================
-${curriculumStats || "Curriculum graph initializing."}
+LESSON:
+title=${lesson?.title || "Untitled"}
 
-================================
-MODULE CONTEXT
-================================
-${moduleContext}
-
-================================
-LESSON INPUT
-================================
-TITLE:
-${lesson?.title || "Untitled"}
-
-SUMMARY:
-${hardCap(
+summary=${hardCap(
     lesson?.summary ||
     lesson?.description ||
     "",
-    600,
-  )}
+    400,
+  )
+    }
 
-EXISTING CONTENT:
+module=${lesson?.moduleTitle ||
+    lesson?.module ||
+    "Unknown"
+    }
+
+difficulty=${lesson?.difficulty ||
+    currentLevel
+    }
+
+CONTENT:
+
 ${lessonContent}
 
-================================
-RECENT SESSION HISTORY
-================================
-${compressedHistory}
+HISTORY:
+${compressedHistory || "No recent history."}
 
-================================
-EXECUTION RULES
-================================
-
-- Respect the cognitive profile STRICTLY.
-- Respect the user teaching style STRICTLY.
-- Keep explanations compact and mobile-friendly.
-- Prefer layered explanations over dense paragraphs.
-- Start from intuition before syntax.
-- Use examples only when necessary.
-- Avoid repeating previous lesson information.
-- Connect concepts to prior mastery when possible.
-- If mastery is high, reduce beginner explanations.
-- If mastery is low, increase scaffolding gradually.
-- Maintain adaptive pacing.
-- Keep token generation controlled.
-- Avoid unnecessary verbosity.
-
-================================
-OUTPUT RULES
-================================
-
-Return ONLY valid JSON.
+OUTPUT:
 
 {
-  "title": "Adaptive explanation title",
-  "content": "Main explanation body",
-  "analogy": "Short conceptual analogy",
-  "keyTakeaway": "One sentence summary",
-  "difficulty": ${lesson?.difficulty || currentLevel}
+  "title": string,
+  "content": string,
+  "analogy": string,
+  "keyTakeaway": string,
+  "difficulty": number
 }
 `;
 
@@ -347,6 +346,8 @@ export async function explainError(
       getUserProfile(),
       getMemory(),
     ]);
+
+
 
   const relatedWeakness =
     Object.entries(memory?.weaknesses || {}).sort(
@@ -500,18 +501,18 @@ Return ONLY valid JSON.
       );
 
       return {
-  explanation:
-    "The reasoning path diverged from the core concept.",
+        explanation:
+          "The reasoning path diverged from the core concept.",
 
-  fix:
-    "Re-evaluate the logic step by step using the correct conceptual model.",
+        fix:
+          "Re-evaluate the logic step by step using the correct conceptual model.",
 
-  analogy:
-    "Like debugging a function with one incorrect condition branch.",
+        analogy:
+          "Like debugging a function with one incorrect condition branch.",
 
-  keyTakeaway:
-    "Focus on the reasoning structure before the final answer.",
-};
+        keyTakeaway:
+          "Focus on the reasoning structure before the final answer.",
+      };
     }
 
     return parsed;
@@ -523,17 +524,17 @@ Return ONLY valid JSON.
     );
 
     return {
-  explanation:
-    "The reasoning path diverged from the core concept.",
+      explanation:
+        "The reasoning path diverged from the core concept.",
 
-  fix:
-    "Re-evaluate the logic step by step using the correct conceptual model.",
+      fix:
+        "Re-evaluate the logic step by step using the correct conceptual model.",
 
-  analogy:
-    "Like debugging a function with one incorrect condition branch.",
+      analogy:
+        "Like debugging a function with one incorrect condition branch.",
 
-  keyTakeaway:
-    "Focus on the reasoning structure before the final answer.",
-};
+      keyTakeaway:
+        "Focus on the reasoning structure before the final answer.",
+    };
   }
 }

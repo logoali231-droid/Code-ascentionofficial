@@ -10,6 +10,9 @@ import { buildPromptFragments } from "./promptFragments";
 import { cleanAndParseCourseJSON } from "./safeParse";
 import { getMemory, getUserProfile } from "./userMemory";
 import { getWebLLM } from "./webllmLoader";
+import {
+  getConceptMastery,
+} from "./mastery";
 /* =========================================
    GENERATE REINFORCEMENT
 ========================================= */
@@ -22,7 +25,7 @@ export async function generateReinforcement(
   // =========================================
   // USER STATE
   // =========================================
-
+  
   const [user, profile, memory, metrics] = await Promise.all([
     get("user", "main"),
     getUserProfile(),
@@ -35,6 +38,15 @@ export async function generateReinforcement(
   // =========================================
 
   const topic = course?.topic || "programming";
+  const conceptId =
+  error?.concept ||
+  error?.topic ||
+  topic;
+
+const conceptData =
+  await getConceptMastery(
+    conceptId,
+  );
 
   const level = course?.level || "beginner";
 
@@ -74,35 +86,48 @@ export async function generateReinforcement(
 
   difficulty = Math.min(5, Math.max(1, difficulty));
 
+  const budget =
+  getReinforcementBudget(
+    conceptData.mastery,
+    conceptData.confidence,
+  );
+
   // =========================================
   // MEMORY COMPRESSION
   // =========================================
 
-  const compressedErrors = hardCap(
-    recentErrors
-      .slice(-4)
-      .map(
-        (e: any) =>
-          `Q:${e?.question || ""}
+ 
+ const compressedErrors =
+  budget.errors > 0
+    ? hardCap(
+        recentErrors
+          .slice(-2)
+          .map(
+            (e: any) =>
+              `Q:${e?.question || ""}
 A:${e?.userAnswer || ""}
 C:${e?.correct || ""}`,
+          )
+          .join("\n\n"),
+        budget.errors,
       )
-      .join("\n\n"),
-    700,
-  );
+    : "";
 
-  const compressedWeaknesses = hardCap(
-    Object.entries(
-      memory?.weaknesses || {},
-    )
-      .slice(0, 8)
-      .map(
-        ([key, value]) =>
-          `${key}:${value}`,
+  const compressedWeaknesses =
+  budget.weaknesses > 0
+    ? hardCap(
+        Object.entries(
+          memory?.weaknesses || {},
+        )
+          .slice(0, 5)
+          .map(
+            ([key, value]) =>
+              `${key}:${value}`,
+          )
+          .join("\n"),
+        budget.weaknesses,
       )
-      .join("\n"),
-    500,
-  );
+    : "";
 
   // =========================================
   // COGNITIVE FRAGMENTS
@@ -115,6 +140,8 @@ C:${e?.correct || ""}`,
     reinforcement: true,
   });
 
+
+  
   // =========================================
   // MODULE CONTEXT
   // =========================================
@@ -135,132 +162,46 @@ ${error?.concept || error?.topic || topic}
   // =========================================
 
   const prompt = `
-You are an adaptive reinforcement engine operating inside the Code Ascension procedural learning architecture.
+SYSTEM:
+Repair one misconception.
 
-Your mission:
-Repair ONE specific misunderstanding efficiently.
+Rules:
+- Focus only on the failed concept.
+- Keep explanation short.
+- Respect cognitive profile.
+- Return JSON only.
 
-DO NOT generate:
-- full lessons
-- giant explanations
-- long tutorials
-- excessive theory
-- unrelated concepts
-- motivational speeches
-
-Generate ONLY:
-- focused reinforcement
-- conceptual repair
-- minimal corrective guidance
-- adaptive retry challenge
-
-================================
-COGNITIVE ADAPTATION
-================================
-
-${cognitiveFragments}
-
-COGNITIVE PROFILE:
+PROFILE:
 ${cognitiveProfile}
 
-TEACHING STYLE:
+STYLE:
 ${teachingStyle}
 
-================================
-USER STATE
-================================
+COGNITIVE:
+${cognitiveFragments}
 
-LEVEL:
-${level}
+MASTERY:
+${Math.round(conceptData.mastery * 100)}%
 
-STRUGGLING:
-${struggling ? "true" : "false"}
+ERROR:
+${error?.userExplanation}
 
-TARGET DIFFICULTY:
-${difficulty}
+WEAKNESSES:
+${compressedWeaknesses}
 
-================================
-MODULE CONTEXT
-================================
+HISTORY:
+${compressedErrors}
 
-${moduleContext}
-
-================================
-ERROR TRACE
-================================
-
-USER EXPLANATION:
-${hardCap(
-    error?.userExplanation || "None",
-    500,
-  )}
-
-
-================================
-WEAKNESS MEMORY
-================================
-
-${compressedWeaknesses || "None"}
-
-================================
-RECENT ERROR HISTORY
-================================
-
-${compressedErrors || "None"}
-
-================================
-EXECUTION RULES
-================================
-
-- Focus ONLY on the failed concept.
-- Keep generation lightweight.
-- Keep explanations compact.
-- Avoid repeating the original question excessively.
-- Avoid introducing new abstraction layers.
-- Repair the mental model progressively.
-- Maintain continuity with previous mistakes.
-- Respect the cognitive profile strictly.
-- Respect the teaching style strictly.
-- Prefer clarity over depth.
-- Keep output mobile-friendly.
-- Keep token generation controlled.
-
-================================
-DIFFICULTY RULES
-================================
-
-If STRUGGLING:
-- simplify wording
-- isolate one concept
-- reduce abstraction
-- reduce cognitive load
-- use smaller reasoning steps
-
-Otherwise:
-- encourage active reasoning
-- maintain adaptive challenge
-- avoid trivial answers
-
-================================
-OUTPUT RULES
-================================
-
-Return ONLY valid JSON.
+OUTPUT:
 
 {
-  "type": "short | multiple_choice | code | logic",
-
-  "question": "Reinforcement challenge",
-
-  "options": [],
-
-  "answer": "Correct answer",
-
-  "explanation": "Short conceptual repair explanation",
-
-  "hint": "Tiny optional guidance",
-
-  "difficulty": ${difficulty}
+"type":"short|multiple_choice|code|logic",
+"question":"",
+"options":[],
+"answer":"",
+"explanation":"",
+"hint":"",
+"difficulty":${difficulty}
 }
 `;
 
@@ -349,5 +290,38 @@ try {
       : "Look carefully at the logic flow.",
 
     difficulty,
+  };
+}
+
+function getReinforcementBudget(
+  mastery: number,
+  confidence: number,
+) {
+  const trusted =
+    confidence >= 0.5;
+
+  if (trusted && mastery >= 0.85) {
+    return {
+      errors: 0,
+      weaknesses: 0,
+      reasoning: 200,
+      mode: "mastered",
+    };
+  }
+
+  if (trusted && mastery >= 0.65) {
+    return {
+      errors: 250,
+      weaknesses: 150,
+      reasoning: 300,
+      mode: "familiar",
+    };
+  }
+
+  return {
+    errors: 600,
+    weaknesses: 400,
+    reasoning: 500,
+    mode: "learning",
   };
 }

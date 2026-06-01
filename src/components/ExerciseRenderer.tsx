@@ -8,6 +8,7 @@ import { Language } from "@/lib/sandbox/engines";
 import { useEffect, useState } from "react";
 import CodeEditor from "./CodeEditor";
 import { identifyCourseBrain } from "@/lib/brain/courseBrain";
+import { getConceptMastery, updateMastery } from "src/lib/others/mastery";
 
 const detector = new GibberishDetector();
 
@@ -47,6 +48,8 @@ export default function ExerciseRenderer({
 }: ExerciseRendererProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showHint, setShowHint] =
+    useState(false);
   const [codeValue, setCodeValue] = useState<string>("");
 
   const [dragTokens, setDragTokens] = useState<string[]>([]);
@@ -61,6 +64,9 @@ export default function ExerciseRenderer({
 
   const courseId = course?.id;
 
+  const [conceptMastery, setConceptMastery] =
+    useState<any>(null);
+
   // =========================
   // USER LOAD (FIX PRINCIPAL)
   // =========================
@@ -71,6 +77,24 @@ export default function ExerciseRenderer({
     }
     loadUser();
   }, []);
+
+  useEffect(() => {
+    async function loadConceptMastery() {
+      const conceptId =
+        rawExercise?.concept ||
+        rawExercise?.topic ||
+        rawExercise?.id;
+
+      if (!conceptId) return;
+
+      const mastery =
+        await getConceptMastery(conceptId);
+
+      setConceptMastery(mastery);
+    }
+
+    loadConceptMastery();
+  }, [rawExercise]);
 
   const globalMastery = user?.mastery ?? 0;
   const globalConfidence = user?.confidence ?? 0;
@@ -93,7 +117,28 @@ export default function ExerciseRenderer({
 
         setComputedMetrics(metrics);
 
-        const currentDifficulty = metrics.difficulty;
+        const mastery =
+          conceptMastery?.mastery ?? 0;
+
+        const confidence =
+          conceptMastery?.confidence ?? 0;
+
+        let currentDifficulty =
+          metrics.difficulty;
+
+        if (
+          confidence > 0.5 &&
+          mastery > 0.85
+        ) {
+          currentDifficulty += 1;
+        }
+
+        if (
+          confidence > 0.5 &&
+          mastery < 0.4
+        ) {
+          currentDifficulty -= 1;
+        }
 
         if (currentDifficulty < 2.2) {
           setMutatedType(
@@ -175,14 +220,42 @@ export default function ExerciseRenderer({
 
     const isCorrect = cleanValue === cleanAnswer;
 
+    const conceptId =
+      rawExercise?.concept ||
+      rawExercise?.topic ||
+      rawExercise?.id ||
+      "unknown";
+
     if (!isCorrect) {
       onComplete?.(false);
-      setErrorMessage("Resposta incorreta.");
+
+      await updateMastery({
+        conceptId,
+        success: false,
+      });
+
+      setShowHint(true);
+
+      setErrorMessage(
+        "Resposta incorreta."
+      );
+
       return;
     }
 
-    const xpMultiplier = computedMetrics?.xpMultiplier || 1.2;
+    let xpMultiplier =
+      computedMetrics?.xpMultiplier || 1.2;
 
+    const mastery =
+      conceptMastery?.mastery ?? 0;
+
+    if (mastery > 0.85) {
+      xpMultiplier *= 0.75;
+    }
+
+    if (mastery < 0.4) {
+      xpMultiplier *= 1.4;
+    }
     const currentXp = user?.xp || 0;
     const currentLevel = calculateLevel(currentXp);
 
@@ -196,6 +269,11 @@ export default function ExerciseRenderer({
     );
 
     onComplete?.(true);
+
+    await updateMastery({
+      conceptId,
+      success: true,
+    });
 
     if (onNext) {
       await onNext(true, value, dynamicXp);
@@ -298,7 +376,16 @@ export default function ExerciseRenderer({
         <div className="text-red-400 text-xs">
           {errorMessage}
         </div>
+
+
       )}
+
+      {showHint &&
+        exercise.explanation && (
+          <div className="text-xs text-cyan-300">
+            Hint: {exercise.explanation}
+          </div>
+        )}
     </div>
   );
 }
