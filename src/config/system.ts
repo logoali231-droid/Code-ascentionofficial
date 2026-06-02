@@ -199,9 +199,9 @@ const SYSTEM_CONFIG = {
         dos Androids.
       */
 
-      mobileSafe: false,
+      mobileSafe: true,
 
-      minRamGB: 6,
+      minRamGB: 4,
 
       experimental: true,
     },
