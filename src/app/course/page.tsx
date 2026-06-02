@@ -1116,16 +1116,18 @@ function ReviewTab({
   rawExercise={
     reviewExercises[currentReview]
   }
-  onNext={(correct) => {
-    if (
-      currentReview <
-      reviewExercises.length - 1
-    ) {
-      setCurrentReview(
-        (prev) => prev + 1
-      );
-    }
-  }}
+  onNext={() => {
+  if (
+    currentReview <
+    reviewExercises.length - 1
+  ) {
+    setCurrentReview(
+      prev => prev + 1
+    );
+  } else {
+    alert("✅ Review completed");
+  }
+}}
   course={course}
   isStreaming={false}
   streamProgress={100}
