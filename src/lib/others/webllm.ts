@@ -38,6 +38,9 @@ let lastProgress = Date.now();
 let generationLock = false;
 let cancelled = false;
 
+/* cache safety */
+let cacheTrusted = true;
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -55,7 +58,7 @@ function memoryMB() {
 }
 
 /* =========================================================
-   WATCHDOG (ANTI FREEZE CORE)
+   WATCHDOG
 ========================================================= */
 
 setInterval(() => {
@@ -63,11 +66,13 @@ setInterval(() => {
     state === "FETCHING_MODEL" &&
     Date.now() - lastProgress > 120000
   ) {
-    console.warn("[WEBLLM V4] STUCK DETECTED → SIGNAL ONLY");
+    console.warn("[WEBLLM V4] STUCK DETECTED");
     state = "STUCK";
     cancelled = true;
+    cacheTrusted = false;
   }
 }, 5000);
+
 /* =========================================================
    MODEL RESOLUTION
 ========================================================= */
@@ -84,35 +89,24 @@ function resolveModel(requested?: string) {
   const ram = (navigator as any)?.deviceMemory ?? 4;
 
   const effectiveRam = isMob ? ram + 1.5 : ram;
-
   const isPhi = selected.toLowerCase().includes("phi");
 
-  if (isMob && isPhi && effectiveRam < 5) {
-    selected = safeLow;
-  }
-
-  if (effectiveRam < 3.2) {
-    selected = safeLow;
-  }
+  if (isMob && isPhi && effectiveRam < 5) selected = safeLow;
+  if (effectiveRam < 3.2) selected = safeLow;
 
   return selected;
 }
 
 /* =========================================================
-   EMERGENCY RECOVERY (FIX LOOP STATE)
+   RECOVERY
 ========================================================= */
 
 async function emergencyRecover() {
   state = "RECOVERING";
 
   try {
-    if (engine) {
-      await engine.unload().catch(() => {});
-    }
-
-    if (worker) {
-      worker.terminate();
-    }
+    await engine?.unload?.();
+    worker?.terminate();
   } catch {}
 
   engine = null;
@@ -124,32 +118,35 @@ async function emergencyRecover() {
 }
 
 /* =========================================================
-   CLEAN RESET
+   CACHE CONTROL (CRITICAL FIX)
 ========================================================= */
 
-export async function localUnloadEngine() {
-  await emergencyRecover();
-}
-
-/* =========================================================
-   EMERGENCY CLEAN CACHE
-========================================================= */
-
-export async function emergencyWebLLMCleanup() {
-  await emergencyRecover();
-
+async function validateCache() {
   try {
     const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter(k => k.includes("webllm"))
-        .map(k => caches.delete(k))
-    );
+    const webllmCaches = keys.filter(k => k.includes("webllm"));
+
+    if (webllmCaches.length > 3) {
+      console.warn("[WEBLLM] cache overflow → cleaning");
+      await Promise.all(webllmCaches.map(k => caches.delete(k)));
+    }
   } catch {}
 }
 
+async function forceCleanCacheIfNeeded() {
+  if (!cacheTrusted) {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter(k => k.includes("webllm")).map(k => caches.delete(k))
+      );
+    } catch {}
+    cacheTrusted = true;
+  }
+}
+
 /* =========================================================
-   INIT ENGINE V4 CORE
+   INIT ENGINE
 ========================================================= */
 
 export async function initEngine(
@@ -157,21 +154,17 @@ export async function initEngine(
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
 
-  /* =======================================================
-     HARD GUARD
-  ======================================================= */
-
+  /* reuse safe instance */
   if (state === "READY" && engine && currentModel === modelId) {
     return engine;
   }
 
- if (state === "FAILED") {
-  await emergencyRecover();
- }
+  /* prevent parallel init */
+  if (initPromise) return initPromise;
 
- if (state === "BOOTING" || state === "LOADING_ENGINE" || state === "FETCHING_MODEL") {
-  return initPromise!;
- }
+  if (state === "FAILED") {
+    await emergencyRecover();
+  }
 
   initPromise = (async () => {
     try {
@@ -185,7 +178,7 @@ export async function initEngine(
       const isMob = isMobile();
 
       if (memoryMB() > (isMob ? 420 : 900)) {
-        await emergencyWebLLMCleanup();
+        await emergencyRecover();
         throw new Error("MEMORY_BLOCK");
       }
 
@@ -194,10 +187,6 @@ export async function initEngine(
       let selectedModel = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
-
-      /* =====================================================
-         WORKER INIT
-      ===================================================== */
 
       state = "LOADING_ENGINE";
 
@@ -210,17 +199,20 @@ export async function initEngine(
         worker.onerror = () => {
           state = "FAILED";
           cancelled = true;
+          cacheTrusted = false;
         };
       }
+
+      await forceCleanCacheIfNeeded();
 
       const { CreateWebWorkerMLCEngine } =
         await import("@mlc-ai/web-llm");
 
       state = "FETCHING_MODEL";
       lastProgress = Date.now();
-      
-      console.log("[WEBLLM] creating engine");
-      console.log("[WEBLLM] selected model:", selectedModel);
+
+      await validateCache();
+
       engine = await CreateWebWorkerMLCEngine(
         worker,
         selectedModel,
@@ -228,9 +220,9 @@ export async function initEngine(
           initProgressCallback: (r: any) => {
             onProgress?.(r);
             lastProgress = Date.now();
-            console.log("[WEBLLM PROGRESS]", r);
 
             if (memoryMB() > 950) {
+              cacheTrusted = false;
               throw new Error("MEMORY_DURING_INIT");
             }
           },
@@ -261,21 +253,24 @@ export async function initEngine(
 
       currentModel = selectedModel;
       engineSession++;
-
       initPromise = null;
 
       return engine;
+
     } catch (err) {
-  state = "FAILED";
-  initPromise = null;
-  throw err;
+      state = "FAILED";
+      initPromise = null;
+      cacheTrusted = false;
+      await emergencyRecover();
+      throw err;
     }
   })();
+
   return initPromise;
 }
 
 /* =========================================================
-   GENERATE STREAM SAFE
+   GENERATION
 ========================================================= */
 
 export async function* generate(
@@ -292,8 +287,6 @@ export async function* generate(
   try {
     const engineRef = await initEngine(undefined, onProgress);
 
-    const session = engineSession;
-
     const stream = await engineRef.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       temperature,
@@ -303,26 +296,21 @@ export async function* generate(
 
     for await (const chunk of stream as any) {
 
-      if (state !== "READY") {
-        throw new Error("ENGINE_NOT_READY");
-      }
-
+      if (state !== "READY") break;
       if (cancelled) {
         cancelled = false;
         break;
       }
 
       const text = chunk?.choices?.[0]?.delta?.content;
-
-      if (text) {
-        yield text;
-      }
+      if (text) yield text;
     }
 
   } catch (err) {
-    await emergencyWebLLMCleanup();
+    cacheTrusted = false;
+    await emergencyRecover();
     throw err;
   } finally {
     generationLock = false;
   }
-}
+         }
