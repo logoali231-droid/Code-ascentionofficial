@@ -13,6 +13,7 @@ import {
   Lock,
   Unlock,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Model, SYSTEM_CONFIG } from "@/config/system";
@@ -35,7 +36,6 @@ export default function MachineLockPage() {
   const abortRef = useRef(false);
   const initializingRef = useRef(false);
 
-  // 🧠 Hardware init
   useEffect(() => {
     let alive = true;
 
@@ -52,9 +52,7 @@ export default function MachineLockPage() {
           SYSTEM_CONFIG.AVAILABLE_MODELS[0]?.model_id;
 
         setSelectedModel(recommended);
-      } catch (err) {
-        console.error("Hardware detection failed:", err);
-
+      } catch {
         setSelectedModel(
           SYSTEM_CONFIG.AVAILABLE_MODELS[0]?.model_id || ""
         );
@@ -68,7 +66,6 @@ export default function MachineLockPage() {
     };
   }, []);
 
-  // 👤 user load
   useEffect(() => {
     async function loadUser() {
       const userData = await get("user", "main");
@@ -77,10 +74,6 @@ export default function MachineLockPage() {
     loadUser();
   }, []);
 
-  // 🌐 network guard
-
-
-  // 🔁 engine retry wrapper
   const runWithRetry = async (fn: any, retries = 2) => {
     let lastErr;
 
@@ -89,7 +82,6 @@ export default function MachineLockPage() {
         return await fn();
       } catch (err) {
         lastErr = err;
-        console.warn(`[ENGINE] tentativa ${i + 1} falhou`, err);
         await new Promise((r) => setTimeout(r, 800 * (i + 1)));
       }
     }
@@ -97,8 +89,6 @@ export default function MachineLockPage() {
     throw lastErr;
   };
 
-  // 🚀 INIT ENGINE (blindado)
-  // 🚀 INIT ENGINE (blindado)
   const handleInitialize = async () => {
     if (initializingRef.current) return;
     initializingRef.current = true;
@@ -107,10 +97,6 @@ export default function MachineLockPage() {
     playSound("click", 0.3);
 
     try {
-      // 💡 DICA: Como seu PWA é offline-first, se o modelo já está em cache,
-      // barrar o usuário caso ele esteja sem internet impede o funcionamento offline.
-      // Se quiser permitir uso offline total após o cache, comente a linha abaixo:
-
       const initEngine = await loadEngine();
 
       await runWithRetry(async () => {
@@ -124,8 +110,6 @@ export default function MachineLockPage() {
         });
       });
 
-      // 🔥 CORREÇÃO: Mescla o usuário existente ou cria um objeto base caso seja null.
-      // Isso garante que o 'id: "main"' e 'engineReady: true' sejam persistidos sempre!
       const updatedUser = {
         ...(user || {}),
         id: "main",
@@ -133,7 +117,6 @@ export default function MachineLockPage() {
         engineReady: true,
       };
 
-      // Salva de forma consistente para que a página do /hub valide com sucesso
       await save("user", updatedUser, "main");
 
       playSound("success", 0.5);
@@ -141,30 +124,30 @@ export default function MachineLockPage() {
       setTimeout(() => {
         if (!abortRef.current) router.push("/hub");
       }, 900);
-    } catch (err) {
-      console.error("Engine Init Failed:", err);
 
+    } catch (err) {
       setIsInitializing(false);
       initializingRef.current = false;
-
       playSound("error", 0.5);
-
-      alert("Falha na inicialização. Verifique conexão e memória.");
+      alert("Falha na inicialização. Verifique memória ou GPU.");
     }
+  };
+
+  const isBlocked = (m: Model) => {
+    if (!hardwareInfo?.ramGB || !m.minRamGB) return false;
+    return hardwareInfo.ramGB < m.minRamGB;
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col items-center justify-center p-6 font-mono">
-      <div className="w-full max-w-md z-10">
+
+      <div className="w-full max-w-md">
 
         {/* HEADER */}
         <div className="flex flex-col items-center mb-8">
-          <div
-            className={`p-6 rounded-full border-2 mb-4 transition-all ${isInitializing
-                ? "border-cyan-500 animate-pulse"
-                : "border-slate-800"
-              }`}
-          >
+          <div className={`p-6 rounded-full border-2 mb-4 ${
+            isInitializing ? "border-cyan-500 animate-pulse" : "border-slate-800"
+          }`}>
             {isInitializing ? (
               <Unlock className="text-cyan-400" size={48} />
             ) : (
@@ -178,8 +161,7 @@ export default function MachineLockPage() {
 
           {hardwareInfo && (
             <p className="text-[10px] text-slate-500 mt-2">
-              GPU_LIMIT: {hardwareInfo.gpuLimit}MB | TIER:{" "}
-              {hardwareInfo.modelTier}
+              GPU: {hardwareInfo.gpuLimit}MB | RAM: {hardwareInfo.ramGB}GB
             </p>
           )}
         </div>
@@ -187,7 +169,7 @@ export default function MachineLockPage() {
         {/* LOADING */}
         {isInitializing ? (
           <div className="space-y-3">
-            <div className="flex justify-between text-[10px] text-cyan-500 font-bold">
+            <div className="flex justify-between text-[10px] text-cyan-500">
               <span>{progress.text}</span>
               <span>{progress.progress}%</span>
             </div>
@@ -204,6 +186,7 @@ export default function MachineLockPage() {
 
             {/* MODELS */}
             <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+
               <div className="flex items-center gap-2 mb-4 text-cyan-400">
                 <Database size={16} />
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -212,31 +195,71 @@ export default function MachineLockPage() {
               </div>
 
               <div className="space-y-2">
-                {SYSTEM_CONFIG.AVAILABLE_MODELS.map((m: Model) => (
-                  <button
-                    key={m.model_id}
-                    onClick={() => setSelectedModel(m.model_id)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${selectedModel === m.model_id
-                        ? "border-cyan-500 bg-cyan-950/10"
-                        : "border-slate-800"
-                      }`}
-                  >
-                    <div className="text-left">
-                      <p className="text-sm font-bold">{m.name}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {m.sizeMb} MB
-                      </p>
-                    </div>
 
-                    {selectedModel === m.model_id && (
-                      <Zap size={14} className="text-cyan-400" />
-                    )}
-                  </button>
-                ))}
+                {SYSTEM_CONFIG.AVAILABLE_MODELS.map((m: Model) => {
+
+                  const blocked = isBlocked(m);
+
+                  return (
+                    <button
+                      key={m.model_id}
+                      disabled={blocked}
+                      onClick={() => setSelectedModel(m.model_id)}
+                      className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                        blocked
+                          ? "opacity-30 cursor-not-allowed"
+                          : selectedModel === m.model_id
+                            ? "border-cyan-500 bg-cyan-950/10"
+                            : "border-slate-800"
+                      }`}
+                    >
+
+                      <div className="text-left">
+                        <p className="text-sm font-bold flex items-center gap-2">
+                          {m.name}
+                          {m.model_id.includes("Coder") && (
+                            <span className="text-[10px] text-emerald-400">
+                              CODE
+                            </span>
+                          )}
+                        </p>
+
+                        <p className="text-[10px] text-slate-500">
+                          {m.sizeMb} MB · {m.recommendedFor}
+                        </p>
+
+                        {m.experimental && (
+                          <p className="text-[9px] text-orange-400">
+                            EXPERIMENTAL
+                          </p>
+                        )}
+
+                        {!m.mobileSafe && (
+                          <p className="text-[9px] text-red-400">
+                            DESKTOP ONLY
+                          </p>
+                        )}
+
+                        {blocked && (
+                          <p className="text-[9px] text-red-500 flex items-center gap-1">
+                            <AlertTriangle size={10} />
+                            RAM insuficiente
+                          </p>
+                        )}
+                      </div>
+
+                      {selectedModel === m.model_id && (
+                        <Zap size={14} className="text-cyan-400" />
+                      )}
+
+                    </button>
+                  );
+                })}
+
               </div>
             </div>
 
-            {/* INIT BUTTON */}
+            {/* INIT */}
             <button
               onClick={handleInitialize}
               disabled={!selectedModel || isInitializing}
@@ -245,19 +268,20 @@ export default function MachineLockPage() {
               Authorize Link <ChevronRight size={18} />
             </button>
 
-            {/* CACHE RESET */}
+            {/* CACHE */}
             <button
               onClick={async () => {
                 await resetAppAndClearData();
-                alert("Cache limpo. Recarregue o sistema.");
+                alert("Cache limpo.");
               }}
-              className="w-full mt-3 bg-slate-900/40 border border-slate-700 text-slate-400 p-3 rounded-xl text-xs uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-300 transition-all"
+              className="w-full mt-3 bg-slate-900/40 border border-slate-700 text-slate-400 p-3 rounded-xl text-xs uppercase tracking-widest"
             >
               🧹 Clean Cache
             </button>
 
           </div>
         )}
+
       </div>
     </div>
   );
