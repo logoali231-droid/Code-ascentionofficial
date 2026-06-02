@@ -88,11 +88,20 @@ function resolveModel(requested?: string) {
   const isMob = isMobile();
   const ram = (navigator as any)?.deviceMemory ?? 4;
 
-  const effectiveRam = isMob ? ram + 1.5 : ram;
+  const effectiveRam = isMob ? ram : ram;
   const isPhi = selected.toLowerCase().includes("phi");
 
-  if (isMob && isPhi && effectiveRam < 5) selected = safeLow;
-  if (effectiveRam < 3.2) selected = safeLow;
+/* allow override: se modelo foi explicitamente pedido */
+  const explicitPhi = requested?.toLowerCase().includes("phi");
+
+/* regra nova: mobile NÃO bloqueia Phi automaticamente */
+  if (isPhi) {
+    const minOk = effectiveRam >= 4;
+
+    if (!minOk && !explicitPhi) {
+      selected = safeLow;
+    }
+  }
 
   return selected;
 }
