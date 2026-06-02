@@ -292,6 +292,10 @@ FINAL HARD RULES
 - Do not include markdown fences.
 - Do not explain your reasoning.
 - Stop generation immediately after the final JSON closing brace.
+- Entire response must fit comfortably inside 300 tokens.
+- If space becomes limited, shorten descriptions.
+- Never leave JSON unfinished.
+- Prioritize structural completion over detail.
 `;
 
   try {
@@ -307,8 +311,34 @@ FINAL HARD RULES
       typeof rawRes === "string"
         ? rawRes
         : JSON.stringify(rawRes);
+    const trimmed = fullResponse.trim();
 
-    const parsed = cleanAndParseCourseJSON(fullResponse);
+if (
+  trimmed.startsWith("{") &&
+  !trimmed.endsWith("}")
+) {
+  console.warn(
+    "[COURSE] Incomplete JSON received."
+  );
+}
+
+    let parsed =
+  cleanAndParseCourseJSON(fullResponse);
+
+if (!parsed) {
+  console.warn(
+    "[COURSE] First parse failed. Retrying."
+  );
+
+  const retryResponse =
+    await runLLM(
+      prompt +
+      "\nIMPORTANT: Use shorter output."
+    );
+
+  parsed =
+    cleanAndParseCourseJSON(retryResponse);
+}
 
     if (!parsed || !validateCourse(parsed)) {
       console.error(
