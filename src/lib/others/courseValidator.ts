@@ -1,24 +1,100 @@
 "use client";
 
-export function validateCourse(course: any) {
-  if (!course || !course.lessons || !Array.isArray(course.lessons)) {
+export function validateCourse(course: any): boolean {
+  if (!course || typeof course !== "object") {
     return false;
   }
 
-  // Verifica se o curso tem pelo menos uma introdução
-  if (course.lessons.length === 0) return false;
+  /* =========================
+     REQUIRED ROOT FIELDS
+  ========================= */
 
-  // Impede cursos vazios ou com títulos genéricos demais
-  if (course.title.length < 5) return false;
+  if (
+    typeof course.title !== "string" ||
+    course.title.trim().length < 5
+  ) {
+    return false;
+  }
 
-  // Checagem de progressão de dificuldade
+  if (
+    typeof course.description !== "string" ||
+    course.description.trim().length === 0
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(course.tags)) {
+    return false;
+  }
+
+  /* =========================
+     MODULE VALIDATION
+  ========================= */
+
+  if (
+    !Array.isArray(course.modules) ||
+    course.modules.length === 0
+  ) {
+    return false;
+  }
+
   let lastDifficulty = 0;
-  for (const lesson of course.lessons) {
-    if (!lesson.title || !lesson.summary) return false;
 
-    // Se a dificuldade pular de 1 para 5 direto, o curso está mal projetado
-    if (lesson.difficulty - lastDifficulty > 3) return false;
-    lastDifficulty = lesson.difficulty;
+  for (const module of course.modules) {
+    if (!module || typeof module !== "object") {
+      return false;
+    }
+
+    if (
+      typeof module.id !== "string" ||
+      module.id.trim().length === 0
+    ) {
+      return false;
+    }
+
+    if (
+      typeof module.title !== "string" ||
+      module.title.trim().length === 0
+    ) {
+      return false;
+    }
+
+    if (
+      typeof module.summary !== "string" ||
+      module.summary.trim().length === 0
+    ) {
+      return false;
+    }
+
+    if (
+      typeof module.difficulty !== "number" ||
+      module.difficulty < 1 ||
+      module.difficulty > 5
+    ) {
+      return false;
+    }
+
+    // Evita saltos absurdos
+    if (
+      lastDifficulty > 0 &&
+      module.difficulty - lastDifficulty > 3
+    ) {
+      return false;
+    }
+
+    if (typeof module.generated !== "boolean") {
+      return false;
+    }
+
+    if (typeof module.completed !== "boolean") {
+      return false;
+    }
+
+    if (typeof module.locked !== "boolean") {
+      return false;
+    }
+
+    lastDifficulty = module.difficulty;
   }
 
   return true;
