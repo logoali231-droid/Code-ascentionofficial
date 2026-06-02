@@ -41,6 +41,9 @@ let cancelled = false;
 /* cache safety */
 let cacheTrusted = true;
 
+/* 🔒 ADDED: real global init lock */
+let globalInitLock = false;
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -91,10 +94,8 @@ function resolveModel(requested?: string) {
   const effectiveRam = isMob ? ram : ram;
   const isPhi = selected.toLowerCase().includes("phi");
 
-/* allow override: se modelo foi explicitamente pedido */
   const explicitPhi = requested?.toLowerCase().includes("phi");
 
-/* regra nova: mobile NÃO bloqueia Phi automaticamente */
   if (isPhi) {
     const minOk = effectiveRam >= 4;
 
@@ -107,7 +108,7 @@ function resolveModel(requested?: string) {
 }
 
 /* =========================================================
-   RECOVERY
+   RECOVERY (LESS DESTRUCTIVE)
 ========================================================= */
 
 async function emergencyRecover() {
@@ -127,7 +128,7 @@ async function emergencyRecover() {
 }
 
 /* =========================================================
-   CACHE CONTROL (CRITICAL FIX)
+   CACHE CONTROL (SOFTENED)
 ========================================================= */
 
 async function validateCache() {
@@ -142,17 +143,10 @@ async function validateCache() {
   } catch {}
 }
 
-async function forceCleanCacheIfNeeded() {
-  if (!cacheTrusted) {
-    try {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.filter(k => k.includes("webllm")).map(k => caches.delete(k))
-      );
-    } catch {}
-    cacheTrusted = true;
-  }
-}
+/* ❌ REMOVED aggressive cache wipe (this was causing re-download loops) */
+/*
+async function forceCleanCacheIfNeeded() { ... }
+*/
 
 /* =========================================================
    INIT ENGINE
@@ -163,125 +157,134 @@ export async function initEngine(
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
 
-  /* reuse safe instance */
-  if (state === "READY" && engine && currentModel === modelId) {
-    return engine;
-  }
+  /* 🔒 GLOBAL LOCK (fixes parallel init) */
+  if (globalInitLock) return initPromise!;
+  globalInitLock = true;
 
-  /* prevent parallel init */
-  if (initPromise) return initPromise;
+  try {
 
-  if (state === "FAILED") {
-    await emergencyRecover();
-  }
+    /* reuse safe instance */
+    if (state === "READY" && engine && currentModel === modelId) {
+      return engine;
+    }
 
-  initPromise = (async () => {
-    try {
+    /* prevent parallel init */
+    if (initPromise) return initPromise;
 
-      if (typeof window === "undefined") {
-        throw new Error("SSR_BLOCKED");
-      }
+    if (state === "FAILED") {
+      await emergencyRecover();
+    }
 
-      state = "BOOTING";
+    initPromise = (async () => {
+      try {
 
-      const isMob = isMobile();
+        if (typeof window === "undefined") {
+          throw new Error("SSR_BLOCKED");
+        }
 
-      if (memoryMB() > (isMob ? 420 : 900)) {
-        await emergencyRecover();
-        throw new Error("MEMORY_BLOCK");
-      }
+        state = "BOOTING";
 
-      const specs = await detectSystemCapabilities();
+        const isMob = isMobile();
 
-      let selectedModel = resolveModel(
-        modelId ?? specs?.recommended?.model_id
-      );
-      const forcedPhi =
-  modelId?.toLowerCase().includes("phi");
+        if (memoryMB() > (isMob ? 420 : 900)) {
+          throw new Error("MEMORY_BLOCK");
+        }
 
-if (forcedPhi) {
-  selectedModel = modelId!;
-}
+        const specs = await detectSystemCapabilities();
 
-      state = "LOADING_ENGINE";
-
-      if (!worker) {
-        worker = new Worker(
-          new URL("../workers/webllm.worker.ts", import.meta.url),
-          { type: "module" }
+        let selectedModel = resolveModel(
+          modelId ?? specs?.recommended?.model_id
         );
 
-        worker.onerror = () => {
-          state = "FAILED";
-          cancelled = true;
-          cacheTrusted = false;
-        };
+        const forcedPhi =
+          modelId?.toLowerCase().includes("phi");
+
+        if (forcedPhi) {
+          selectedModel = modelId!;
+        }
+
+        state = "LOADING_ENGINE";
+
+        if (!worker) {
+          worker = new Worker(
+            new URL("../workers/webllm.worker.ts", import.meta.url),
+            { type: "module" }
+          );
+
+          worker.onerror = () => {
+            state = "FAILED";
+            cancelled = true;
+            cacheTrusted = false;
+          };
+        }
+
+        const { CreateWebWorkerMLCEngine } =
+          await import("@mlc-ai/web-llm");
+
+        state = "FETCHING_MODEL";
+        lastProgress = Date.now();
+
+        await validateCache();
+
+        engine = await CreateWebWorkerMLCEngine(
+          worker,
+          selectedModel,
+          {
+            initProgressCallback: (r: any) => {
+              onProgress?.(r);
+              lastProgress = Date.now();
+
+              if (memoryMB() > 950) {
+                cacheTrusted = false;
+                throw new Error("MEMORY_DURING_INIT");
+              }
+            },
+
+            logLevel: "INFO",
+
+            chatOpts: {
+              context_window_size: isMob
+                ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
+                : SYSTEM_CONFIG.LLM.context_window_size,
+
+              sliding_window_size: isMob
+                ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
+                : SYSTEM_CONFIG.LLM.sliding_window_size,
+
+              attention_sink_size:
+                SYSTEM_CONFIG.LLM.attention_sink_size,
+
+              batch_size: isMob ? 1 : undefined,
+            },
+
+            /* 🔥 FIX: enable real cache */
+            useIndexedDBCache: true,
+            enableProgressiveLoading: true,
+          } as any
+        );
+
+        state = "READY";
+
+        currentModel = selectedModel;
+        engineSession++;
+        initPromise = null;
+
+        return engine;
+
+      } catch (err) {
+        state = "FAILED";
+        initPromise = null;
+        cacheTrusted = false;
+        await emergencyRecover();
+        throw err;
       }
+    })();
 
-      await forceCleanCacheIfNeeded();
+    return initPromise;
 
-      const { CreateWebWorkerMLCEngine } =
-        await import("@mlc-ai/web-llm");
-
-      state = "FETCHING_MODEL";
-      lastProgress = Date.now();
-
-      await validateCache();
-
-      engine = await CreateWebWorkerMLCEngine(
-        worker,
-        selectedModel,
-        {
-          initProgressCallback: (r: any) => {
-            onProgress?.(r);
-            lastProgress = Date.now();
-
-            if (memoryMB() > 950) {
-              cacheTrusted = false;
-              throw new Error("MEMORY_DURING_INIT");
-            }
-          },
-
-          logLevel: "INFO",
-
-          chatOpts: {
-            context_window_size: isMob
-              ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
-              : SYSTEM_CONFIG.LLM.context_window_size,
-
-            sliding_window_size: isMob
-              ? SYSTEM_CONFIG.LLM.MOBILE.sliding_window_size
-              : SYSTEM_CONFIG.LLM.sliding_window_size,
-
-            attention_sink_size:
-              SYSTEM_CONFIG.LLM.attention_sink_size,
-
-            batch_size: isMob ? 1 : undefined,
-          },
-
-          useIndexedDBCache: false,
-          enableProgressiveLoading: true,
-        } as any
-      );
-
-      state = "READY";
-
-      currentModel = selectedModel;
-      engineSession++;
-      initPromise = null;
-
-      return engine;
-
-    } catch (err) {
-      state = "FAILED";
-      initPromise = null;
-      cacheTrusted = false;
-      await emergencyRecover();
-      throw err;
-    }
-  })();
-
-  return initPromise;
+  } finally {
+    globalInitLock = false;
+  }
 }
 
 /* =========================================================
@@ -328,4 +331,4 @@ export async function* generate(
   } finally {
     generationLock = false;
   }
-         }
+}
