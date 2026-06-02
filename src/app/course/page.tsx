@@ -1082,6 +1082,8 @@ function ReviewTab({
 }) {
   const [reviewExercises, setReviewExercises] =
     useState<any[]>([]);
+  const [currentReview, setCurrentReview] =
+  useState(0);
 
   useEffect(() => {
     if (!course?.id) return;
@@ -1110,20 +1112,24 @@ function ReviewTab({
           No review exercises available.
         </div>
       ) : (
-        reviewExercises.map((ex, i) => (
-          <div
-            key={i}
-            className="bg-slate-900 rounded-xl p-4 border border-yellow-700/30"
-          >
-            <p className="text-yellow-400 text-xs mb-2">
-              REVIEW
-            </p>
-
-            <p className="text-sm">
-              {ex.question}
-            </p>
-          </div>
-        ))
+        <ExerciseRenderer
+  rawExercise={
+    reviewExercises[currentReview]
+  }
+  onNext={(correct) => {
+    if (
+      currentReview <
+      reviewExercises.length - 1
+    ) {
+      setCurrentReview(
+        (prev) => prev + 1
+      );
+    }
+  }}
+  course={course}
+  isStreaming={false}
+  streamProgress={100}
+/>
       )}
     </div>
   );
