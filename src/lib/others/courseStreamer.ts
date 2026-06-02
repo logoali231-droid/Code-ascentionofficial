@@ -17,18 +17,23 @@ export async function streamCourseGeneration(params: any) {
         fullResponse = rawRes;
       } else {
         // 2. Consome os pedaços (chunks) em tempo real conforme são computados na WebGPU
-        for await (const chunk of rawRes) {
-          const content = typeof chunk === "string"
-            ? chunk
-            : (chunk as any).choices?.[0]?.delta?.content || "";
+        const chunks: string[] = [];
 
-          const chunks: string[] = [];
+for await (const chunk of rawRes) {
+  const content =
+    typeof chunk === "string"
+      ? chunk
+      : (chunk as any).choices?.[0]?.delta?.content || "";
 
-          chunks.push(content);
+  chunks.push(content);
 
-          if (chunks.length > 200) break;
+  if (chunks.length > 200) {
+    console.warn("[STREAM] Safety limit reached");
+    break;
+  }
 
-          const fullResponse = chunks.join("");;
+  fullResponse = chunks.join("");
+}
 
           // Opcional: Dispare um eventBus aqui se quiser renderizar o progresso do texto na interface!
           // eventBus.emit(EventType.COURSE_STREAM_CHUNK, content);
