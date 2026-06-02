@@ -59,6 +59,7 @@ export async function runLLM(
     }
 
     const chunks: string[] = [];
+    let totalChars = 0;
 
     w.onmessage = (event) => {
       const { type, data, error } = event.data;
@@ -70,10 +71,11 @@ export async function runLLM(
       if (type === "CHUNK") {
         if (typeof data === "string") {
           chunks.push(data);
+          totalChars += data.length;
         }
 
         // HARD SAFETY LIMIT
-        if (chunks.length > 400) {
+       if (totalChars > 30000) {
           console.warn("[LLM] Chunk safety limit reached.");
 
           scheduleWorkerCleanup();
