@@ -160,32 +160,21 @@ const SYSTEM_CONFIG = {
 
   AVAILABLE_MODELS: [
     {
-      /* ===================================================
-         SAFE MOBILE MODEL
-      =================================================== */
+  model_id: "Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC",
 
-      model_id:
-        "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+  model:
+    "https://huggingface.co/mlc-ai/Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC",
 
-      model:
-        "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+  name: "Qwen 2.5 Coder 0.5B (Ultra Safe)",
 
-      name:
-        "Qwen 2.5 0.5B (Ultra Safe)",
+  sizeMb: 600,
 
-      sizeMb: 550,
+  recommendedFor: "LOW",
 
-      recommendedFor: "LOW",
+  mobileSafe: true,
 
-      mobileSafe: true,
-
-      /*
-        Galaxy M23 class devices
-        conseguem lidar melhor.
-      */
-
-      minRamGB: 3,
-    },
+  minRamGB: 3,
+},
 
     {
       /* ===================================================
