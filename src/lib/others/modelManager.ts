@@ -138,9 +138,14 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
 
     /* CORREÇÃO CRÍTICA MOBILE (Ex: Galaxy M23)
        Evita estouro térmico e quebra nos Shaders do driver gráfico limitando alocação a 1024MB */
-    if (isMobile) {
-      modelTier = memory > 4 ? "MID" : "LOW";
-      gpuLimit = 1024;
+  if (isMobile) {
+  if (memory >= 4 && cores >= 6) {
+    modelTier = "MID";
+  } else {
+    modelTier = "LOW";
+  }
+
+  gpuLimit = 1536;
     }
 
     if (memory <= 4 && modelTier === "HIGH") {
