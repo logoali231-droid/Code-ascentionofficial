@@ -92,49 +92,69 @@ export default function MachineLockPage() {
   };
 
   const handleInitialize = async () => {
-    if (initializingRef.current || isInitializing) return;
+  if (initializingRef.current || isInitializing) return;
 
-    initializingRef.current = true; 
-    setIsInitializing(true);
-    playSound("click", 0.3);
+  initializingRef.current = true;
+  setIsInitializing(true);
+  playSound("click", 0.3);
 
-    try {
-      const initEngine = await loadEngine();
+  try {
+    const initEngine = await loadEngine();
 
-      await initEngine(selectedModel, (p: any) => {
-        if (abortRef.current || !initializingRef.current) return;
+    // 🧠 PROGRESSO GLOBAL SUAVE (NOVA LÓGICA)
+    let smooth = 0;
+    let lastPhase = "";
 
-        setProgress({
-          progress: Math.min(100, Math.max(0, Math.round(p.progress * 100))),
-          text: p?.text || "LOADING...",
-        });
+    await initEngine(selectedModel, (p: any) => {
+      if (abortRef.current || !initializingRef.current) return;
+
+      const raw = typeof p?.progress === "number" ? p.progress : 0;
+
+      // 🔥 detecta mudança de fase (evita reset visual)
+      const phase = p?.text || "LOADING...";
+      const phaseChanged = phase !== lastPhase;
+      lastPhase = phase;
+
+      // 🧊 se mudar fase, não resetar barra (SÓ desacelerar)
+      const target = Math.min(1, Math.max(0, raw));
+
+      const alpha = phaseChanged ? 0.25 : 0.12;
+
+      smooth = smooth * (1 - alpha) + target * alpha;
+
+      const percent = Math.floor(smooth * 100);
+
+      setProgress({
+        progress: percent,
+        text: phase,
       });
+    });
 
-      const updatedUser = {
-        ...(user || {}),
-        id: "main",
-        model: selectedModel,
-        engineReady: true,
-      };
+    const updatedUser = {
+      ...(user || {}),
+      id: "main",
+      model: selectedModel,
+      engineReady: true,
+    };
 
-      await save("user", updatedUser, "main");
+    await save("user", updatedUser, "main");
 
-      playSound("success", 0.5);
+    playSound("success", 0.5);
 
-      setTimeout(() => {
-        globalInitInProgress = false;
-        if (!abortRef.current) router.push("/hub");
-      }, 900);
-
-    } catch (err) {
-      setIsInitializing(false);
-      initializingRef.current = false;
+    setTimeout(() => {
       globalInitInProgress = false;
-      playSound("error", 0.5);
-      alert("Falha na inicialização. Verifique memória ou GPU.");
-      await resetAppAndClearData().catch(() => {});
-    }
-  };
+      if (!abortRef.current) router.push("/hub");
+    }, 900);
+
+  } catch (err) {
+    setIsInitializing(false);
+    initializingRef.current = false;
+    globalInitInProgress = false;
+    playSound("error", 0.5);
+    alert("Falha na inicialização. Verifique memória ou GPU.");
+    await resetAppAndClearData().catch(() => {});
+  }
+};
 
   const isBlocked = (m: Model) => {
     if (!hardwareInfo?.ramGB || !m.minRamGB) return false;
