@@ -38,8 +38,11 @@ export default function CoursePage() {
     useState(0);
 
   const [tab, setTab] = useState<
-    "practice" | "theory" | "errors"
-  >("practice");
+  "practice" |
+  "theory" |
+  "review" |
+  "mistakes"
+>("practice");
 
   const [title, setTitle] = useState("Course");
 
@@ -990,7 +993,8 @@ export default function CoursePage() {
         {[
           "practice",
           "theory",
-          "errors",
+          "review",
+          "mistakes",
         ].map((t) => (
           <button
             key={t}
@@ -1054,16 +1058,78 @@ export default function CoursePage() {
         </div>
       )}
 
-      {tab === "errors" && (
-        <ErrorsTab
-          course={course}
-        />
+     {tab === "review" && (
+  <ReviewTab
+    course={course}
+  />
+)}
+
+
+
+{tab === "mistakes" && (
+  <MistakesTab
+    course={course}
+  />
+)}
+    </div>
+  );
+}
+
+function ReviewTab({
+  course,
+}: {
+  course: any;
+}) {
+  const [reviewExercises, setReviewExercises] =
+    useState<any[]>([]);
+
+  useEffect(() => {
+    if (!course?.id) return;
+    async function load() {
+      const errors =
+        await getErrorLogs(course.id);
+
+      const review =
+        errors
+          .slice(-10)
+          .map((e) => ({
+            ...e,
+            isReview: true,
+          }));
+
+      setReviewExercises(review);
+    }
+
+    load();
+  }, [course]);
+
+  return (
+    <div className="space-y-4">
+      {reviewExercises.length === 0 ? (
+        <div className="p-6 text-center opacity-60">
+          No review exercises available.
+        </div>
+      ) : (
+        reviewExercises.map((ex, i) => (
+          <div
+            key={i}
+            className="bg-slate-900 rounded-xl p-4 border border-yellow-700/30"
+          >
+            <p className="text-yellow-400 text-xs mb-2">
+              REVIEW
+            </p>
+
+            <p className="text-sm">
+              {ex.question}
+            </p>
+          </div>
+        ))
       )}
     </div>
   );
 }
 
-function ErrorsTab({
+function MistakesTab({
   course,
 }: {
   course: any;
@@ -1078,7 +1144,8 @@ function ErrorsTab({
     Record<number, string>
   >({});
 
-  useEffect(() => {
+    useEffect(() => {
+    if (!course?.id) return;
     let mounted = true;
 
     async function loadErrors() {
