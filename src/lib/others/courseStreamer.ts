@@ -37,7 +37,7 @@ for await (const chunk of rawRes) {
 
           // Opcional: Dispare um eventBus aqui se quiser renderizar o progresso do texto na interface!
           // eventBus.emit(EventType.COURSE_STREAM_CHUNK, content);
-        }
+        
       }
     }
   } catch (err) {
