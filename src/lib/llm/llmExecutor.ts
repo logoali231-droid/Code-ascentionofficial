@@ -87,12 +87,24 @@ export async function runLLM(
       ========================= */
 
       if (type === "DONE") {
-        const full = chunks.join("");
+  const full = chunks.join("");
 
-        scheduleWorkerCleanup();
+  const trimmed = full.trim();
 
-        resolve(full);
-      }
+  const looksIncomplete =
+    trimmed.startsWith("{") &&
+    !trimmed.endsWith("}");
+
+  if (looksIncomplete) {
+    console.warn(
+      "[LLM] Possible truncated JSON detected."
+    );
+  }
+
+  scheduleWorkerCleanup();
+
+  resolve(full);
+}
 
       /* =========================
          ERROR
