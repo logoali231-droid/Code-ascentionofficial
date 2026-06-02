@@ -101,14 +101,12 @@ export default function MachineLockPage() {
     try {
       const initEngine = await loadEngine();
 
-      await runWithRetry(async () => {
       await initEngine(selectedModel, (p: any) => {
         if (abortRef.current || !initializingRef.current) return;
 
-          setProgress({
-            progress: Math.min(100, Math.max(0, Math.round(p.progress * 100))),
-            text: p?.text || "LOADING...",
-          });
+        setProgress({
+          progress: Math.min(100, Math.max(0, Math.round(p.progress * 100))),
+          text: p?.text || "LOADING...",
         });
       });
 
