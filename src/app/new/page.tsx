@@ -165,8 +165,7 @@ Spaced Repetition Targets: [${reviewStr}]
       const generator = generate(
         fullPrompt,
         0.7,
-        undefined,
-        abortController.signal
+        undefined
       );
 
       let cleanContent = "";
