@@ -196,6 +196,12 @@ export async function initEngine(
       let selectedModel = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
+      const forcedPhi =
+  modelId?.toLowerCase().includes("phi");
+
+if (forcedPhi) {
+  selectedModel = modelId!;
+}
 
       state = "LOADING_ENGINE";
 
@@ -253,7 +259,7 @@ export async function initEngine(
             batch_size: isMob ? 1 : undefined,
           },
 
-          useIndexedDBCache: true,
+          useIndexedDBCache: false,
           enableProgressiveLoading: true,
         } as any
       );
