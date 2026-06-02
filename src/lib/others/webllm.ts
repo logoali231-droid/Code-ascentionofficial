@@ -61,7 +61,7 @@ function memoryMB() {
 setInterval(() => {
   if (
     state === "FETCHING_MODEL" &&
-    Date.now() - lastProgress > 20000
+    Date.now() - lastProgress > 120000
   ) {
     console.warn("[WEBLLM V4] STUCK DETECTED → RECOVERY");
     state = "STUCK";
@@ -212,7 +212,9 @@ export async function initEngine(
 
       state = "FETCHING_MODEL";
       lastProgress = Date.now();
-
+      
+      console.log("[WEBLLM] creating engine");
+      console.log("[WEBLLM] selected model:", selectedModel);
       engine = await CreateWebWorkerMLCEngine(
         worker,
         selectedModel,
@@ -220,6 +222,7 @@ export async function initEngine(
           initProgressCallback: (r: any) => {
             onProgress?.(r);
             lastProgress = Date.now();
+            console.log("[WEBLLM PROGRESS]", r);
 
             if (memoryMB() > 950) {
               throw new Error("MEMORY_DURING_INIT");
