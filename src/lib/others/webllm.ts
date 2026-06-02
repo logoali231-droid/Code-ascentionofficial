@@ -63,12 +63,11 @@ setInterval(() => {
     state === "FETCHING_MODEL" &&
     Date.now() - lastProgress > 120000
   ) {
-    console.warn("[WEBLLM V4] STUCK DETECTED → RECOVERY");
+    console.warn("[WEBLLM V4] STUCK DETECTED → SIGNAL ONLY");
     state = "STUCK";
-    emergencyRecover();
+    cancelled = true;
   }
 }, 5000);
-
 /* =========================================================
    MODEL RESOLUTION
 ========================================================= */
@@ -166,7 +165,13 @@ export async function initEngine(
     return engine;
   }
 
-  if (initPromise) return initPromise;
+ if (state === "FAILED") {
+  await emergencyRecover();
+ }
+
+ if (state === "BOOTING" || state === "LOADING_ENGINE" || state === "FETCHING_MODEL") {
+  return initPromise!;
+ }
 
   initPromise = (async () => {
     try {
@@ -204,6 +209,7 @@ export async function initEngine(
 
         worker.onerror = () => {
           state = "FAILED";
+          cancelled = true;
         };
       }
 
@@ -260,13 +266,11 @@ export async function initEngine(
 
       return engine;
     } catch (err) {
-      await emergencyWebLLMCleanup();
-      state = "FAILED";
-      initPromise = null;
-      throw err;
+  state = "FAILED";
+  initPromise = null;
+  throw err;
     }
   })();
-
   return initPromise;
 }
 
