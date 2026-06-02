@@ -5,7 +5,23 @@ import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { detectSystemCapabilities } from "./modelManager";
 
 /* =========================================================
-   GLOBAL SAFE STATE
+   STATE MACHINE (REAL CORE V4)
+========================================================= */
+
+type EngineState =
+  | "IDLE"
+  | "BOOTING"
+  | "FETCHING_MODEL"
+  | "LOADING_ENGINE"
+  | "READY"
+  | "FAILED"
+  | "RECOVERING"
+  | "STUCK";
+
+let state: EngineState = "IDLE";
+
+/* =========================================================
+   GLOBAL ENGINE STATE
 ========================================================= */
 
 let engine: MLCEngineInterface | null = null;
@@ -14,21 +30,13 @@ let worker: Worker | null = null;
 let initPromise: Promise<MLCEngineInterface> | null = null;
 
 let currentModel: string | null = null;
-let engineHealthy = false;
-
 let engineSession = 0;
 
+let lastProgress = Date.now();
+
 /* locks */
-let isInitializing = false;
-let isDownloading = false;
 let generationLock = false;
-let isUnloading = false;
-
 let cancelled = false;
-
-export function cancelGeneration() {
-  cancelled = true;
-}
 
 /* =========================================================
    HELPERS
@@ -46,23 +54,20 @@ function memoryMB() {
   return mem ? mem / 1024 / 1024 : 0;
 }
 
-function isLowMemoryDevice() {
-  const ram = (navigator as any)?.deviceMemory ?? 4;
-  return ram <= 4;
-}
-
 /* =========================================================
-   HARD SINGLETON GUARD (ANTI LOOP CORE)
+   WATCHDOG (ANTI FREEZE CORE)
 ========================================================= */
 
-function isEngineReady(modelId?: string) {
-  return (
-    engine &&
-    engineHealthy &&
-    currentModel &&
-    (!modelId || currentModel === modelId)
-  );
-}
+setInterval(() => {
+  if (
+    state === "FETCHING_MODEL" &&
+    Date.now() - lastProgress > 20000
+  ) {
+    console.warn("[WEBLLM V4] STUCK DETECTED → RECOVERY");
+    state = "STUCK";
+    emergencyRecover();
+  }
+}, 5000);
 
 /* =========================================================
    MODEL RESOLUTION
@@ -72,13 +77,14 @@ function resolveModel(requested?: string) {
   const models = SYSTEM_CONFIG.AVAILABLE_MODELS;
 
   const safeLow = models[0].model_id;
-  const mid = models.find((m) => m.recommendedFor === "MID")?.model_id;
+  const mid = models.find(m => m.recommendedFor === "MID")?.model_id;
 
   let selected = requested ?? mid ?? safeLow;
 
   const isMob = isMobile();
-  const rawRam = (navigator as any)?.deviceMemory ?? 4;
-  const effectiveRam = isMob ? rawRam + 1.5 : rawRam;
+  const ram = (navigator as any)?.deviceMemory ?? 4;
+
+  const effectiveRam = isMob ? ram + 1.5 : ram;
 
   const isPhi = selected.toLowerCase().includes("phi");
 
@@ -86,11 +92,7 @@ function resolveModel(requested?: string) {
     selected = safeLow;
   }
 
-  if (isMob && effectiveRam < 3.2) {
-    selected = safeLow;
-  }
-
-  if (!models.some((m) => m.model_id === selected)) {
+  if (effectiveRam < 3.2) {
     selected = safeLow;
   }
 
@@ -98,64 +100,57 @@ function resolveModel(requested?: string) {
 }
 
 /* =========================================================
-   CLEAN ENGINE (SAFE RESET)
+   EMERGENCY RECOVERY (FIX LOOP STATE)
 ========================================================= */
 
-export async function localUnloadEngine() {
-  if (isUnloading) return;
-  isUnloading = true;
+async function emergencyRecover() {
+  state = "RECOVERING";
 
   try {
-    engineHealthy = false;
-
     if (engine) {
-      await Promise.race([
-        engine.unload(),
-        delay(2000),
-      ]);
+      await engine.unload().catch(() => {});
     }
 
     if (worker) {
-      const w = worker;
-
-      try {
-        w.postMessage({ type: "ABORT" });
-      } catch {}
-
-      w.terminate();
+      worker.terminate();
     }
-  } finally {
-    engine = null;
-    worker = null;
-    initPromise = null;
-    currentModel = null;
+  } catch {}
 
-    isInitializing = false;
-    isDownloading = false;
-    generationLock = false;
-    isUnloading = false;
-  }
+  engine = null;
+  worker = null;
+  initPromise = null;
+  currentModel = null;
+
+  state = "IDLE";
 }
 
 /* =========================================================
-   EMERGENCY CLEAN
+   CLEAN RESET
+========================================================= */
+
+export async function localUnloadEngine() {
+  await emergencyRecover();
+}
+
+/* =========================================================
+   EMERGENCY CLEAN CACHE
 ========================================================= */
 
 export async function emergencyWebLLMCleanup() {
-  await localUnloadEngine();
+  await emergencyRecover();
 
   try {
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter((k) => k.includes("webllm"))
-        .map((k) => caches.delete(k))
+        .filter(k => k.includes("webllm"))
+        .map(k => caches.delete(k))
     );
   } catch {}
 }
 
 /* =========================================================
-   INIT ENGINE (ANTI LOOP VERSION)
+   INIT ENGINE V4 CORE
 ========================================================= */
 
 export async function initEngine(
@@ -163,28 +158,27 @@ export async function initEngine(
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
 
-  if (isEngineReady(modelId)) {
-    return engine!;
+  /* =======================================================
+     HARD GUARD
+  ======================================================= */
+
+  if (state === "READY" && engine && currentModel === modelId) {
+    return engine;
   }
 
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
     try {
+
       if (typeof window === "undefined") {
         throw new Error("SSR_BLOCKED");
       }
 
-      /* 🚫 HARD LOCK: evita múltiplos boots simultâneos */
-      if (isInitializing || isDownloading) {
-        return engine!;
-      }
-
-      isInitializing = true;
+      state = "BOOTING";
 
       const isMob = isMobile();
 
-      /* memory guard */
       if (memoryMB() > (isMob ? 420 : 900)) {
         await emergencyWebLLMCleanup();
         throw new Error("MEMORY_BLOCK");
@@ -192,18 +186,15 @@ export async function initEngine(
 
       const specs = await detectSystemCapabilities();
 
-      let selectedModelId = resolveModel(
+      let selectedModel = resolveModel(
         modelId ?? specs?.recommended?.model_id
       );
 
-      /* 🔒 LOCK: não troca modelo em runtime */
-      if (currentModel && currentModel !== selectedModelId) {
-        await localUnloadEngine();
-      }
-
       /* =====================================================
-         WORKER SINGLETON
+         WORKER INIT
       ===================================================== */
+
+      state = "LOADING_ENGINE";
 
       if (!worker) {
         worker = new Worker(
@@ -211,27 +202,24 @@ export async function initEngine(
           { type: "module" }
         );
 
-        worker.onerror = async () => {
-          engineHealthy = false;
-          await emergencyWebLLMCleanup();
-        };
-
-        worker.onmessageerror = async () => {
-          engineHealthy = false;
-          await emergencyWebLLMCleanup();
+        worker.onerror = () => {
+          state = "FAILED";
         };
       }
 
-      const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
+      const { CreateWebWorkerMLCEngine } =
+        await import("@mlc-ai/web-llm");
 
-      isDownloading = true;
+      state = "FETCHING_MODEL";
+      lastProgress = Date.now();
 
       engine = await CreateWebWorkerMLCEngine(
         worker,
-        selectedModelId,
+        selectedModel,
         {
           initProgressCallback: (r: any) => {
             onProgress?.(r);
+            lastProgress = Date.now();
 
             if (memoryMB() > 950) {
               throw new Error("MEMORY_DURING_INIT");
@@ -260,18 +248,17 @@ export async function initEngine(
         } as any
       );
 
-      currentModel = selectedModelId;
-      engineHealthy = true;
-      engineSession++;
+      state = "READY";
 
-      isDownloading = false;
-      isInitializing = false;
+      currentModel = selectedModel;
+      engineSession++;
 
       initPromise = null;
 
       return engine;
     } catch (err) {
       await emergencyWebLLMCleanup();
+      state = "FAILED";
       initPromise = null;
       throw err;
     }
@@ -281,14 +268,13 @@ export async function initEngine(
 }
 
 /* =========================================================
-   GENERATE SAFE STREAM
+   GENERATE STREAM SAFE
 ========================================================= */
 
 export async function* generate(
   prompt: string,
   temperature = 0.7,
-  onProgress?: (r: any) => void,
-  signal?: AbortSignal
+  onProgress?: (r: any) => void
 ) {
   while (generationLock) {
     await delay(20);
@@ -305,16 +291,13 @@ export async function* generate(
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-      max_tokens: isLowMemoryDevice()
-        ? 256
-        : isMobile()
-          ? 384
-          : 1024,
+      max_tokens: isMobile() ? 384 : 1024,
     } as any);
 
     for await (const chunk of stream as any) {
-      if (session !== engineSession || !engineHealthy) {
-        throw new Error("STALE_ENGINE");
+
+      if (state !== "READY") {
+        throw new Error("ENGINE_NOT_READY");
       }
 
       if (cancelled) {
@@ -326,12 +309,9 @@ export async function* generate(
 
       if (text) {
         yield text;
-
-        if (isMobile()) {
-          await delay(3);
-        }
       }
     }
+
   } catch (err) {
     await emergencyWebLLMCleanup();
     throw err;
