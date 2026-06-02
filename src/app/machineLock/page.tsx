@@ -23,6 +23,7 @@ const loadEngine = async () => {
   const mod = await import("@/lib/others/webllm");
   return mod.initEngine;
 };
+let globalInitInProgress = false;
 
 export default function MachineLockPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function MachineLockPage() {
   const abortRef = useRef(false);
   const initializingRef = useRef(false);
 
+  
   useEffect(() => {
     let alive = true;
 
@@ -90,9 +92,9 @@ export default function MachineLockPage() {
   };
 
   const handleInitialize = async () => {
-    if (initializingRef.current) return;
-    initializingRef.current = true;
+    if (initializingRef.current || isInitializing) return;
 
+    initializingRef.current = true; 
     setIsInitializing(true);
     playSound("click", 0.3);
 
@@ -100,8 +102,8 @@ export default function MachineLockPage() {
       const initEngine = await loadEngine();
 
       await runWithRetry(async () => {
-        await initEngine(selectedModel, (p: any) => {
-          if (abortRef.current) return;
+      await initEngine(selectedModel, (p: any) => {
+        if (abortRef.current || !initializingRef.current) return;
 
           setProgress({
             progress: Math.min(100, Math.max(0, Math.round(p.progress * 100))),
@@ -122,14 +124,17 @@ export default function MachineLockPage() {
       playSound("success", 0.5);
 
       setTimeout(() => {
+        globalInitInProgress = false;
         if (!abortRef.current) router.push("/hub");
       }, 900);
 
     } catch (err) {
       setIsInitializing(false);
       initializingRef.current = false;
+      globalInitInProgress = false;
       playSound("error", 0.5);
       alert("Falha na inicialização. Verifique memória ou GPU.");
+      await resetAppAndClearData().catch(() => {});
     }
   };
 
