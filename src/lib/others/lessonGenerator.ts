@@ -78,12 +78,18 @@ function resolveActiveModule(course: any) {
   return active;
 }
 
-function resolveModuleIndex(course: any, moduleId: string) {
-  return (
+function resolveModuleIndex(
+  course: any,
+  moduleId: string
+) {
+  const index =
     course?.modules?.findIndex(
       (m: any) => m.id === moduleId
-    ) ?? 0
-  );
+    );
+
+  return index >= 0
+    ? index
+    : 0;
 }
 
 /* =========================================================
@@ -122,7 +128,9 @@ export async function generateLessonPlan(params: {
      KNOWLEDGE GRAPH
   ===================================================== */
 
-  const graph = await getKnowledgeGraph(course.id);
+  const graph = course?.id
+    ? await getKnowledgeGraph(course.id)
+    : null;
 
   const graphStats = graph
     ? getGraphStats(graph)

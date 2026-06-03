@@ -33,7 +33,8 @@ export function validateCourse(course: any): boolean {
 
   if (
     !Array.isArray(course.modules) ||
-    course.modules.length === 0
+    course.modules.length === 0 ||
+    course.modules.length > 8
   ) {
     return false;
   }

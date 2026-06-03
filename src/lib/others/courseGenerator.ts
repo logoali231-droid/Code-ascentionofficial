@@ -32,6 +32,13 @@ export async function generateCourse({
   cognitive?: string;
   courseId?: string;
 }): Promise<any> {
+  const normalizedTopic = topic?.trim();
+
+  if (!normalizedTopic) {
+    throw new Error(
+      "[COURSE] Empty topic rejected."
+    );
+  }
   const { maxContextSize, isMobile } = HardwareGovernor.getLimits();
   const limits = HardwareGovernor.getLimits();
   const pedagogicalConstraints = HardwareGovernor.getPedagogicalConstraints(limits.tier);
@@ -313,32 +320,37 @@ FINAL HARD RULES
         : JSON.stringify(rawRes);
     const trimmed = fullResponse.trim();
 
-if (
-  trimmed.startsWith("{") &&
-  !trimmed.endsWith("}")
-) {
-  console.warn(
-    "[COURSE] Incomplete JSON received."
-  );
-}
+    if (
+      trimmed.startsWith("{") &&
+      !trimmed.endsWith("}")
+    ) {
+      console.warn(
+        "[COURSE] Incomplete JSON received."
+      );
+    }
 
     let parsed =
-  cleanAndParseCourseJSON(fullResponse);
+      cleanAndParseCourseJSON(fullResponse);
 
-if (!parsed) {
-  console.warn(
-    "[COURSE] First parse failed. Retrying."
-  );
+    if (!parsed) {
+      console.warn(
+        "[COURSE] First parse failed. Retrying."
+      );
 
-  const retryResponse =
-    await runLLM(
-      prompt +
-      "\nIMPORTANT: Use shorter output."
-    );
+      const retryResponse =
+        await runtimeQueue.enqueue(
+          async (_signal) => {
+            return await runLLM(
+              prompt +
+              "\nIMPORTANT: Use shorter output."
+            );
+          },
+          1
+        );
 
-  parsed =
-    cleanAndParseCourseJSON(retryResponse);
-}
+      parsed =
+        cleanAndParseCourseJSON(retryResponse);
+    }
 
     if (!parsed || !validateCourse(parsed)) {
       console.error(
@@ -364,8 +376,27 @@ if (!parsed) {
 
     return parsed;
   } catch (error) {
-    console.error("Course Generation Failure Pipeline Exception:", error);
-    return null;
-  }
+  console.error(
+    "Course Generation Failure Pipeline Exception:",
+    error
+  );
+
+  return {
+    title: `${topic} Course`,
+    description: `Foundational guide for ${topic}.`,
+    tags: [topic, level],
+    modules: [
+      {
+        id: `module_${Date.now()}`,
+        title: `Introduction to ${topic}`,
+        summary: `Foundations of ${topic}.`,
+        difficulty: 1,
+        generated: false,
+        completed: false,
+        locked: false,
+      },
+    ],
+  };
+}
 }
 
