@@ -27,10 +27,7 @@ setInterval(() => {
 
     console.warn("[WEBLLM WORKER 2.0] HEARTBEAT LOST");
 
-    self.postMessage({
-      type: "WORKER_STUCK",
-      reason: "heartbeat_timeout",
-    });
+    healthy = false;
   }
 }, 5000);
 
@@ -49,10 +46,7 @@ self.onmessage = (msg: MessageEvent) => {
   } catch (err: any) {
     console.error("[WEBLLM WORKER 2.0 ERROR]", err);
 
-    self.postMessage({
-      type: "WORKER_ERROR",
-      message: err?.message ?? "unknown_error",
-    });
+    healthy = false;
   }
 };
 
@@ -65,10 +59,7 @@ self.onerror = (err) => {
 
   healthy = false;
 
-  self.postMessage({
-    type: "WORKER_FATAL",
-    reason: "onerror_triggered",
-  });
+  healthy = false;
 };
 
 /* =========================================================
@@ -78,8 +69,5 @@ self.onerror = (err) => {
 self.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
   console.error("[WEBLLM WORKER 2.0 UNHANDLED]", event.reason);
 
-  self.postMessage({
-    type: "WORKER_PROMISE_REJECTION",
-    reason: String(event.reason),
-  });
+  healthy = false;
 });

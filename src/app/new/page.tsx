@@ -11,6 +11,7 @@ import { suggestDifficulty } from "@/lib/others/learningState";
 import { playSound } from "@/lib/others/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
+import CourseForgeProgress from "@/components/course/CourseForgeProgress";
 
 
 import {
@@ -27,28 +28,25 @@ import { calculateLevel } from "@/lib/others/level";
 
 export default function NewCoursePage() {
   const router = useRouter();
-
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 🔥 separa animação visual do loading real
   const [isForging, setIsForging] = useState(false);
-
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
-
+  const [generatedChars, setGeneratedChars] =
+    useState(0);
+  const [forgeStartedAt, setForgeStartedAt] =
+    useState(0);
   const [user, setUser] = useState<any>(null);
-
   const [cognitiveProfile, setCognitiveProfile] =
     useState<CognitiveProfile>("Standard");
-
   const [customStyle, setCustomStyle] = useState("");
   const isMounted = useRef(true);
   useEffect(() => {
-      return () => {
-        isMounted.current = false;
-      };
-    }, []);
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -68,9 +66,9 @@ export default function NewCoursePage() {
   const abortController = new AbortController();
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
-    
 
-    
+
+
     if (!topic.trim() || loading) return;
 
     if (gibberishDetector.isTotalGibberish(topic, "promptTheme")) {
@@ -83,6 +81,8 @@ export default function NewCoursePage() {
 
     setLoading(true);
     setIsForging(true);
+    setForgeStartedAt(Date.now());
+    setGeneratedChars(0);
 
     setStatus("INITIALIZING_NEURAL_LINK...");
     setProgress(10);
@@ -139,14 +139,14 @@ Spaced Repetition Targets: [${reviewStr}]
 `;
 
       const fullPrompt =
-      await buildCoursePrompt({
-       topic,
-       learningState: learningStateString,
-       courseId,
-       userProfile,
-       customStyle,
-       profile: cognitiveProfile,
-     });
+        await buildCoursePrompt({
+          topic,
+          learningState: learningStateString,
+          courseId,
+          userProfile,
+          customStyle,
+          profile: cognitiveProfile,
+        });
 
       // =========================================================
       // AI GENERATION
@@ -160,7 +160,7 @@ Spaced Repetition Targets: [${reviewStr}]
       const estimatedMaxChars = 35000;
       const hardMaxChars = 50000;
 
-      
+
 
       const generator = generate(
         fullPrompt,
@@ -172,13 +172,14 @@ Spaced Repetition Targets: [${reviewStr}]
 
       for await (const chunk of generator) {
 
-  // 🧠 evita update depois de desmontar componente
-  if (!isMounted.current) {
-    abortController.abort();
-    break;
-  }
+        // 🧠 evita update depois de desmontar componente
+        if (!isMounted.current) {
+          abortController.abort();
+          break;
+        }
 
-  cleanContent += chunk;
+        cleanContent += chunk;
+        setGeneratedChars(cleanContent.length);
 
         // =====================================================
         // HARD SAFETY LIMIT
@@ -221,9 +222,9 @@ Spaced Repetition Targets: [${reviewStr}]
           Math.floor(simulatedProgress);
 
         if (isMounted.current) {
-         setProgress(uiProgress);
-         setStatus( `DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`
-         );
+          setProgress(uiProgress);
+          setStatus(`DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`
+          );
         }
       }
 
@@ -287,20 +288,20 @@ Spaced Repetition Targets: [${reviewStr}]
       }, 1000);
 
     } catch (err) {
-  console.error("Forge Error:", err);
+      console.error("Forge Error:", err);
 
-  abortController.abort();
+      abortController.abort();
 
-  if (isMounted.current) {
-    setStatus("LINK_CRITICAL_FAILURE");
-    setLoading(false);
-  }
+      if (isMounted.current) {
+        setStatus("LINK_CRITICAL_FAILURE");
+        setLoading(false);
+      }
 
-  setTimeout(() => {
-    if (isMounted.current) {
-      setIsForging(false);
-    }
-  }, 1200);
+      setTimeout(() => {
+        if (isMounted.current) {
+          setIsForging(false);
+        }
+      }, 1200);
     }
   }
 
@@ -379,54 +380,13 @@ Spaced Repetition Targets: [${reviewStr}]
           {/* ========================================================= */}
 
           {isForging ? (
-            <div className="space-y-6 p-8 bg-slate-900/50 rounded-2xl border border-slate-800 animate-in fade-in zoom-in duration-500">
-              <div className="flex justify-between items-end mb-2">
-                <div className="space-y-1">
-                  <span className="block text-[10px] text-slate-500 font-bold">
-                    SYSTEM_STATUS
-                  </span>
-
-                  <span className="block text-cyan-400 text-xs font-black tracking-widest animate-pulse">
-                    {status}
-                  </span>
-                </div>
-
-                {/* 🔥 número acompanha barra */}
-                <span className="text-2xl font-black text-slate-700 tabular-nums">
-                  {Math.floor(progress)}%
-                </span>
-              </div>
-
-              {/* ========================================================= */}
-              {/* PROGRESS BAR */}
-              {/* ========================================================= */}
-
-              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
-                <div
-                  className="h-full bg-linear-to-r from-cyan-600 via-blue-500 to-purple-600 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
-                  style={{
-                    width: `${progress}%`,
-                  }}
-                />
-              </div>
-
-              {/* ========================================================= */}
-              {/* INFO BOX */}
-              {/* ========================================================= */}
-
-              <div className="flex items-start gap-3 p-4 bg-slate-950/50 rounded border border-slate-800/50">
-                <Loader2
-                  size={16}
-                  className="text-cyan-500 animate-spin mt-0.5 shrink-0"
-                />
-
-                <p className="text-[9px] text-slate-500 leading-relaxed uppercase">
-                  Notice: The Neural Engine is executing a heavy VRAM operation
-                  on your local GPU. Closing this uplink may corrupt the forge
-                  sequence.
-                </p>
-              </div>
-            </div>
+            <CourseForgeProgress
+              progress={progress}
+              status={status}
+              generatedChars={generatedChars}
+              estimatedChars={35000}
+              startedAt={forgeStartedAt}
+            />
           ) : (
             <div className="space-y-4">
               {status.includes("REJECTED") && (
