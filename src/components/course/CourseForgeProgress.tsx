@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Clock3, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 interface Props {
   progress: number;
@@ -28,20 +28,48 @@ export default function CourseForgeProgress({
   const elapsedSeconds =
     Math.floor((elapsedMs % 60000) / 1000);
 
-  const etaMs =
-    generatedChars > 100
-      ? (elapsedMs / generatedChars) *
-        Math.max(
-          estimatedChars - generatedChars,
-          0,
-        )
+  // =====================================================
+  // DYNAMIC ETA
+  // =====================================================
+
+  const safeEstimatedChars =
+    Math.max(
+      generatedChars * 1.5,
+      estimatedChars,
+    );
+
+  const charsPerSecond =
+    elapsedMs > 0
+      ? generatedChars /
+        (elapsedMs / 1000)
+      : 0;
+
+  const remainingChars =
+    Math.max(
+      safeEstimatedChars -
+        generatedChars,
+      0,
+    );
+
+  const etaSecondsRaw =
+    charsPerSecond > 0
+      ? remainingChars /
+        charsPerSecond
       : 0;
 
   const etaMinutes =
-    Math.floor(etaMs / 60000);
+    Math.floor(
+      etaSecondsRaw / 60,
+    );
 
   const etaSeconds =
-    Math.floor((etaMs % 60000) / 1000);
+    Math.floor(
+      etaSecondsRaw % 60,
+    );
+
+  // =====================================================
+  // STAGES
+  // =====================================================
 
   let stage = "Initializing";
   let stageIndex = 1;
@@ -57,7 +85,7 @@ export default function CourseForgeProgress({
   }
 
   if (progress >= 85) {
-    stage = "Parsing Lessons";
+    stage = "Parsing Course";
     stageIndex = 3;
   }
 
@@ -104,6 +132,7 @@ export default function CourseForgeProgress({
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-xs">
+
         <div className="p-3 rounded border border-slate-800 bg-slate-950/50">
           <p className="text-slate-500 uppercase mb-1">
             Elapsed
@@ -120,11 +149,12 @@ export default function CourseForgeProgress({
           </p>
 
           <p className="font-black text-cyan-400 tabular-nums">
-            {generatedChars > 100
+            {generatedChars > 50
               ? `${etaMinutes}m ${etaSeconds}s`
               : "--"}
           </p>
         </div>
+
       </div>
 
       <div className="p-3 rounded border border-slate-800 bg-slate-950/50">
@@ -133,8 +163,11 @@ export default function CourseForgeProgress({
         </p>
 
         <p className="font-black text-slate-200 text-sm tabular-nums">
-          {generatedChars.toLocaleString()} /{" "}
-          {estimatedChars.toLocaleString()} chars
+          {generatedChars.toLocaleString()} chars
+        </p>
+
+        <p className="text-[10px] text-slate-500 mt-1">
+          {Math.round(charsPerSecond)} chars/sec
         </p>
       </div>
 
@@ -150,9 +183,8 @@ export default function CourseForgeProgress({
           </p>
 
           <p className="text-[10px] text-slate-400 leading-relaxed uppercase">
-            Course generation may take 5 to 15 minutes depending on
-            your GPU, browser and model size.
-            Do not close or refresh this tab.
+            Local generation speed depends mostly on model size,
+            quantization, WebGPU support and browser performance.
           </p>
         </div>
       </div>
