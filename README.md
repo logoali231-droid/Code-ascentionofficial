@@ -1,301 +1,200 @@
-Code Ascension
-Overview
 
-Code Ascension is a browser-native AI-assisted learning and development workspace built around a local-first, hybrid execution architecture.
+# Code Ascension 🧠
 
-The platform integrates on-device large language model inference, persistent browser storage, adaptive educational systems, and isolated multi-runtime execution pipelines. Most core interactions are designed to run directly on the client device using Web APIs, WebAssembly runtimes, and dedicated Web Workers, minimizing dependency on permanent cloud inference infrastructure.
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![WebLLM](https://img.shields.io/badge/WebLLM-0.2.83-cyan)](https://github.com/mlc-ai/web-llm)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/Logoali231/code-ascention/pulls)
 
-Code Ascension operates through a split execution model:
+> **Browser-native AI‑assisted learning workspace**  
+> Local‑first, hybrid execution, and on‑device LLM inference.
 
-Local-first execution layer: AI inference and tooling run on-device when hardware support is available.
-Remote execution layer: An Azure-hosted sandbox runtime is used only when tasks require system-level binaries, compilation toolchains, or isolation constraints that cannot be satisfied in the browser.
+---
 
-This system is designed as a research-grade hybrid runtime for exploring browser-native AI and distributed execution models.
+## 📖 Overview
 
-Primary Modes
-Learn Mode
+Code Ascension is a research‑grade platform that combines:
 
-Learn Mode is the core educational environment of the platform.
+- **On‑device LLM inference** (WebLLM, WebGPU)  
+- **Adaptive educational engine** (curriculum state, mastery tracking)  
+- **Multi‑language sandbox** (local, Wasm, remote containers)  
+- **Persistent offline storage** (OPFS + IndexedDB)
 
-It provides:
+All core interactions run directly in the browser, minimising cloud dependency. Remote infrastructure (Azure containers) is used only for workloads that require system‑level binaries or isolation beyond the browser’s capabilities.
 
-AI-assisted explanations and tutoring flows
-Adaptive exercises and progression systems
-Local-first curriculum state management
-Offline-capable learning experiences after model hydration
-Browser-side inference via WebLLM
-Persistent storage using IndexedDB and OPFS
+---
 
-All learning state is designed to remain available locally whenever possible.
+## ✨ Features
 
-Sandbox Mode
+| Mode | Description |
+|------|-------------|
+| **Learn Mode** | AI explanations, adaptive exercises, offline curriculum, WebLLM inference, IndexedDB persistence |
+| **Sandbox Mode** | Isolated execution for 20+ languages (JS, TS, Python, Java, C++, Rust, etc.) via local, Wasm, or remote backends |
 
-Sandbox Mode is an isolated multi-language execution environment.
+**Stable components**  
+- OPFS workspace & file management  
+- Dexie‑based IndexedDB state  
+- Curriculum & progression engine  
+- ZIP import/export  
+- WebLLM pipeline  
 
-It supports:
+**Evolving / experimental**  
+- Mobile WebGPU reliability  
+- Thermal‑aware execution  
+- Python (Pyodide) stability on low‑end devices  
+- Long‑context inference under memory pressure  
 
-Browser-native execution (JavaScript / TypeScript)
-WebAssembly-based runtimes (e.g. Pyodide Python)
-Remote container execution when required
-Isolated execution routing across multiple engines
+---
 
-The sandbox system is designed as an extensible execution abstraction layer, with support for heterogeneous runtime backends.
+## 🚀 Quick Start
 
-System Status
+### Prerequisites
 
-The platform is functional and actively evolving as a research-driven system. It prioritizes architectural exploration over strict uniform stability across all hardware profiles.
+- Node.js 20+  
+- npm 9+  
+- Modern browser with **WebGPU**, **OPFS**, **SharedArrayBuffer** and **WebAssembly** support.
 
-Stable Components
-OPFS-based workspace persistence
-IndexedDB-based state management
-Local file system abstraction layer
-JavaScript / TypeScript browser execution
-Core WebLLM inference pipeline
-Curriculum and progression engine
-ZIP import/export workflows
-Local caching and workspace restoration
-Evolving Components
-Mobile WebGPU reliability and driver variability
-Long-context inference stability under constrained memory
-Thermal-aware execution balancing on mobile devices
-Multi-language sandbox orchestration
-Remote runtime scaling behavior
-Worker lifecycle stability under rapid model switching
-Memory pressure recovery strategies
-Background tab restoration consistency
-Python execution stability in constrained environments
-System Constraints
+### Installation
 
-Browser-based execution introduces inherent constraints that are treated as platform-level characteristics:
+```bash
+git clone https://github.com/Logoali231/code-ascention.git
+cd code-ascention
+npm install
+```
 
-Memory pressure can trigger tab termination or reloads
-WebGPU behavior varies significantly across devices and drivers
-Mobile environments may enforce aggressive resource reclamation
-Long-running inference sessions may degrade under thermal constraints
-Worker lifecycle may be interrupted under system memory pressure
+Development
 
-These behaviors are considered part of the execution environment rather than application-level faults.
+```bash
+npm run dev
+```
 
-Design Goals
-Minimize dependency on always-on cloud inference systems
-Preserve local-first execution whenever hardware permits
-Maintain persistent educational context on-device
-Provide a browser-accessible development environment without native installation
-Support heterogeneous execution across browser-native and remote runtimes
-Explore hybrid local/remote AI execution strategies
-Enable partially offline educational workflows
-Hybrid Execution Model
+Open http://localhost:3001 – the app runs fully client‑side.
 
-Certain workloads require capabilities beyond browser constraints, including:
+Production Build
 
-Native system binaries
-Process isolation beyond WebWorker boundaries
-Compilation toolchains
-OS-level runtime control
+```bash
+npm run build
+npm run start
+```
 
-For these cases, execution is delegated to a remote container runtime. Complete removal of remote infrastructure is not currently feasible without significantly reducing supported languages and execution fidelity.
+Docker (optional – for remote runtime server)
 
-Architecture
+```bash
+cd runtime-server
+docker build -t code-ascention-runtime .
+docker run -p 3001:3001 code-ascention-runtime
+```
 
-Code Ascension is composed of two primary layers:
+The remote runtime server is optional – local execution works without it.
 
-Browser-native client runtime
-Optional remote execution gateway
-1. Browser Workspace & Persistent Storage
+---
 
-The workspace layer is built on the Origin Private File System (OPFS) via navigator.storage.getDirectory().
+🧠 Architecture
 
-It provides:
+The system is split into two layers:
 
-Persistent workspace storage
-Recursive file system traversal
-Snapshot and state tracking
-ZIP-based import/export pipelines
-Integrity validation flows
+1. Browser‑native client runtime (Next.js, Web Workers, OPFS, WebLLM)
+2. Optional remote execution gateway (Docker + Azure)
 
-Core modules:
+Core modules
 
-workspaceStorage.ts
-workspaceManager.ts
-workspaceSnapshot.ts
-workspaceManifest.ts
-exportProject.ts
-importProject.ts
+· src/lib/sandbox/ – execution abstraction (LocalExecutor, WasmExecutor, RemoteExecutor, NeuralExecutor)
+· src/lib/others/ – curriculum, mastery, reinforcement, vector memory, AI prompts
+· src/lib/workers/ – dedicated workers for WebLLM, Python, logic evaluation, sandbox
+· runtime-server/ – containerised multi‑language executor (Node.js + Docker)
 
-The system is designed to operate independently of external storage providers for core persistence.
+Execution routing
 
-2. Sandbox Execution System
+```typescript
+// Engine selection based on language & hardware
+LocalExecutor → JS/TS
+WasmExecutor  → Python (Pyodide)
+RemoteExecutor→ Java, C#, C++, Go, Rust, etc.
+NeuralExecutor→ heuristic fallback for unsupported runtimes
+```
 
-Execution is abstracted through a unified IEngineExecutor interface.
+Model routing (adaptive)
 
-Each executor processes:
+Tier Model RAM (min) Mobile safe
+LOW Qwen2.5 Coder 0.5B 3 GB ✅
+MID Phi‑3 Mini (exp.) 4 GB ✅
+HIGH Phi‑3.5 Mini (desktop) 8 GB ❌
 
-Source code
-Language identifier
-Optional abort signal
+---
 
-and returns a standardized SandboxResult.
+📦 Technology Stack
 
-Execution Backends
+Layer Technologies
+Frontend React 18, Next.js 15, TypeScript 5, TailwindCSS 4
+Local AI WebLLM, WebGPU, Pyodide
+Persistence OPFS, IndexedDB, Dexie, JSZip
+Remote Docker, Node.js 20, Azure VMs, Cosmos DB
+Web3 Ethers, Viem, Wagmi, WalletConnect
 
-LocalExecutor
-Browser-native execution for JavaScript and TypeScript.
+---
 
-WasmExecutor
-WebAssembly-based execution (e.g. Pyodide Python runtime).
+📁 Project Structure (highlights)
 
-RemoteExecutor
-Delegates execution to isolated container infrastructure when required.
+```
+├── src/
+│   ├── app/              # Next.js pages (Learn, Sandbox, Profile, Shop, etc.)
+│   ├── components/       # UI components (CodeEditor, ExerciseRenderer, NeuralTerminal)
+│   ├── lib/              # Core logic
+│   │   ├── sandbox/      # Execution engines & workspace management
+│   │   ├── others/       # Curriculum, mastery, AI prompts, vector memory
+│   │   └── workers/      # WebLLM, compute, logic, Python workers
+│   └── providers/        # Web3, session providers
+├── public/               # Static assets, service worker
+├── runtime-server/       # Remote execution gateway (Docker)
+└── .github/workflows/    # CI (deploy to Docker Hub)
+```
 
-NeuralExecutor
-Provides heuristic AI-assisted simulation for unsupported or partial execution contexts.
-This layer is not equivalent to deterministic runtime execution.
+---
 
-3. Remote Runtime Infrastructure
+🔧 Configuration
 
-Located in runtime-server/, the remote layer provides containerized execution for workloads requiring native capabilities.
+System limits can be tuned in src/config/system.ts:
 
-Characteristics
-Queue-based execution orchestration
-Docker-isolated containers
-HTTP/WebSocket interface
-Azure VM deployment
-Strict CPU and memory quotas
-Resource Limits
-memory_light: 256MB
-memory_heavy: 512MB
-CPU: 0.5 cores
-Timeout: 15s
+· Model list, memory limits, context window sizes
+· Cleanup thresholds, queue concurrency
+· Mobile‑specific optimisations
 
-These constraints are designed to ensure system stability, prevent runaway execution, and control infrastructure cost.
+Environment variables (optional):
 
-4. Local AI Inference Pipeline
+Variable Purpose
+COSMOS_DB_CONNECTION_STRING Azure Cosmos DB (leaderboard sync)
+NEXT_PUBLIC_SUPABASE_URL/ANON_KEY Cloud backup (profile import/export)
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID Web3 wallet integration
 
-Local inference is powered by WebLLM running inside isolated Web Workers.
+---
 
-Model Routing (Adaptive)
-LOW: Qwen2.5 0.5B
-MID: Phi-3 Mini
-HIGH: Phi-3.5 Mini
-Runtime Signals
-Available system memory
-WebGPU availability
-CPU concurrency
-SharedArrayBuffer support
-Device class detection
+🤝 Contributing
 
-The system dynamically loads and unloads models to reduce memory pressure and prevent browser instability.
+Contributions are welcome! Please follow the existing code style (TypeScript, Tailwind, "use client" for components).
+Open an issue or PR – we use GitHub Actions for type‑checking and builds.
 
-5. Worker Isolation Strategy
+```bash
+npm run lint
+npm run type-check
+```
 
-Dedicated workers handle heavy workloads:
+---
 
-webllm.worker.ts
-sandbox.worker.ts
-pythonWorker.ts
-logic.worker.ts
+📄 License
 
-Mitigation strategies include:
+MIT – see LICENSE file.
 
-Visibility-based suspension
-Memory-pressure-driven cleanup
-Progressive model loading
-IndexedDB model caching
-Controlled model swapping windows
-Worker lifecycle isolation
-6. Privacy Model
+---
 
-By default:
+🙏 Acknowledgements
 
-Prompts remain local during on-device inference
-Workspace data is stored in browser storage
-Curriculum state persists via IndexedDB
+· WebLLM – in‑browser LLM inference
+· Pyodide – Python in WebAssembly
+· Dexie.js – IndexedDB wrapper
+· Lucide – Icons
 
-Remote communication occurs only for:
+---
 
-Sandbox execution
-Model downloads
-External package retrieval
-
-The system does not claim full air-gapped operation.
-
-7. Sustainability Notes
-
-The platform explores reducing reliance on continuous cloud inference by shifting compatible workloads to local hardware.
-
-Local inference introduces trade-offs:
-
-Increased device thermal load
-Large model download sizes
-Higher energy usage on low-end devices
-Browser-dependent efficiency variability
-
-Telemetry-based estimates attempt to approximate:
-
-Local inference energy cost
-Avoided cloud requests
-CO₂ displacement estimates
-
-These metrics are approximate and not scientifically validated.
-
-Technical Stack
-Frontend
-React 18
-Next.js 15
-TypeScript 5
-TailwindCSS 4
-Local Runtime
-WebLLM
-WebGPU
-Pyodide
-Web Workers API
-Persistence
-OPFS
-IndexedDB
-Dexie
-JSZip
-Remote Runtime
-Docker
-Node.js 20
-Azure VM infrastructure
-Azure Cosmos DB
-Web3 Layer
-Ethers
-Viem
-Wagmi
-WalletConnect
-Operational Constraints
-Browser Requirements
-
-Modern APIs required:
-
-WebGPU
-OPFS
-SharedArrayBuffer
-WebAssembly
-
-Legacy environments may experience reduced functionality.
-
-Mobile Behavior
-
-Mobile browsers represent the most constrained execution environment.
-
-Mitigation systems include:
-
-Thermal-aware heuristics
-Automatic worker cleanup
-Reduced context windows
-Memory pressure adaptation
-
-Despite this, instability may still occur under heavy inference workloads.
-
-Remote Dependency
-
-Some execution flows depend on the remote runtime layer.
-
-Full removal of remote infrastructure would significantly reduce supported languages and execution fidelity.
-
-References
-WebLLM: https://github.com/mlc-ai/web-llm
-WebLLM Paper: https://arxiv.org/abs/2412.15803
-WebGPU Spec: https://www.w3.org/TR/webgpu/
+Code Ascension is a research‑driven exploration of browser‑native AI and distributed execution.
+For detailed internals, see the architecture deep‑dive or the system constraints section.
