@@ -197,7 +197,10 @@ Spaced Repetition Targets: [${reviewStr}]
 
         const jsonLooksComplete =
           trimmed.endsWith("}") &&
-          trimmed.includes('"lessons"');
+          (
+            trimmed.includes('"modules"') ||
+            trimmed.includes('"lessons"')
+          );
 
         if (jsonLooksComplete) {
           break;
@@ -232,11 +235,12 @@ Spaced Repetition Targets: [${reviewStr}]
         throw new Error("EMPTY_AI_RESPONSE");
       }
 
-      if (
-        !cleanContent.includes('"lessons"')
-      ) {
-        throw new Error("INVALID_COURSE_SCHEMA");
-      }
+     if (
+      !cleanContent.includes('"modules"') &&
+      !cleanContent.includes('"lessons"')
+    ) {
+  throw new Error("INVALID_COURSE_SCHEMA");
+}
       setProgress(85);
 
       setStatus("PARSING_CURRICULUM_MATRIX...");
@@ -249,19 +253,47 @@ Spaced Repetition Targets: [${reviewStr}]
 
       const courseData = JSON.parse(sanitized);
 
+      if (
+        !courseData.modules &&
+        !courseData.lessons
+      ) {
+        throw new Error("INVALID_COURSE_SCHEMA");
+      }
       setProgress(92);
 
       setStatus("STABILIZING_ENCRYPTION...");
 
       const newCourse = {
-        id: courseId,
-        topic,
-        difficulty,
-        lessons: courseData.lessons || [],
-        createdAt: Date.now(),
-        status: "active",
-      };
+  id: courseId,
+  topic,
 
+  title:
+    courseData.title ||
+    topic,
+
+  description:
+    courseData.description ||
+    "",
+
+  difficulty,
+
+  tags:
+    courseData.tags || [],
+
+  modules:
+    courseData.modules || [],
+
+  lessons:
+    courseData.lessons || [],
+
+  createdAt: Date.now(),
+
+  status: "active",
+    };
+          console.log(
+      "[FORGE COURSE]",
+      JSON.stringify(newCourse, null, 2)
+    );
       await save(
         "courses",
         newCourse,
