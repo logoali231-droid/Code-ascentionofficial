@@ -80,7 +80,7 @@ export default function RootLayout({
           </ClientBody>
         
 
-        {(
+        {process.env.NODE_ENV === "production" &&(
     <>
       <DevConsoleBoot />
       <DevServiceWorkerButton />
