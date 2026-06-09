@@ -1,6 +1,7 @@
 import "./styles/globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
+import DevServiceWorkerButton from "@/components/DevServiceWorkerButton";
 export {
   reportWebVitals,
 } from "./reportWebVitals";
@@ -80,9 +81,12 @@ export default function RootLayout({
         
 
         {process.env.NODE_ENV ===
-          "development" && (
-            <DevConsoleBoot />
-          )}
+  "development" && (
+    <>
+      <DevConsoleBoot />
+      <DevServiceWorkerButton />
+    </>
+  )}
 
         <SpeedInsights />
         <Analytics />
