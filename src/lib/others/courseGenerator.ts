@@ -10,6 +10,7 @@ import { validateCourse } from "./courseValidator";
 import { getUserStrengthsAndWeaknesses } from "./userMemory";
 import { CognitiveProfile } from "@/types/core";
 import { runLLM } from "@/lib/llm/llmExecutor";
+import { CourseSchema } from "../ai/contracts/aiContract";
 
 
 
@@ -54,9 +55,7 @@ export async function generateCourse({
     isMobile: limits.isMobile // Mantenha isso se o buildPromptFragments ainda precisar do booleano
   });
 
-  // O Governor agora encapsula a checagem e retorna o contrato de recursos
-
-  // Opcional: Pegue as restrições pedagógicas baseadas no dispositivo
+  
 
   const compressedMaterial = baseMaterial
     ? compressContext(baseMaterial, maxContextSize)
@@ -264,33 +263,11 @@ SUMMARY RULES
 ================================
 OUTPUT FORMAT
 ================================
-Return ONLY valid compact JSON.
+RETURN JSON STRICTLY FOLLOWING AI_CONTRACT CourseSchema v1
+${CourseSchema}
 
-{
-  "title": "Course primary title",
-
-  "description": "High-level adaptive roadmap overview",
-
-  "tags": ["topic", "level"],
-
-  "modules": [
-    {
-      "id": "module_1",
-
-      "title": "Core Fundamentals",
-
-      "summary": "Foundational concepts and mental models",
-
-      "difficulty": 1,
-
-      "generated": false,
-
-      "completed": false,
-
-      "locked": false
-    }
-  ]
-}
+Do not deviate from schema.
+No additional keys allowed.
 
 ================================
 FINAL HARD RULES
