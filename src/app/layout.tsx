@@ -2,6 +2,8 @@ import "./styles/globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
 import DevServiceWorkerButton from "@/components/DevServiceWorkerButton";
+import DevConsoleBoot from "@/components/DevConsoleBoot";
+import DevModeToggle from "@/components/DevModeToggle";
 export {
   reportWebVitals,
 } from "./reportWebVitals";
@@ -13,7 +15,7 @@ import type {
 
 import Web3Provider from "@/providers/web3Provider";
 import ClientBody from "@/components/ClientBody";
-import DevConsoleBoot from "@/components/DevConsoleBoot";
+
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -72,20 +74,21 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
-        
-          <ClientBody>
-            <Web3Provider>
-              {children}
-            </Web3Provider>
-          </ClientBody>
-        
 
-        {process.env.NODE_ENV === "production" &&(
-    <>
-      <DevConsoleBoot />
-      <DevServiceWorkerButton />
-    </>
-  )}
+        <ClientBody>
+          <Web3Provider>
+            {children}
+          </Web3Provider>
+        </ClientBody>
+
+
+        {process.env.NODE_ENV === "production" && (
+          <>
+            <DevModeToggle />
+            <DevConsoleBoot />
+            <DevServiceWorkerButton />
+          </>
+        )}
 
         <SpeedInsights />
         <Analytics />

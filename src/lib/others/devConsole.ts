@@ -125,7 +125,7 @@ function detectOrigin(error: any) {
 function saveLogs(logs: string[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function loadLogs(): string[] {
@@ -299,7 +299,7 @@ function createUI(addLog: any) {
     try {
       localStorage.setItem(DISABLE_KEY, "true");
       localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {}
+    } catch (e) { }
 
     container.remove(); // Limpa do DOM imediatamente
   };
@@ -314,13 +314,16 @@ function createUI(addLog: any) {
 export function initDevConsole() {
   if (typeof window === "undefined" || window.__DEV_CONSOLE_READY__) return;
 
+  if (localStorage.getItem("dev-mode") !== "true") {
+    return;
+  }
   // Verifica se o console foi morto em um acesso anterior
   try {
     if (localStorage.getItem(DISABLE_KEY) === "true") {
       window.__DEV_DISABLED__ = true;
       return;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   window.__DEV_CONSOLE_READY__ = true;
   window.__DEV_IS_PAUSED__ = false;

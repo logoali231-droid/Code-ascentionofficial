@@ -1,6 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 export default function DevServiceWorkerButton() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    setEnabled(localStorage.getItem("dev-mode") === "true");
+  }, []);
+
+  if (!enabled) return null;
   async function unregister() {
     try {
       const registrations =
