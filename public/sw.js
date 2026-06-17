@@ -73,44 +73,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const url = event.request.url;
 
-  // BYPASS DEFINITIVO PARA ATIVOS DE INTELIGÊNCIA ARTIFICIAL
-  // Se for o Hugging Face, repositório MLC-AI ou arquivos de pesos/wasm, o service worker NÃO INTERCEPTA.
-  if (
-    url.includes('huggingface.co') || 
-    url.includes('mlc-ai') || 
-    url.includes('.wasm') || 
-    url.includes('.bin')
-  ) {
-    return; // Retorno precoce sem chamar event.respondWith. O navegador assume o fluxo de rede puro!
-  }
+const requestUrl = new URL(event.request.url);
+
+const isAI =
+  requestrequestrequestUrl.hostname.includes("huggingface.co") ||
+  requestrequestrequestUrl.hostname.includes("cdn-lfs.huggingface.co") ||
+  requestrequestrequestUrl.hostname.includes("raw.githubusercontent.com") ||
+  requestrequestrequestUrl.hostname.includes("mlc-ai") ||
+  requestUrl.pathname.includes("/models/") ||
+  requestUrl.pathname.includes("/tokenizer") ||
+  requestUrl.pathname.includes("webllm") ||
+  requestUrl.pathname.endsWith(".wasm") ||
+  requestUrl.pathname.endsWith(".bin") ||
+  requestUrl.pathname.endsWith(".gguf") ||
+  requestUrl.pathname.endsWith(".params");
 
   /* =====================================================
      AI / MODEL / WASM DETECTION
   ===================================================== */
-  const isAI =
-    url.hostname.includes("huggingface.co") ||
-    url.hostname.includes("cdn-lfs.huggingface.co") ||
-    url.hostname.includes("raw.githubusercontent.com") ||
-    url.hostname.includes("mlc-ai") ||
-    event.request.url.includes("huggingface.co") ||
-    event.request.url.includes("mlc-ai") ||
-    url.pathname.includes("/models/") ||
-    url.pathname.includes("/tokenizer") ||
-    url.pathname.includes("webllm") ||
-    url.pathname.endsWith(".wasm") ||
-    url.pathname.endsWith(".bin") ||
-    url.pathname.endsWith(".gguf") ||
-    url.pathname.endsWith(".params") ||
-    (
-      url.pathname.endsWith(".json") &&
-      (
-        url.pathname.includes("tokenizer") ||
-        url.pathname.includes("model") ||
-        url.pathname.includes("config")
-      )
-    );
+ if (
+  requestrequestrequestUrl.hostname.includes("huggingface.co") ||
+  requestrequestrequestUrl.hostname.includes("mlc-ai") ||
+  requestUrl.pathname.endsWith(".wasm") ||
+  requestUrl.pathname.endsWith(".bin")
+)
 
   /* =====================================================
      BYPASS TOTAL PARA ASSETS DE IA (NUNCA INTERCEPTAR)
@@ -134,7 +121,7 @@ self.addEventListener("fetch", (event) => {
 
   if (
     ignoredHosts.some((host) =>
-      url.hostname.includes(host),
+    requestUrl.includes(host),
     )
   ) {
     event.respondWith(fetch(event.request));
@@ -159,8 +146,8 @@ self.addEventListener("fetch", (event) => {
           response &&
           response.status === 200 &&
           response.type === "basic" && // Garante que só cacheia arquivos do seu próprio domínio
-          !url.pathname.startsWith("/api/") &&
-          !url.pathname.includes("_next/webpack-hmr");
+          !requestUrl.pathname.startsWith("/api/") &&
+          !requestUrl.pathname.includes("_next/webpack-hmr");
 
         if (shouldCache) {
           const cache = await caches.open(CACHE_NAME);
