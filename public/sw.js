@@ -77,10 +77,9 @@ self.addEventListener("fetch", (event) => {
 const requestUrl = new URL(event.request.url);
 
 const isAI =
-  requestrequestrequestUrl.hostname.includes("huggingface.co") ||
-  requestrequestrequestUrl.hostname.includes("cdn-lfs.huggingface.co") ||
-  requestrequestrequestUrl.hostname.includes("raw.githubusercontent.com") ||
-  requestrequestrequestUrl.hostname.includes("mlc-ai") ||
+  requestUrl.hostname.includes("huggingface.co") ||
+  requestUrl.hostname.includes("raw.githubusercontent.com") ||
+  requestUrl.hostname.includes("mlc-ai") ||
   requestUrl.pathname.includes("/models/") ||
   requestUrl.pathname.includes("/tokenizer") ||
   requestUrl.pathname.includes("webllm") ||
@@ -93,8 +92,8 @@ const isAI =
      AI / MODEL / WASM DETECTION
   ===================================================== */
  if (
-  requestrequestrequestUrl.hostname.includes("huggingface.co") ||
-  requestrequestrequestUrl.hostname.includes("mlc-ai") ||
+  requestUrl.hostname.includes("huggingface.co") ||
+  requestUrl.hostname.includes("mlc-ai") ||
   requestUrl.pathname.endsWith(".wasm") ||
   requestUrl.pathname.endsWith(".bin")
 )
