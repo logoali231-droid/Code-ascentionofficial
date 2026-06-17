@@ -48,10 +48,19 @@ self.addEventListener("activate", (event) => {
 
       await Promise.all(
         keys.map(async (key) => {
-          if (key !== CACHE_NAME) {
-            console.log("[SW] Removing old cache:", key);
-            return caches.delete(key);
-          }
+         await Promise.all(
+  keys.map(async (key) => {
+    if (
+      key === CACHE_NAME ||
+      key.startsWith("webllm/")
+    ) {
+      return;
+    }
+
+    console.log("[SW] Removing old cache:", key);
+    return caches.delete(key);
+  }),
+);
         }),
       );
 
@@ -118,10 +127,11 @@ const isAI =
     "www.google-analytics.com",
   ];
 
-  if (
-    ignoredHosts.some((host) =>
-    requestUrl.includes(host),
-    )
+ if (
+  ignoredHosts.some((host) =>
+    requestUrl.hostname.includes(host)
+  )
+)
   ) {
     event.respondWith(fetch(event.request));
     return;
