@@ -285,6 +285,7 @@ FINAL HARD RULES
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
+	      console.log("[COURSE PROMPT SIZE]", prompt.length);
         return await runLLM(prompt);
       },
       1 // Prioridade 1 (Alta) para geração do curso
@@ -317,6 +318,7 @@ FINAL HARD RULES
       const retryResponse =
         await runtimeQueue.enqueue(
           async (_signal) => {
+						console.log("[COURSE PROMPT SIZE]", prompt.length);
             return await runLLM(
               prompt +
               "\nIMPORTANT: Use shorter output."
