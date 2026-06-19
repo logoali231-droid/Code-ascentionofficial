@@ -117,6 +117,16 @@ INSTRUCTION:
 2. If they master a topic (Strength), skip basic definitions in those sub-areas and move to complex implementation.
 3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
 `;
+  console.log(
+  "[COURSE]",
+  {
+    topicLength: topic.length,
+    materialLength: baseMaterial?.length ?? 0,
+    compressedLength: compressedMaterial.length,
+    vectorMemoryLength: vectorMemoryContext.length,
+    adaptiveContextLength: adaptiveContext.length,
+  }
+);
 
   const prompt = `
 You are an elite adaptive curriculum architect operating inside the Code Ascension procedural learning system.
@@ -281,11 +291,15 @@ FINAL HARD RULES
 - Never leave JSON unfinished.
 - Prioritize structural completion over detail.
 `;
+console.log(
+  "[COURSE PROMPT SIZE]",
+  prompt.length
+);
 
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
-	      console.log("[COURSE PROMPT SIZE]", prompt.length);
+	      console.log("[COURSE MODEL STATE]",{model: modelId,memory: (performance as any)?.memory?.usedJSHeapSize ? Math.round((performance as any).memory.usedJSHeapSize /  1024 / 1024  ): "unknown"  });
         return await runLLM(prompt);
       },
       1 // Prioridade 1 (Alta) para geração do curso
