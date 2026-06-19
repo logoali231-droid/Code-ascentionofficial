@@ -299,7 +299,6 @@ console.log(
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
-	      console.log("[COURSE MODEL STATE]",{model:modelId,memory: (performance as any)?.memory?.usedJSHeapSize ? Math.round((performance as any).memory.usedJSHeapSize /  1024 / 1024  ): "unknown"  });
         return await runLLM(prompt);
       },
       1 // Prioridade 1 (Alta) para geração do curso
