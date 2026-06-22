@@ -79,7 +79,7 @@ const SYSTEM_CONFIG = {
     context_window_size: 512,
     sliding_window_size: 128,
   }
-}
+},
   /* =========================================================
      CLEANUP / MEMORY PRESSURE
   ========================================================= */
