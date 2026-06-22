@@ -75,6 +75,8 @@ const SYSTEM_CONFIG = {
   context_window_size: 1024,
   sliding_window_size: 256,
 
+  attention_sink_size: 4,
+
   MOBILE: {
     context_window_size: 512,
     sliding_window_size: 128,
