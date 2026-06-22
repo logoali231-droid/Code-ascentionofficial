@@ -71,41 +71,15 @@ const SYSTEM_CONFIG = {
      LOCAL LLM CONFIG
   ========================================================= */
 
-  LLM: {
-    /* =====================================================
-       DESKTOP
-    ===================================================== */
+ LLM: {
+  context_window_size: 1024,
+  sliding_window_size: 256,
 
-    /*
-      1536 já é relativamente seguro
-      sem explodir KV cache.
-    */
-
-    context_window_size: 1536,
-
-    /*
-      Desktop aguenta mais contexto.
-    */
-
-    sliding_window_size: 768,
-
-    /*
-      Pequeno sink melhora continuidade
-      sem custo absurdo.
-    */
-
-    attention_sink_size: 4,
-
-    /* =====================================================
-       MOBILE
-    ===================================================== */
-
-    MOBILE: {
-      context_window_size: 768,
-      sliding_window_size: 256,
-    }
-  },
-
+  MOBILE: {
+    context_window_size: 512,
+    sliding_window_size: 128,
+  }
+}
   /* =========================================================
      CLEANUP / MEMORY PRESSURE
   ========================================================= */
