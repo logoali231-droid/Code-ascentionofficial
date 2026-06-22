@@ -309,7 +309,7 @@ export async function* generate(
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-      max_tokens: isMobile() ? 384 : 1024,
+     max_tokens: isMobile() ? 256 : 512,
     } as any);
 
     for await (const chunk of stream as any) {
