@@ -96,6 +96,8 @@ export async function generateCourse({
     limit: 3,
   });
 
+	
+
   const adaptiveContext = `
 ================================
 USER ADAPTIVE PROFILE (MIND PALACE)
@@ -125,6 +127,15 @@ INSTRUCTION:
     compressedLength: compressedMaterial.length,
     vectorMemoryLength: vectorMemoryContext.length,
     adaptiveContextLength: adaptiveContext.length,
+  }
+);
+  console.log(
+  "[COURSE SIZE]",
+  {
+    material: compressedMaterial.length,
+    adaptive: adaptiveContext.length,
+    cognitive: cognitiveFragments.length,
+    schema: String(CourseSchema).length
   }
 );
 
@@ -299,6 +310,10 @@ console.log(
   try {
     const rawRes = await runtimeQueue.enqueue(
       async (_signal) => {
+		  console.log(
+  "[FINAL PROMPT LENGTH]",
+  prompt.length
+);
         return await runLLM(prompt);
       },
       1 // Prioridade 1 (Alta) para geração do curso
