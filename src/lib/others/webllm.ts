@@ -153,7 +153,12 @@ async function forceCleanCacheIfNeeded() { ... }
 ========================================================= */
 
 export async function initEngine(
-  console.log(
+  
+  modelId?: string,
+  onProgress?: (r: any) => void
+): Promise<MLCEngineInterface> {
+
+   console.log(
   "[INIT ENGINE]",
   {
     state,
@@ -163,9 +168,6 @@ export async function initEngine(
     hasPromise: !!initPromise,
   }
 );
-  modelId?: string,
-  onProgress?: (r: any) => void
-): Promise<MLCEngineInterface> {
 
   /* 🔒 GLOBAL LOCK (fixes parallel init) */
   if (globalInitLock) return initPromise!;
@@ -201,6 +203,16 @@ export async function initEngine(
         }
 
         const specs = await detectSystemCapabilities();
+         console.log(
+  "[LIMITS]",
+  {
+    desktopContext:
+      SYSTEM_CONFIG.LLM.context_window_size,
+    mobileContext:
+      SYSTEM_CONFIG.LLM.MOBILE.context_window_size,
+    isMobile: isMob,
+  }
+);
 
         let selectedModel = resolveModel(
           modelId ?? specs?.recommended?.model_id
