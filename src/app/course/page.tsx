@@ -116,8 +116,12 @@ export default function CoursePage() {
 
         console.log("[COURSE] Starting load()");
 
-        const userData = await getUser();
+       const userData = await getUser();
 
+       console.log(
+         "[USER MODEL SAVED]",
+         userData?.model
+       );
         if (controller.signal.aborted) return;
 
         console.log("[COURSE] User loaded");
@@ -183,11 +187,14 @@ export default function CoursePage() {
 
         const initEngine = await loadEngine();
 
+        console.log(
+          "[COURSE MODEL]",
+          userData?.model
+        );
 
-
-        await initEngine(undefined, (report) => {
+        await initEngine(userData?.model, (report) => {
           if (controller.signal.aborted) return;
-
+        
           setDownloadInfo({
             text: report.text,
             model: "Neural Engine v1.0",
