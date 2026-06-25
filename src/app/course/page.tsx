@@ -185,14 +185,11 @@ export default function CoursePage() {
           "[COURSE] Initializing WebLLM engine..."
         );
 
-        const initEngine = await loadEngine();
+       const initEngine = await loadEngine();
 
-        console.log(
-          "[COURSE MODEL]",
-          userData?.model
-        );
-
-        await initEngine(userData?.model, (report) => {
+      await initEngine(
+        userData?.model,
+        (report) => {
           if (controller.signal.aborted) return;
         
           setDownloadInfo({
