@@ -84,19 +84,23 @@ function resolveModel(requested?: string) {
   const models = SYSTEM_CONFIG.AVAILABLE_MODELS;
 
   const safeLow = models[0].model_id;
-  const mid = models.find(m => m.recommendedFor === "MID")?.model_id;
+  const mid = models.find(
+    m => m.recommendedFor === "MID"
+  )?.model_id;
 
   let selected = requested ?? mid ?? safeLow;
 
   const isMob = isMobile();
-  const ram = (navigator as any)?.deviceMemory ?? 4;
+  const ram =
+    (navigator as any)?.deviceMemory ?? 4;
 
-  const effectiveRam = isMob ? ram : ram;
-  const isPhi = selected.toLowerCase().includes("phi");
+  const effectiveRam = ram;
 
-  const explicitPhi = requested?.toLowerCase().includes("phi");
+  const isPhi =
+    selected.toLowerCase().includes("phi");
 
-   
+  const explicitPhi =
+    requested?.toLowerCase().includes("phi");
 
   if (isPhi) {
     const minOk = effectiveRam >= 4;
@@ -106,16 +110,13 @@ function resolveModel(requested?: string) {
     }
   }
 
-  return selected;
-}
-console.log(
-  "[MODEL RESOLVE]",
-  {
+  console.log("[MODEL RESOLVE]", {
     requested,
     selected,
-  }
-);
+  });
 
+  return selected;
+}
 /* =========================================================
    RECOVERY (LESS DESTRUCTIVE)
 ========================================================= */
