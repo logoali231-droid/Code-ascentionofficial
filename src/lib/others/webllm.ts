@@ -153,6 +153,16 @@ async function forceCleanCacheIfNeeded() { ... }
 ========================================================= */
 
 export async function initEngine(
+  console.log(
+  "[INIT ENGINE]",
+  {
+    state,
+    currentModel,
+    hasEngine: !!engine,
+    hasWorker: !!worker,
+    hasPromise: !!initPromise,
+  }
+);
   modelId?: string,
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
@@ -226,6 +236,11 @@ export async function initEngine(
 
         await validateCache();
 
+        
+        console.log(
+  "[CREATING ENGINE]",
+  selectedModel
+);
         engine = await CreateWebWorkerMLCEngine(
           worker,
           selectedModel,
