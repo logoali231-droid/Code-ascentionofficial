@@ -186,9 +186,17 @@ export async function initEngine(
   try {
 
     /* reuse safe instance */
-    if (state === "READY" && engine && currentModel === modelId) {
-      return engine;
-    }
+  if (
+  state === "READY" &&
+  engine
+) {
+  console.log(
+    "[ENGINE REUSE]",
+    currentModel
+  );
+
+  return engine;
+}
 
     /* prevent parallel init */
     if (initPromise) return initPromise;
