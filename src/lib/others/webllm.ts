@@ -304,6 +304,8 @@ export async function* generate(
 
   try {
     const engineRef = await initEngine(undefined, onProgress);
+    console.log("[WEBLLM STATE]", { model: currentModel,promptSize: prompt.length,state,});
+
 
     const stream = await engineRef.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
