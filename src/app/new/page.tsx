@@ -251,7 +251,18 @@ Spaced Repetition Targets: [${reviewStr}]
         .replace(/```/g, "")
         .trim();
 
-      const courseData = JSON.parse(sanitized);
+     let courseData;
+
+try {
+  courseData = JSON.parse(sanitized);
+} catch (e) {
+  console.error(
+    "[RAW AI OUTPUT]",
+    cleanContent
+  );
+
+  throw new Error("JSON_PARSE_FAILED");
+}
 
       if (
         !courseData.modules &&
