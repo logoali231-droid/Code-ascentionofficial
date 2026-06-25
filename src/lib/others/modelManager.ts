@@ -131,7 +131,11 @@ export async function detectSystemCapabilities(): Promise<SystemSpecs> {
       modelTier = "MID";
     }
 
-    if (memory >= 8 && cores >= 8) {
+    if (
+      memory >= 16 &&
+      cores >= 8 &&
+      !isMobile
+    ) {
       modelTier = "HIGH";
       gpuLimit = 4096;
     }
