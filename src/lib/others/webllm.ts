@@ -96,6 +96,8 @@ function resolveModel(requested?: string) {
 
   const explicitPhi = requested?.toLowerCase().includes("phi");
 
+   
+
   if (isPhi) {
     const minOk = effectiveRam >= 4;
 
@@ -106,6 +108,13 @@ function resolveModel(requested?: string) {
 
   return selected;
 }
+console.log(
+  "[MODEL RESOLVE]",
+  {
+    requested,
+    selected,
+  }
+);
 
 /* =========================================================
    RECOVERY (LESS DESTRUCTIVE)
