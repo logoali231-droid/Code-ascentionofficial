@@ -167,7 +167,7 @@ export async function initEngine(
   modelId?: string,
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
-
+   console.log("[INIT PARAM]", modelId);
    console.log(
   "[INIT ENGINE]",
   {
