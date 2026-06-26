@@ -23,13 +23,8 @@ self.addEventListener("install", (event) => {
 
       for (const url of ASSETS_TO_CACHE) {
         try {
-          const response = await fetch(url, {
-            cache: "no-cache",
-          });
-
-          if (response.ok) {
-            await cache.put(url, response);
-          }
+          const response = await fetch(url, { cache: "no-cache" });
+          if (response.ok) await cache.put(url, response);
         } catch (err) {
           console.warn("[SW INSTALL]", url, err);
         }
@@ -48,24 +43,13 @@ self.addEventListener("activate", (event) => {
 
       await Promise.all(
         keys.map(async (key) => {
-         await Promise.all(
-  keys.map(async (key) => {
-    if (
-      key === CACHE_NAME ||
-      key.startsWith("webllm/")
-    ) {
-      return;
-    }
-
-    console.log("[SW] Removing old cache:", key);
-    return caches.delete(key);
-  }),
-);
+          if (key === CACHE_NAME || key.startsWith("webllm/")) return;
+          console.log("[SW] Removing old cache:", key);
+          return caches.delete(key);
         }),
       );
 
       console.log("[SW] Controle assumido. Pipelines prontos.");
-
       await self.clients.claim();
     })(),
   );
@@ -74,52 +58,26 @@ self.addEventListener("activate", (event) => {
 /* =========================================================
    FETCH EVENT
 ========================================================= */
-/* =========================================================
-   FETCH EVENT
-========================================================= */
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
-    return;
-  }
+  if (event.request.method !== "GET") return;
 
+  const requestUrl = new URL(event.request.url);
 
-const requestUrl = new URL(event.request.url);
+  const isAI =
+    requestUrl.hostname.includes("huggingface.co") ||
+    requestUrl.hostname.includes("raw.githubusercontent.com") ||
+    requestUrl.hostname.includes("mlc-ai") ||
+    requestUrl.pathname.includes("/models/") ||
+    requestUrl.pathname.includes("/tokenizer") ||
+    requestUrl.pathname.includes("webllm") ||
+    requestUrl.pathname.endsWith(".wasm") ||
+    requestUrl.pathname.endsWith(".bin") ||
+    requestUrl.pathname.endsWith(".gguf") ||
+    requestUrl.pathname.endsWith(".params");
 
-const isAI =
-  requestUrl.hostname.includes("huggingface.co") ||
-  requestUrl.hostname.includes("raw.githubusercontent.com") ||
-  requestUrl.hostname.includes("mlc-ai") ||
-  requestUrl.pathname.includes("/models/") ||
-  requestUrl.pathname.includes("/tokenizer") ||
-  requestUrl.pathname.includes("webllm") ||
-  requestUrl.pathname.endsWith(".wasm") ||
-  requestUrl.pathname.endsWith(".bin") ||
-  requestUrl.pathname.endsWith(".gguf") ||
-  requestUrl.pathname.endsWith(".params");
+  // Never intercept AI model assets to avoid CORS/COEP issues (.wasm/.bin)
+  if (isAI) return;
 
-  /* =====================================================
-     AI / MODEL / WASM DETECTION
-  ===================================================== */
- if (
-  requestUrl.hostname.includes("huggingface.co") ||
-  requestUrl.hostname.includes("mlc-ai") ||
-  requestUrl.pathname.endsWith(".wasm") ||
-  requestUrl.pathname.endsWith(".bin")
-)
-
-  /* =====================================================
-     BYPASS TOTAL PARA ASSETS DE IA (NUNCA INTERCEPTAR)
-  ===================================================== */
-  if (isAI) {
-    // Ao dar return sem chamar event.respondWith(), dizemos ao navegador
-    // para ignorar o Service Worker e fazer a requisição de rede nativa.
-    // Isso evita erros de CORS/COEP com arquivos .wasm e .bin de qualquer modelo.
-    return;
-  }
-
-  /* =====================================================
-     IGNORE EXTENSION / WALLET / CROSS-ORIGIN NOISE
-  ===================================================== */
   const ignoredHosts = [
     "verify.walletconnect.org",
     "relay.walletconnect.com",
@@ -127,34 +85,25 @@ const isAI =
     "www.google-analytics.com",
   ];
 
- if (
-  ignoredHosts.some((host) =>
-    requestUrl.hostname.includes(host)
-  )
-)
+  if (
+    ignoredHosts.some((host) => requestUrl.hostname.includes(host))
   ) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  /* =====================================================
-     ESTRATÉGIA DE CACHE (Apenas para arquivos locais do App)
-  ===================================================== */
   event.respondWith(
     (async () => {
       try {
         const cached = await caches.match(event.request);
-
-        if (cached) {
-          return cached;
-        }
+        if (cached) return cached;
 
         const response = await fetch(event.request);
 
         const shouldCache =
           response &&
           response.status === 200 &&
-          response.type === "basic" && // Garante que só cacheia arquivos do seu próprio domínio
+          response.type === "basic" &&
           !requestUrl.pathname.startsWith("/api/") &&
           !requestUrl.pathname.includes("_next/webpack-hmr");
 
@@ -165,21 +114,12 @@ const isAI =
 
         return response;
       } catch (err) {
-        console.error(
-          "[SW FETCH ERROR]",
-          event.request.url,
-          err,
-        );
-
+        console.error("[SW FETCH ERROR]", event.request.url, err);
         return new Response(
-          JSON.stringify({
-            error: "network_error",
-          }),
+          JSON.stringify({ error: "network_error" }),
           {
             status: 503,
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
           },
         );
       }
@@ -190,14 +130,11 @@ const isAI =
 /* =========================================================
    BACKGROUND MESSAGE CHANNEL
 ========================================================= */
-
 self.addEventListener("message", (event) => {
-  if (
-    event.data &&
-    event.data.type === "DETERMINISTIC_CLEANUP"
-  ) {
+  if (event.data && event.data.type === "DETERMINISTIC_CLEANUP") {
     console.log(
       "[SW Channel] Pipeline secundário ativado: Auto-Cleanup validado com sucesso.",
     );
   }
 });
+
