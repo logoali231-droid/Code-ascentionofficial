@@ -206,11 +206,16 @@ Spaced Repetition Targets: [${reviewStr}]
         }
       }
 
-      if (!cleanContent.trim()) {
-        throw new Error("EMPTY_AI_RESPONSE");
-      }
-      console.log("[RAW COURSE RESPONSE]");
-      console.log(cleanContent);
+      if (
+    !cleanContent.includes('"modules"') &&
+    !cleanContent.includes('"lessons"')
+) {
+    console.error("===== RAW RESPONSE =====");
+    console.error(cleanContent);
+    console.error("========================");
+
+    throw new Error("INVALID_COURSE_SCHEMA");
+}
       if (
         !cleanContent.includes('"modules"') &&
         !cleanContent.includes('"lessons"')
