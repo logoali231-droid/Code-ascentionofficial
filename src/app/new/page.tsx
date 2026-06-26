@@ -236,7 +236,8 @@ Spaced Repetition Targets: [${reviewStr}]
 
         throw new Error("JSON_PARSE_FAILED");
       }
-
+      console.log("[RAW COURSE RESPONSE]");
+      console.log(courseData);
       if (!courseData.modules && !courseData.lessons) {
         throw new Error("INVALID_COURSE_SCHEMA");
       }
