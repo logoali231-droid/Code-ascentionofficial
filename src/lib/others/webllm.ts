@@ -186,17 +186,7 @@ export async function initEngine(
   try {
 
     /* reuse safe instance */
-  if (
-  state === "READY" &&
-  engine
-) {
-  console.log(
-    "[ENGINE REUSE]",
-    currentModel
-  );
-
-  return engine;
-}
+  
 
     /* prevent parallel init */
     if (initPromise) return initPromise;
@@ -235,6 +225,35 @@ export async function initEngine(
         let selectedModel = resolveModel(
           modelId ?? specs?.recommended?.model_id
         );
+        /* reuse only if correct model */
+if (
+  state === "READY" &&
+  engine &&
+  currentModel === selectedModel
+) {
+  console.log(
+    "[ENGINE REUSE]",
+    currentModel
+  );
+
+  return engine;
+}
+
+/* loaded with another model */
+if (
+  state === "READY" &&
+  engine &&
+  currentModel !== selectedModel
+) {
+  console.warn(
+    "[MODEL CHANGE]",
+    currentModel,
+    "→",
+    selectedModel
+  );
+
+  await emergencyRecover();
+}
 
         const forcedPhi =
           modelId?.toLowerCase().includes("phi");
