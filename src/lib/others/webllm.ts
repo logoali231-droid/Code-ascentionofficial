@@ -3,7 +3,7 @@
 import { SYSTEM_CONFIG } from "@/config/system";
 import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { detectSystemCapabilities } from "./modelManager";
-
+import { get } from "./db";
 /* =========================================================
    STATE MACHINE (REAL CORE V4)
 ========================================================= */
@@ -225,35 +225,7 @@ export async function initEngine(
         let selectedModel = resolveModel(
           modelId ?? specs?.recommended?.model_id
         );
-        /* reuse only if correct model */
-if (
-  state === "READY" &&
-  engine &&
-  currentModel === selectedModel
-) {
-  console.log(
-    "[ENGINE REUSE]",
-    currentModel
-  );
-
-  return engine;
-}
-
-/* loaded with another model */
-if (
-  state === "READY" &&
-  engine &&
-  currentModel !== selectedModel
-) {
-  console.warn(
-    "[MODEL CHANGE]",
-    currentModel,
-    "→",
-    selectedModel
-  );
-
-  await emergencyRecover();
-}
+        
 
         const forcedPhi =
           modelId?.toLowerCase().includes("phi");
@@ -367,7 +339,12 @@ export async function* generate(
   generationLock = true;
 
   try {
-    const engineRef = await initEngine(undefined, onProgress);
+    const user = await get("user", "main");
+
+    const engineRef = await initEngine(
+      user?.model,
+      onProgress
+    );
     console.log("[WEBLLM STATE]", { model: currentModel,promptSize: prompt.length,state,});
 
 
