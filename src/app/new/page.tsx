@@ -138,7 +138,7 @@ Spaced Repetition Targets: [${reviewStr}]
         stylePrompt,
         cognitive,
         courseId,
-      }),
+      });
 
       // =========================================================
       // AI GENERATION
