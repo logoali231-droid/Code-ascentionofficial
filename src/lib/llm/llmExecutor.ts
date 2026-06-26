@@ -32,7 +32,7 @@ function getWorker() {
     console.log("[LLM] Creating worker...");
 
     worker = new Worker(
-      new URL("../../workers/llmWorker.ts", import.meta.url),
+      new URL("../workers/webllm.worker.ts", import.meta.url),
       {
         type: "module",
       },
