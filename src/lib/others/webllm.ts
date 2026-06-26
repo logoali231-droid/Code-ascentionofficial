@@ -4,6 +4,7 @@ import { SYSTEM_CONFIG } from "@/config/system";
 import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 import { detectSystemCapabilities } from "./modelManager";
 import { get } from "./db";
+import { validateCourse } from "./courseValidator";
 /* =========================================================
    STATE MACHINE (REAL CORE V4)
 ========================================================= */

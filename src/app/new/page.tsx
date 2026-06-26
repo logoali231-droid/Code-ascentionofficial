@@ -1,6 +1,9 @@
 "use client";
 
-import { getWeakTopics, getSuggestedTopics } from "@/lib/others/curriculumState";
+import {
+  getWeakTopics,
+  getSuggestedTopics,
+} from "@/lib/others/curriculumState";
 import { getReviewConcepts } from "@/lib/others/mastery";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -12,7 +15,7 @@ import { playSound } from "@/lib/others/sounds";
 import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
 import CourseForgeProgress from "@/components/course/CourseForgeProgress";
-
+import { validateCourse } from "src/lib/others/courseValidator";
 
 import {
   Cpu,
@@ -33,10 +36,8 @@ export default function NewCoursePage() {
   const [isForging, setIsForging] = useState(false);
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
-  const [generatedChars, setGeneratedChars] =
-    useState(0);
-  const [forgeStartedAt, setForgeStartedAt] =
-    useState(0);
+  const [generatedChars, setGeneratedChars] = useState(0);
+  const [forgeStartedAt, setForgeStartedAt] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [cognitiveProfile, setCognitiveProfile] =
     useState<CognitiveProfile>("Standard");
@@ -47,7 +48,6 @@ export default function NewCoursePage() {
       isMounted.current = false;
     };
   }, []);
-
 
   useEffect(() => {
     async function loadUser() {
@@ -62,12 +62,9 @@ export default function NewCoursePage() {
     loadUser();
   }, []);
 
-
   const abortController = new AbortController();
   const handleForge = async (e: React.FormEvent) => {
     e.preventDefault();
-
-
 
     if (!topic.trim() || loading) return;
 
@@ -90,10 +87,7 @@ export default function NewCoursePage() {
     playSound("click", 0.3);
 
     try {
-      const difficulty = await suggestDifficulty(
-        topic,
-        cognitiveProfile,
-      );
+      const difficulty = await suggestDifficulty(topic, cognitiveProfile);
 
       setProgress(25);
 
@@ -109,16 +103,13 @@ export default function NewCoursePage() {
       // ADAPTIVE LEARNING STATE
       // =========================================================
 
-      const currentCourseId =
-        user?.activeCourse || "main";
+      const currentCourseId = user?.activeCourse || "main";
 
-      const weakTopics =
-        await getWeakTopics(currentCourseId);
+      const weakTopics = await getWeakTopics(currentCourseId);
 
       await getSuggestedTopics(currentCourseId);
 
-      const spacedRepetitionTargets =
-        await getReviewConcepts(3);
+      const spacedRepetitionTargets = await getReviewConcepts(3);
 
       const weakTopicsStr =
         weakTopics
@@ -127,9 +118,8 @@ export default function NewCoursePage() {
           .join(", ") || "None detected";
 
       const reviewStr =
-        spacedRepetitionTargets
-          .map((c) => c.conceptId)
-          .join(", ") || "None pending";
+        spacedRepetitionTargets.map((c) => c.conceptId).join(", ") ||
+        "None pending";
 
       const learningStateString = `
 Level: ${realLevel},
@@ -138,15 +128,14 @@ Critical Weaknesses: [${weakTopicsStr}],
 Spaced Repetition Targets: [${reviewStr}]
 `;
 
-      const fullPrompt =
-        await buildCoursePrompt({
-          topic,
-          learningState: learningStateString,
-          courseId,
-          userProfile,
-          customStyle,
-          profile: cognitiveProfile,
-        });
+      const fullPrompt = await buildCoursePrompt({
+        topic,
+        learningState: learningStateString,
+        courseId,
+        userProfile,
+        customStyle,
+        profile: cognitiveProfile,
+      });
 
       // =========================================================
       // AI GENERATION
@@ -160,18 +149,11 @@ Spaced Repetition Targets: [${reviewStr}]
       const estimatedMaxChars = 35000;
       const hardMaxChars = 50000;
 
-
-
-      const generator = generate(
-        fullPrompt,
-        0.7,
-        undefined
-      );
+      const generator = generate(fullPrompt, 0.7, undefined);
 
       let cleanContent = "";
 
       for await (const chunk of generator) {
-
         // 🧠 evita update depois de desmontar componente
         if (!isMounted.current) {
           abortController.abort();
@@ -197,10 +179,7 @@ Spaced Repetition Targets: [${reviewStr}]
 
         const jsonLooksComplete =
           trimmed.endsWith("}") &&
-          (
-            trimmed.includes('"modules"') ||
-            trimmed.includes('"lessons"')
-          );
+          (trimmed.includes('"modules"') || trimmed.includes('"lessons"'));
 
         if (jsonLooksComplete) {
           break;
@@ -212,21 +191,17 @@ Spaced Repetition Targets: [${reviewStr}]
 
         const targetProgress = Math.min(
           78,
-          40 + (
-            cleanContent.length /
-            estimatedMaxChars
-          ) * 38,
+          40 + (cleanContent.length / estimatedMaxChars) * 38,
         );
 
-        simulatedProgress +=
-          (targetProgress - simulatedProgress) * 0.15;
+        simulatedProgress += (targetProgress - simulatedProgress) * 0.15;
 
-        const uiProgress =
-          Math.floor(simulatedProgress);
+        const uiProgress = Math.floor(simulatedProgress);
 
         if (isMounted.current) {
           setProgress(uiProgress);
-          setStatus(`DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`
+          setStatus(
+            `DOWNLOADING_NEURAL_DATA... [${uiProgress}% | ${cleanContent.length} chars]`,
           );
         }
       }
@@ -234,13 +209,14 @@ Spaced Repetition Targets: [${reviewStr}]
       if (!cleanContent.trim()) {
         throw new Error("EMPTY_AI_RESPONSE");
       }
-
-     if (
-      !cleanContent.includes('"modules"') &&
-      !cleanContent.includes('"lessons"')
-    ) {
-  throw new Error("INVALID_COURSE_SCHEMA");
-}
+      console.log("[RAW COURSE RESPONSE]");
+      console.log(cleanContent);
+      if (
+        !cleanContent.includes('"modules"') &&
+        !cleanContent.includes('"lessons"')
+      ) {
+        throw new Error("INVALID_COURSE_SCHEMA");
+      }
       setProgress(85);
 
       setStatus("PARSING_CURRICULUM_MATRIX...");
@@ -251,23 +227,17 @@ Spaced Repetition Targets: [${reviewStr}]
         .replace(/```/g, "")
         .trim();
 
-     let courseData;
+      let courseData;
 
-try {
-  courseData = JSON.parse(sanitized);
-} catch (e) {
-  console.error(
-    "[RAW AI OUTPUT]",
-    cleanContent
-  );
+      try {
+        courseData = JSON.parse(sanitized);
+      } catch (e) {
+        console.error("[RAW AI OUTPUT]", cleanContent);
 
-  throw new Error("JSON_PARSE_FAILED");
-}
+        throw new Error("JSON_PARSE_FAILED");
+      }
 
-      if (
-        !courseData.modules &&
-        !courseData.lessons
-      ) {
+      if (!courseData.modules && !courseData.lessons) {
         throw new Error("INVALID_COURSE_SCHEMA");
       }
       setProgress(92);
@@ -275,41 +245,27 @@ try {
       setStatus("STABILIZING_ENCRYPTION...");
 
       const newCourse = {
-  id: courseId,
-  topic,
+        id: courseId,
+        topic,
 
-  title:
-    courseData.title ||
-    topic,
+        title: courseData.title || topic,
 
-  description:
-    courseData.description ||
-    "",
+        description: courseData.description || "",
 
-  difficulty,
+        difficulty,
 
-  tags:
-    courseData.tags || [],
+        tags: courseData.tags || [],
 
-  modules:
-    courseData.modules || [],
+        modules: courseData.modules || [],
 
-  lessons:
-    courseData.lessons || [],
+        lessons: courseData.lessons || [],
 
-  createdAt: Date.now(),
+        createdAt: Date.now(),
 
-  status: "active",
-    };
-          console.log(
-      "[FORGE COURSE]",
-      JSON.stringify(newCourse, null, 2)
-    );
-      await save(
-        "courses",
-        newCourse,
-        courseId,
-      );
+        status: "active",
+      };
+      console.log("[FORGE COURSE]", JSON.stringify(newCourse, null, 2));
+      await save("courses", newCourse, courseId);
 
       await save(
         "user",
@@ -329,7 +285,6 @@ try {
       setTimeout(() => {
         router.push(`/course/${courseId}`);
       }, 1000);
-
     } catch (err) {
       console.error("Forge Error:", err);
 
@@ -346,7 +301,7 @@ try {
         }
       }, 1200);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 pb-32 font-mono">
@@ -364,10 +319,7 @@ try {
         </button>
 
         <div className="flex items-center gap-3 text-cyan-500 mb-2">
-          <BrainCircuit
-            size={32}
-            className="animate-pulse"
-          />
+          <BrainCircuit size={32} className="animate-pulse" />
 
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">
             Neural_Forge
@@ -384,20 +336,18 @@ try {
       {/* ========================================================= */}
 
       <div className="max-w-2xl mx-auto">
-        <form
-          onSubmit={handleForge}
-          className="space-y-8"
-        >
+        <form onSubmit={handleForge} className="space-y-8">
           {/* ========================================================= */}
           {/* TOPIC INPUT */}
           {/* ========================================================= */}
 
           <div className="relative group">
             <div
-              className={`absolute -inset-1 bg-linear-to-r ${status.includes("REJECTED")
-                ? "from-red-500 to-orange-600"
-                : "from-cyan-500 to-purple-600"
-                } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
+              className={`absolute -inset-1 bg-linear-to-r ${
+                status.includes("REJECTED")
+                  ? "from-red-500 to-orange-600"
+                  : "from-cyan-500 to-purple-600"
+              } rounded-xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000`}
             />
 
             <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-2">
@@ -476,9 +426,7 @@ try {
 
           <textarea
             value={customStyle}
-            onChange={(e) =>
-              setCustomStyle(e.target.value)
-            }
+            onChange={(e) => setCustomStyle(e.target.value)}
             placeholder="EX: Explique usando metáforas de Star Wars..."
             className="w-full h-20 bg-slate-950 text-slate-200 font-bold text-sm py-2 px-3 rounded-lg border border-slate-800 outline-none focus:border-[#00f0ff] placeholder:text-slate-700 tracking-tight transition-colors resize-none uppercase"
             disabled={loading}
@@ -500,10 +448,7 @@ try {
 
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/20 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-[#00f0ff] mb-3">
-              <Zap
-                size={16}
-                fill="currentColor"
-              />
+              <Zap size={16} fill="currentColor" />
 
               <span className="text-[11px] font-black uppercase tracking-tighter">
                 Cognitive_Shield
@@ -513,28 +458,18 @@ try {
             <select
               value={cognitiveProfile}
               onChange={(e) =>
-                setCognitiveProfile(
-                  e.target.value as CognitiveProfile,
-                )
+                setCognitiveProfile(e.target.value as CognitiveProfile)
               }
               className="w-full bg-slate-950 text-slate-200 font-bold text-xl py-1 px-2 rounded-lg border border-slate-800 outline-none focus:border-[#ff0055] cursor-pointer appearance-none tracking-tight uppercase transition-colors"
               disabled={loading}
             >
-              <option value="Standard">
-                Standard
-              </option>
+              <option value="Standard">Standard</option>
 
-              <option value="tdah">
-                TDAH
-              </option>
+              <option value="tdah">TDAH</option>
 
-              <option value="Deep_Dive">
-                Deep_Dive
-              </option>
+              <option value="Deep_Dive">Deep_Dive</option>
 
-              <option value="Visual_Logic">
-                Visual_Logic
-              </option>
+              <option value="Visual_Logic">Visual_Logic</option>
             </select>
 
             <div className="h-1 w-12 bg-purple-500/30 my-2" />
@@ -555,9 +490,7 @@ try {
               </span>
             </div>
 
-            <p className="text-xl font-bold text-slate-200">
-              Local_WebGPU
-            </p>
+            <p className="text-xl font-bold text-slate-200">Local_WebGPU</p>
 
             <div className="h-1 w-12 bg-cyan-500/30 my-2" />
 
