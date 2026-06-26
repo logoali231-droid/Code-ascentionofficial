@@ -128,6 +128,11 @@ Cognitive: ${userProfile},
 Critical Weaknesses: [${weakTopicsStr}],
 Spaced Repetition Targets: [${reviewStr}]
 `;
+      const style = customStyle;
+      const level = realLevel.toString();
+      const baseMaterial = "";
+      const stylePrompt = "";
+      const cognitive = learningStateString;
 
       const fullPrompt = await generateCourse({
         topic,
