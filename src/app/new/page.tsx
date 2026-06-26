@@ -16,6 +16,7 @@ import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
 import CourseForgeProgress from "@/components/course/CourseForgeProgress";
 import { validateCourse } from "src/lib/others/courseValidator";
+import { generateCourse } from "src/lib/others/courseGenerator";
 
 import {
   Cpu,
@@ -128,14 +129,16 @@ Critical Weaknesses: [${weakTopicsStr}],
 Spaced Repetition Targets: [${reviewStr}]
 `;
 
-      const fullPrompt = await buildCoursePrompt({
+      const fullPrompt = await generateCourse({
         topic,
-        learningState: learningStateString,
+        style,
+        level,
+        difficulty,
+        baseMaterial,
+        stylePrompt,
+        cognitive,
         courseId,
-        userProfile,
-        customStyle,
-        profile: cognitiveProfile,
-      });
+      }),
 
       // =========================================================
       // AI GENERATION
