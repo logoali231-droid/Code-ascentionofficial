@@ -96,68 +96,15 @@ export default function NewCoursePage() {
 
       const courseId = `course_${Date.now()}`;
 
-      const realLevel = calculateLevel(user?.xp || 0);
+      const courseId = `course_${Date.now()}`;
 
-      const userProfile = cognitiveProfile;
-
-      // =========================================================
-      // ADAPTIVE LEARNING STATE
-      // =========================================================
-
-      const currentCourseId = user?.activeCourse || "main";
-
-      const weakTopics = await getWeakTopics(currentCourseId);
-
-      await getSuggestedTopics(currentCourseId);
-
-      const spacedRepetitionTargets = await getReviewConcepts(3);
-
-      const weakTopicsStr =
-        weakTopics
-          .map((t) => t.topic)
-          .slice(0, 3)
-          .join(", ") || "None detected";
-
-      const reviewStr =
-        spacedRepetitionTargets.map((c) => c.conceptId).join(", ") ||
-        "None pending";
-
-      const learningStateString = `
-Level: ${realLevel},
-Cognitive: ${userProfile},
-Critical Weaknesses: [${weakTopicsStr}],
-Spaced Repetition Targets: [${reviewStr}]
-`;
-      const style = customStyle;
-      const level = realLevel.toString();
-      const baseMaterial = "";
-      const stylePrompt = "";
-      const cognitive = learningStateString;
-
-      const fullPrompt = await generateCourse({
+      const courseData = await generateCourse({
         topic,
-        style,
-        level,
         difficulty,
-        baseMaterial,
-        stylePrompt,
-        cognitive,
+        cognitive: cognitiveProfile,
         courseId,
+        customStyle,
       });
-
-      // =========================================================
-      // AI GENERATION
-      // =========================================================
-
-      setProgress(40);
-
-      setStatus("FORGING_CURRICULUM_DATA...");
-
-      let simulatedProgress = 40;
-      const estimatedMaxChars = 35000;
-      const hardMaxChars = 50000;
-
-      const generator = generate(fullPrompt, 0.7, undefined);
 
       let cleanContent = "";
 
