@@ -16,7 +16,6 @@ import { gibberishDetector } from "@/lib/anti-spam/gibberish-detector";
 import { CognitiveProfile } from "@/types/core";
 import CourseForgeProgress from "@/components/course/CourseForgeProgress";
 import { validateCourse } from "src/lib/others/courseValidator";
-import { generateCourse } from "src/lib/others/courseGenerator";
 
 import {
   Cpu,
@@ -96,15 +95,61 @@ export default function NewCoursePage() {
 
       const courseId = `course_${Date.now()}`;
 
-      const courseId = `course_${Date.now()}`;
+      const realLevel = calculateLevel(user?.xp || 0);
 
-      const courseData = await generateCourse({
+      const userProfile = cognitiveProfile;
+
+      // =========================================================
+      // ADAPTIVE LEARNING STATE
+      // =========================================================
+
+      const currentCourseId = user?.activeCourse || "main";
+
+      const weakTopics = await getWeakTopics(currentCourseId);
+
+      await getSuggestedTopics(currentCourseId);
+
+      const spacedRepetitionTargets = await getReviewConcepts(3);
+
+      const weakTopicsStr =
+        weakTopics
+          .map((t) => t.topic)
+          .slice(0, 3)
+          .join(", ") || "None detected";
+
+      const reviewStr =
+        spacedRepetitionTargets.map((c) => c.conceptId).join(", ") ||
+        "None pending";
+
+      const learningStateString = `
+Level: ${realLevel},
+Cognitive: ${userProfile},
+Critical Weaknesses: [${weakTopicsStr}],
+Spaced Repetition Targets: [${reviewStr}]
+`;
+
+      const fullPrompt = await buildCoursePrompt({
         topic,
-        difficulty,
-        cognitive: cognitiveProfile,
+        learningState: learningStateString,
         courseId,
+        userProfile,
         customStyle,
+        profile: cognitiveProfile,
       });
+
+      // =========================================================
+      // AI GENERATION
+      // =========================================================
+
+      setProgress(40);
+
+      setStatus("FORGING_CURRICULUM_DATA...");
+
+      let simulatedProgress = 40;
+      const estimatedMaxChars = 35000;
+      const hardMaxChars = 50000;
+
+      const generator = generate(fullPrompt, 0.7, undefined);
 
       let cleanContent = "";
 
@@ -161,16 +206,11 @@ export default function NewCoursePage() {
         }
       }
 
-      if (
-    !cleanContent.includes('"modules"') &&
-    !cleanContent.includes('"lessons"')
-) {
-    console.error("===== RAW RESPONSE =====");
-    console.error(cleanContent);
-    console.error("========================");
-
-    throw new Error("INVALID_COURSE_SCHEMA");
-}
+      if (!cleanContent.trim()) {
+        throw new Error("EMPTY_AI_RESPONSE");
+      }
+      console.log("[RAW COURSE RESPONSE]");
+      console.log(cleanContent);
       if (
         !cleanContent.includes('"modules"') &&
         !cleanContent.includes('"lessons"')
@@ -196,8 +236,7 @@ export default function NewCoursePage() {
 
         throw new Error("JSON_PARSE_FAILED");
       }
-      console.log("[RAW COURSE RESPONSE]");
-      console.log(courseData);
+
       if (!courseData.modules && !courseData.lessons) {
         throw new Error("INVALID_COURSE_SCHEMA");
       }

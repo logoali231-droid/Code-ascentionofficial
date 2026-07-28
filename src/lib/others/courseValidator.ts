@@ -39,17 +39,8 @@ export function validateCourse(course: any): boolean {
     return false;
   }
 
-  let lastDifficulty = 0;
-
   for (const module of course.modules) {
     if (!module || typeof module !== "object") {
-      return false;
-    }
-
-    if (
-      typeof module.id !== "string" ||
-      module.id.trim().length === 0
-    ) {
       return false;
     }
 
@@ -69,33 +60,12 @@ export function validateCourse(course: any): boolean {
 
     if (
       typeof module.difficulty !== "number" ||
+      !Number.isInteger(module.difficulty) ||
       module.difficulty < 1 ||
       module.difficulty > 5
     ) {
       return false;
     }
-
-    // Evita saltos absurdos
-    if (
-      lastDifficulty > 0 &&
-      module.difficulty - lastDifficulty > 3
-    ) {
-      return false;
-    }
-
-    if (typeof module.generated !== "boolean") {
-      return false;
-    }
-
-    if (typeof module.completed !== "boolean") {
-      return false;
-    }
-
-    if (typeof module.locked !== "boolean") {
-      return false;
-    }
-
-    lastDifficulty = module.difficulty;
   }
 
   return true;
