@@ -247,9 +247,10 @@ export async function initEngine(
             state = "FAILED";
             cancelled = true;
             cacheTrusted = false;
+            console.error("[WORKER ERROR]", e);
           };
         }
-
+        console.log("Antes CreateWebWorkerMLCEngine");
         const { CreateWebWorkerMLCEngine } =
           await import("@mlc-ai/web-llm");
 
@@ -314,10 +315,13 @@ export async function initEngine(
         cacheTrusted = false;
         await emergencyRecover();
         throw err;
+        console.error("[INIT ERROR]", err);
       }
     })();
+    console.log("Depois CreateWebWorkerMLCEngine");
 
     return initPromise;
+    
 
   } finally {
     globalInitLock = false;
