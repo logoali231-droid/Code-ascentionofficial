@@ -243,7 +243,7 @@ export async function initEngine(
             { type: "module" }
           );
 
-          worker.onerror = () => {
+          worker.onerror = (e) => {
             state = "FAILED";
             cancelled = true;
             cacheTrusted = false;
