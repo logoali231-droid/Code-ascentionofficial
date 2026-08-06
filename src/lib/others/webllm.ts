@@ -253,11 +253,13 @@ export async function initEngine(
           selectedModel
         );
 
+        console.log("[WEBLLM] BEFORE ENGINE");
+
         engine = await CreateWebWorkerMLCEngine(
           worker,
           selectedModel,
           {
-            initProgressCallback(report) {
+            initProgressCallback(report: any) {
               console.log("[WEBLLM]", report);
               if (onProgress) onProgress(report);
             },
@@ -287,7 +289,7 @@ export async function initEngine(
         engineSession++;
         initPromise = null;
 
-        return engine;
+        return engine!;
 
       } catch (err) {
         state = "FAILED";
