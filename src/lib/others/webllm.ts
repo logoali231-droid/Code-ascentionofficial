@@ -154,17 +154,11 @@ async function validateCache() {
   } catch {}
 }
 
-/* ❌ REMOVED aggressive cache wipe (this was causing re-download loops) */
-/*
-async function forceCleanCacheIfNeeded() { ... }
-*/
-
 /* =========================================================
    INIT ENGINE
 ========================================================= */
 
 export async function initEngine(
-  
   modelId?: string,
   onProgress?: (r: any) => void
 ): Promise<MLCEngineInterface> {
@@ -185,10 +179,6 @@ export async function initEngine(
   globalInitLock = true;
 
   try {
-
-    /* reuse safe instance */
-  
-
     /* prevent parallel init */
     if (initPromise) return initPromise;
 
@@ -198,7 +188,6 @@ export async function initEngine(
 
     initPromise = (async () => {
       try {
-
         if (typeof window === "undefined") {
           throw new Error("SSR_BLOCKED");
         }
@@ -227,7 +216,6 @@ export async function initEngine(
           modelId ?? specs?.recommended?.model_id
         );
         
-
         const forcedPhi =
           modelId?.toLowerCase().includes("phi");
 
@@ -250,6 +238,7 @@ export async function initEngine(
             console.error("[WORKER ERROR]", e);
           };
         }
+        
         console.log("Antes CreateWebWorkerMLCEngine");
         const { CreateWebWorkerMLCEngine } =
           await import("@mlc-ai/web-llm");
@@ -258,25 +247,21 @@ export async function initEngine(
         lastProgress = Date.now();
 
         await validateCache();
-
         
         console.log(
-  "[CREATING ENGINE]",
-  selectedModel
-);
-        engine = console.log("[WEBLLM] BEFORE ENGINE");
+          "[CREATING ENGINE]",
+          selectedModel
+        );
 
-const engine = await CreateWebWorkerMLCEngine(
-  worker,
-  model,
-  {
-    initProgressCallback(report) {
-      console.log("[WEBLLM]", report);
-    }
-  }
-);
+        engine = await CreateWebWorkerMLCEngine(
+          worker,
+          selectedModel,
+          {
+            initProgressCallback(report) {
+              console.log("[WEBLLM]", report);
+              if (onProgress) onProgress(report);
+            },
             logLevel: "INFO",
-
             chatOpts: {
               context_window_size: isMob
                 ? SYSTEM_CONFIG.LLM.MOBILE.context_window_size
@@ -291,8 +276,6 @@ const engine = await CreateWebWorkerMLCEngine(
 
               batch_size: isMob ? 1 : undefined,
             },
-
-            /* 🔥 FIX: enable real cache */
             useIndexedDBCache: true,
             enableProgressiveLoading: true,
           } as any
@@ -310,15 +293,14 @@ const engine = await CreateWebWorkerMLCEngine(
         state = "FAILED";
         initPromise = null;
         cacheTrusted = false;
+        console.error("[INIT ERROR]", err);
         await emergencyRecover();
         throw err;
-        console.error("[INIT ERROR]", err);
       }
     })();
     console.log("Depois CreateWebWorkerMLCEngine");
 
     return initPromise;
-    
 
   } finally {
     globalInitLock = false;
@@ -347,18 +329,16 @@ export async function* generate(
       user?.model,
       onProgress
     );
-    console.log("[WEBLLM STATE]", { model: currentModel,promptSize: prompt.length,state,});
-
+    console.log("[WEBLLM STATE]", { model: currentModel, promptSize: prompt.length, state });
 
     const stream = await engineRef.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       temperature,
       stream: true,
-     max_tokens: isMobile() ? 256 : 512,
+      max_tokens: isMobile() ? 256 : 512,
     } as any);
 
     for await (const chunk of stream as any) {
-
       if (state !== "READY") break;
       if (cancelled) {
         cancelled = false;
