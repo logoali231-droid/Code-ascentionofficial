@@ -264,20 +264,17 @@ export async function initEngine(
   "[CREATING ENGINE]",
   selectedModel
 );
-        engine = await CreateWebWorkerMLCEngine(
-          worker,
-          selectedModel,
-          {
-            initProgressCallback: (r: any) => {
-              onProgress?.(r);
-              lastProgress = Date.now();
+        engine = console.log("[WEBLLM] BEFORE ENGINE");
 
-              if (memoryMB() > 950) {
-                cacheTrusted = false;
-                throw new Error("MEMORY_DURING_INIT");
-              }
-            },
-
+const engine = await CreateWebWorkerMLCEngine(
+  worker,
+  model,
+  {
+    initProgressCallback(report) {
+      console.log("[WEBLLM]", report);
+    }
+  }
+);
             logLevel: "INFO",
 
             chatOpts: {
