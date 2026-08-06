@@ -280,155 +280,100 @@ Reinforce weak concepts naturally.
 export function buildExplanationPrompt(
   plan: LessonPlan
 ): string {
-  // 🔥 user prompt continua soberano
-  const userStyle =
-    plan.course?.stylePrompt?.trim() ||
-    "Explain clearly and progressively";
 
-  return `
-You are an adaptive programming tutor operating inside the Code Ascension procedural learning runtime.
+const userStyle =
+  plan.course?.stylePrompt?.trim() ||
+  "clear progressive teaching";
 
-Your role:
-Generate ONE atomic adaptive lesson for the current concept.
+return `
+You are Code Ascension adaptive tutor.
 
-DO NOT generate:
-- entire modules
+Generate ONE atomic lesson for ONE concept.
+
+Your goal:
+Teach the current concept efficiently.
+
+Never generate:
+- full courses
 - future concepts
-- giant tutorials
 - multiple lessons
-- giant markdown articles
+- huge tutorials
+- unrelated information
 
-================================
-COURSE
-================================
+
+COURSE:
 ${plan.course.topic}
 
-================================
-CURRENT MODULE
-================================
-TITLE:
+MODULE:
 ${plan.module?.title}
 
-SUMMARY:
+MODULE SUMMARY:
 ${plan.module?.summary}
 
-MODULE DIFFICULTY:
-${plan.moduleDifficulty}
-
-================================
-CURRENT CONCEPT
-================================
+CURRENT CONCEPT:
 ${plan.conceptTitle}
 
-CONCEPT DIFFICULTY:
-${plan.conceptDifficulty}
+DIFFICULTY:
+${plan.conceptDifficulty}/5
 
-================================
-KNOWLEDGE GRAPH STATUS
-================================
-TOTAL NODES:
-${plan.graphStats?.totalNodes || 0}
 
-COMPLETED:
-${plan.graphStats?.completed || 0}
-
-UNLOCKED:
-${plan.graphStats?.unlocked || 0}
-
-AVERAGE MASTERY:
-${plan.graphStats?.avgMastery || 0}
-
-================================
-USER PROFILE
-================================
-COGNITIVE PROFILE:
-${plan.profile?.cognitive || "Standard"}
-
-USER LEVEL:
+USER PROFILE:
+Level:
 ${plan.course?.level || "Beginner"}
 
-================================
-USER TEACHING STYLE
-================================
+Cognitive:
+${plan.profile?.cognitive || "Standard"}
+
+
+TEACHING STYLE:
 ${userStyle}
 
-IMPORTANT:
-The user's custom teaching style has priority.
-Adapt structure and pacing around it.
-Do not override the requested teaching style.
 
-================================
-COGNITIVE FRAGMENTS
-================================
+ADAPTIVE RULES:
 ${plan.promptFragments}
 
-================================
-REVIEW CONTEXT
-================================
-${plan.reviewText}
 
-================================
-MEMORY CONTEXT
-================================
-${plan.memoryContext || "No relevant memory."}
+REVIEW:
+${plan.reviewText || "No review required."}
 
-================================
-LONG TERM LEARNING SUMMARY
-================================
-${plan.memorySummary || "No summary."}
 
-================================
-CONCEPT STABILITY
-================================
-${plan.constraintPrompt || ""}
-================================
-RECENT HISTORY
-================================
-${plan.compressedHistory}
+MEMORY:
+${plan.memoryContext || "None"}
 
-================================
-LESSON RULES
-================================
-- Generate ONLY ONE lesson.
-- Keep progression atomic.
-- Focus on conceptual intuition first.
-- Then explain syntax mechanics.
-- Then provide one practical example.
 
-- Avoid giant text walls.
-- Break information into small chunks.
-- Use progressive pacing.
-- Avoid discussing future modules.
+RECENT HISTORY:
+${plan.compressedHistory || "None"}
 
-- Respect the user's cognitive profile.
-- Respect the user's requested teaching style.
 
-================================
-OUTPUT RULES
-================================
-- Output ONLY JSON.
-- No markdown fences.
-- No explanations outside JSON.
+LESSON STRUCTURE:
 
-================================
-RETURN JSON
-================================
+1. Explain the idea intuitively.
+2. Explain the important mechanics.
+3. Show ONE practical example.
+
+
+LIMITS:
+- Keep explanation compact.
+- Use short paragraphs.
+- Avoid unnecessary theory.
+- Focus only on current concept.
+
+
+OUTPUT ONLY JSON:
+
 {
-  "title": "Short engaging concept title",
-
-  "explanation": "Compact adaptive conceptual explanation with markdown support",
-
-  "content": "One practical example or code snippet"
+"title": "short lesson title",
+"explanation": "concept explanation",
+"content": "one example or code snippet"
 }
 
-================================
-FINAL HARD RULES
-================================
-- Stop generation immediately after final JSON brace.
-- Never generate multiple lessons.
+
+FINAL RULES:
+- No markdown fences.
+- No text outside JSON.
+- Stop after final }.
 `;
 }
-
 /* =========================================================
    EXERCISE PROMPT
 ========================================================= */
@@ -436,131 +381,68 @@ FINAL HARD RULES
 export function buildExercisePrompt({
   plan,
   explanation,
-  index,
 }: {
   plan: LessonPlan;
   explanation: any;
-  index: number;
-}): string {
-  const userStyle =
-    plan.course?.stylePrompt?.trim() ||
-    "Explain clearly";
+}) {
 
-  return `
-You are generating ONE adaptive exercise for the current concept.
+return `
+You are generating ONE adaptive programming exercise.
 
-================================
-COURSE
-================================
+Create an exercise only about the current concept.
+
+COURSE:
 ${plan.course.topic}
 
-================================
-MODULE
-================================
-${plan.module?.title}
-
-================================
-CURRENT CONCEPT
-================================
+CONCEPT:
 ${plan.conceptTitle}
 
-================================
-LESSON TITLE
-================================
+LESSON:
 ${explanation?.title}
 
-================================
-LESSON EXPLANATION
-================================
-${explanation?.explanation}
 
-================================
-DIFFICULTY
-================================
-${plan.conceptDifficulty}
+DIFFICULTY:
+${plan.conceptDifficulty}/5
 
-================================
-USER STYLE
-================================
-${userStyle}
 
-================================
-COGNITIVE FRAGMENTS
-================================
-${plan.promptFragments}
+RULES:
 
-================================
-EXERCISE RULES
-================================
-- Generate ONLY ONE exercise.
-- Exercise must target ONLY the current concept.
-- Do not reference future concepts.
-- Do not reference future modules.
-- Avoid trick questions.
-- Focus on functional progression.
+- One exercise only.
+- No future concepts.
+- No trick questions.
+- Prefer practical learning.
 
-Exercise types:
-- "mcq"
-- "ordering"
-- "code"
 
-================================
-EXPECTED ANSWER RULES
-================================
-- IF type is "mcq" or "ordering":
-  DO NOT include expectedAnswer.
+Exercise type:
+Choose one:
+mcq
+code
+ordering
 
-- IF type is "code":
-  You MUST include expectedAnswer.
 
-================================
-OUTPUT RULES
-================================
-- Output ONLY JSON.
-- No markdown fences.
-- No explanations outside JSON.
+OUTPUT ONLY JSON:
 
-================================
-RETURN JSON
-================================
 {
-  "id": "${crypto.randomUUID()}",
-
-  "type": "mcq | code | ordering",
-
-  "question": "Clear problem statement",
-
-  "options": ["Option A", "Option B"],
-
-  "answer": "Correct answer",
-
-  "explanation": "Compact pedagogical correction",
-
-  "expectedAnswer": {
-    "codeTemplate": "Starter code",
-
-    "solutionExample": "Reference implementation",
-
-    "mandatoryTokens": [
-      "function",
-      "return"
-    ],
-
-    "allowedVariations": [
-      "Alternative naming",
-      "Equivalent syntax"
-    ]
-  }
+"id":"exercise_1",
+"type":"mcq",
+"question":"problem statement",
+"options":["A","B","C","D"],
+"answer":"correct answer",
+"explanation":"short correction"
 }
 
-================================
-FINAL HARD RULES
-================================
-- Stop generation immediately after final JSON brace.
-- Never generate multiple exercises.
+
+IF type is code:
+add:
+"expectedAnswer":"reference solution"
+
+
+FINAL:
+- No markdown.
+- No explanations outside JSON.
+- Stop after }.
 `;
 }
-
 /* =========================================================
    COMPLETE LESSON PLAN
 ========================================================= */
