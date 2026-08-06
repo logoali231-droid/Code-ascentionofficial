@@ -98,209 +98,97 @@ export async function generateCourse({
 
 	
 
-  const adaptiveContext = `
-================================
-USER ADAPTIVE PROFILE (MIND PALACE)
-================================
-STRENGTHS: ${userAnalysis.strengths.join(", ") || "None yet"}
-WEAKNESSES: ${userAnalysis.weaknesses.join(", ") || "None yet"}
-PEDAGOGICAL_REVIEW_TARGETS:
+const adaptiveContext = `
+USER PROFILE:
+Strengths: ${userAnalysis.strengths.join(", ") || "none"}
+Weaknesses: ${userAnalysis.weaknesses.join(", ") || "none"}
+
+Review targets:
 ${graphReviewText}
 
-GRAPH_PROGRESS:
+Progress:
 Completed: ${graphStats.completed}
-Unlocked: ${graphStats.unlocked}
-Average Mastery: ${graphStats.avgMastery}
-HISTORICAL_VECTOR_MEMORIES:
-${vectorMemoryContext || "No previous historical memory found for this context."}
+Mastery: ${graphStats.avgMastery}
 
-INSTRUCTION: 
-1. If the user has weaknesses or review targets, prioritize starting or embedding tasks within the course structure to reinforce those specific concepts naturally.
-2. If they master a topic (Strength), skip basic definitions in those sub-areas and move to complex implementation.
-3. Incorporate advice or pacing references from the historical vector memories to maintain learning continuity.
+Memory:
+${vectorMemoryContext || "none"}
+
+Adaptation:
+- Reinforce weaknesses.
+- Skip mastered basics.
+- Preserve learning continuity.
 `;
-  console.log(
-  "[COURSE]",
-  {
-    topicLength: topic.length,
-    materialLength: baseMaterial?.length ?? 0,
-    compressedLength: compressedMaterial.length,
-    vectorMemoryLength: vectorMemoryContext.length,
-    adaptiveContextLength: adaptiveContext.length,
-  }
-);
-  console.log(
-  "[COURSE SIZE]",
-  {
-    material: compressedMaterial.length,
-    adaptive: adaptiveContext.length,
-    cognitive: cognitiveFragments.length,
-    schema: String(CourseSchema).length
-  }
-);
 
-  const prompt = `
-You are an elite adaptive curriculum architect operating inside the Code Ascension procedural learning system.
+const prompt = `
+You are the Code Ascension curriculum architect.
 
-Your role:
-Design a lightweight, progressive, cognitively adaptive course roadmap optimized for local on-device AI generation.
+Generate ONLY a course roadmap.
 
-Your mission:
-Generate ONLY the high-level curriculum structure.
+Your output is NOT a lesson.
+Do NOT create explanations, exercises, quizzes, examples, or tutorials.
 
-DO NOT generate:
-- lessons
-- explanations
-- exercises
-- quizzes
-- markdown tutorials
-- giant text blocks
-- implementation details
-- nested learning trees
+Create a compact learning structure:
+- course title
+- course description
+- tags
+- 4 to 8 modules
 
-Generate ONLY:
-- module progression
-- conceptual dependency order
-- adaptive difficulty scaling
-- roadmap sequencing
+Each module represents one learning phase.
 
-${cognitiveFragments}
-${adaptiveContext}
+INPUT:
 
-================================
-USER PROFILE
-================================
-COGNITIVE_PROFILE:
-${cognitive || "Standard"}
-
-USER_LEVEL:
-${level}
-
-TARGET_DIFFICULTY:
-${difficulty}/5
-
-================================
-COURSE CONFIG
-================================
-TOPIC:
+Topic:
 ${topic}
 
-STYLE:
+Level:
+${level}
+
+Difficulty:
+${difficulty}/5
+
+Cognitive profile:
+${cognitive || "Standard"}
+
+Teaching style:
 ${style || "adaptive"}
 
-================================
-TEACHING STYLE
-================================
-${stylePrompt || "Explain clearly and progressively"}
+Adaptive context:
+${adaptiveContext}
 
-================================
-BASE MATERIAL
-================================
-${compressedMaterial || "none"}
+Course requirements:
 
-================================
-ADAPTIVE PEDAGOGICAL RULES
-================================
+- Modules must progress from simple to complex.
+- Difficulty must increase gradually.
+- Beginner: prioritize foundations.
+- Intermediate: reduce repetition.
+- Advanced: focus on architecture and optimization.
 
-GENERAL:
-- Build a coherent learning progression.
-- Respect prerequisite ordering strictly.
-- Earlier modules must establish mental models first.
-- Mid modules must introduce composition and abstraction.
-- Late modules must focus on architecture, debugging, optimization, scaling, and real-world edge cases.
+Difficulty scale:
+1 = foundations
+2 = practical usage
+3 = abstraction
+4 = architecture
+5 = optimization
 
-COGNITIVE ADAPTATION:
-- ADHD / tdah profile:
-  * smaller conceptual jumps
-  * lower reading density
-  * shorter progression loops
-  * fast reward cadence
-  * visual segmentation
+Module rules:
+- Keep modules flat.
+- No lessons.
+- No nested arrays.
+- Summary maximum 15 words.
+- Difficulty integer from 1 to 5.
 
-- Deep_Dive profile:
-  * lower-level internals
-  * runtime mechanics
-  * architecture reasoning
-  * systems engineering depth
-  * optimization-focused progression
+Return ONLY valid JSON.
 
-- Visual_Logic profile:
-  * dependency-oriented sequencing
-  * conceptual grouping
-  * architecture mapping
-  * structural progression emphasis
+Schema:
 
-USER EXPERTISE ADAPTATION:
-- Beginner users:
-  * prioritize foundations
-  * avoid abstraction too early
-  * focus on practical intuition
+${JSON.stringify(CourseSchema, null, 2)}
 
-- Intermediate users:
-  * reduce repetitive fundamentals
-  * introduce composition patterns faster
-  * increase implementation complexity
-
-- Advanced users:
-  * skip beginner explanations
-  * prioritize systems thinking
-  * focus on architecture, optimization, concurrency, debugging, scaling, and edge cases
-
-================================
-MODULE GENERATION RULES
-================================
-- Generate between 4 and 8 modules maximum.
-- NEVER generate more than 8 modules.
-- Modules must remain lightweight for mobile devices.
-- Each module represents ONE major conceptual phase.
-- Modules must increase difficulty progressively.
-- Modules must remain flat and compact.
-
-NEVER generate:
-- nested lessons
-- lesson arrays
-- submodules
-- giant summaries
-- deep explanation text
-
-================================
-DIFFICULTY SCALING
-================================
-Difficulty progression model:
-
-1 → foundations
-2 → controlled application
-3 → abstraction and composition
-4 → architecture and systems thinking
-5 → optimization, scaling, edge cases
-
-================================
-SUMMARY RULES
-================================
-- Keep summaries under 20 words.
-- Use compact wording.
-- Avoid verbose descriptions.
-
-================================
-OUTPUT FORMAT
-================================
-RETURN JSON STRICTLY FOLLOWING AI_CONTRACT CourseSchema v1
-${CourseSchema}
-
-Do not deviate from schema.
-No additional keys allowed.
-
-================================
-FINAL HARD RULES
-================================
-- Output ONLY JSON.
-- Do not include markdown fences.
-- Do not explain your reasoning.
-- Stop generation immediately after the final JSON closing brace.
-- Entire response must fit comfortably inside 300 tokens.
-- If space becomes limited, shorten descriptions.
-- Never leave JSON unfinished.
-- Prioritize structural completion over detail.
+Hard rules:
+- No markdown.
+- No comments.
+- No extra keys.
+- Stop immediately after the final }.
+- Prioritize valid JSON over detail.
 `;
 console.log(
   "[COURSE PROMPT SIZE]",
